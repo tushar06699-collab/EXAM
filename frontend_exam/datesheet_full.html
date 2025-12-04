@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Full Datesheet – School ERP</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Poppins, sans-serif;
+    background: #f2f4f7;
+    display: flex;
+}
+
+/* ===== LEFT SIDEBAR ===== */
+.sidebar {
+    width: 240px;
+    background: #233465;
+    color: white;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    padding-top: 20px;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+}
+
+.sidebar h2 {
+    text-align: center;
+    font-size: 22px;
+    margin-bottom: 30px;
+}
+
+.sidebar a {
+    display: block;
+    padding: 12px 20px;
+    color: white;
+    text-decoration: none;
+    font-size: 16px;
+}
+
+.sidebar a:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+.sidebar a.active {
+    background: rgba(255,255,255,0.25);
+}
+
+/* ===== PAGE CONTENT ===== */
+.content {
+    margin-left: 240px;
+    width: calc(100% - 240px);
+    padding: 20px;
+}
+
+header {
+    background:#233465;
+    color:#fff;
+    padding:1rem;
+    text-align:center;
+    font-size:1.5rem;
+    border-radius:8px;
+}
+
+main {
+    max-width:1200px;
+    margin:2rem auto;
+    background:#fff;
+    padding:2rem;
+    border-radius:12px;
+    box-shadow:0 2px 12px rgba(0,0,0,0.1);
+}
+
+label {
+    font-weight:600;
+    display:block;
+    margin-top:1rem;
+}
+select {
+    padding:10px;
+    width:100%;
+    border-radius:6px;
+    border:1px solid #ccc;
+}
+
+.head-title { text-align:center; font-size:20px; font-weight:700; margin-top:15px; }
+.school-sub { text-align:center; font-size:14px; margin-bottom:20px; }
+
+table {
+    width:100%;
+    border-collapse:collapse;
+    margin-top:20px;
+    font-size:14px;
+}
+th, td {
+    border:1px solid #ccc;
+    padding:8px;
+    text-align:center;
+}
+th { background:#f0f0f0; }
+
+</style>
+</head>
+<body>
+
+<!-- ========== SIDEBAR ========== -->
+<div class="sidebar">
+    <h2>School ERP</h2>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="subject_add.html">Add Subjects</a>
+    <a href="exam_create.html">Exam Create</a>
+    <a href="datesheet.html">Make Datesheet</a>
+    <a href="datesheet_full.html"style="background: rgba(255,255,255,0.2);">See Datesheet</a>
+</div>
+
+<!-- ========== CONTENT AREA ========== -->
+<div class="content">
+
+<header>Full Datesheet</header>
+
+<main>
+
+    <div class="head-title">P.S. PUBLIC SCHOOL</div>
+    <div class="school-sub">Near Ganaur Road Bhurri (Sonipat)</div>
+
+    <label>Select Session</label>
+    <select id="sessionSelect"></select>
+
+    <label>Select Exam</label>
+    <select id="examSelect"></select>
+
+    <table id="fullTable">
+        <thead>
+            <tr id="tableHeadRow">
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+
+</main>
+
+</div>
+
+<script>
+const FEE_API = "https://fee-backend-ntas.onrender.com";
+const EXAM_API = "http://127.0.0.1:5000";
+
+let EXAMS = [];
+let CLASSES = [];
+
+// Load Sessions
+async function loadSessions() {
+    const res = await fetch(`${FEE_API}/session/list`);
+    const data = await res.json();
+    sessionSelect.innerHTML = data.sessions.map(s => `<option value="${s}">${s}</option>`).join("");
+}
+loadSessions();
+
+// Load Classes
+async function loadClasses() {
+    const res = await fetch(`${FEE_API}/students`, {
+        headers: { "X-Session": sessionSelect.value }
+    });
+    const data = await res.json();
+    CLASSES = [...new Set(data.students.map(s => s.class_name))].sort();
+}
+sessionSelect.addEventListener("change", loadClasses);
+loadClasses();
+
+// Load Exams
+async function loadExams() {
+    const res = await fetch(`${EXAM_API}/exam/list-all`);
+    const data = await res.json();
+    EXAMS = data.exams || [];
+
+    examSelect.innerHTML = `<option value="">Select Exam</option>` +
+        EXAMS.map(ex => `<option value="${ex.exam_id}">${ex.exam_name}</option>`).join("");
+}
+loadExams();
+
+// Load Full Datesheet
+examSelect.addEventListener("change", loadFullDatesheet);
+
+async function loadFullDatesheet() {
+    const session = sessionSelect.value;
+    const examId = examSelect.value;
+    if (!session || !examId) return;
+
+    const exam = EXAMS.find(e => e.exam_id == examId);
+
+    // Header Row
+    const headRow = document.getElementById("tableHeadRow");
+    headRow.innerHTML = "<th>Date</th>" + CLASSES.map(c => `<th>${c}</th>`).join("");
+
+    // Fetch all class sheets
+    let allRows = {};
+
+    for (let cls of CLASSES) {
+        const res = await fetch(
+            `${EXAM_API}/exam/get-datesheet?class_name=${cls}&session=${session}&exam_name=${exam.exam_name}`
+        );
+        const data = await res.json();
+        const sheet = data.datesheet || [];
+
+        sheet.forEach(item => {
+            if (!allRows[item.date]) allRows[item.date] = {};
+            allRows[item.date][cls] = item.subject;
+        });
+    }
+
+    // Render table
+    const body = document.getElementById("tableBody");
+    body.innerHTML = "";
+
+    const sortedDates = Object.keys(allRows).sort();
+
+    sortedDates.forEach(date => {
+        let row = `<tr><td>${date}</td>`;
+        CLASSES.forEach(cls => {
+            row += `<td>${allRows[date][cls] || ""}</td>`;
+        });
+        row += "</tr>";
+        body.innerHTML += row;
+    });
+}
+</script>
+
+</body>
+</html>

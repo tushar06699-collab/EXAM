@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Login</title>
+<meta name="viewport" content="width=device-width">
+<style>
+body{
+    margin:0;
+    font-family:Poppins, sans-serif;
+    background:#eef2f7;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+.box{
+    background:white;
+    padding:30px;
+    width:340px;
+    border-radius:12px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.1);
+}
+input{
+    width:100%;
+    margin-bottom:15px;
+    padding:10px;
+    border-radius:8px;
+    border:1px solid #ccc;
+}
+button{
+    width:100%;
+    padding:12px;
+    background:#4e73df;
+    border:none;
+    color:white;
+    border-radius:8px;
+    font-size:16px;
+    cursor:pointer;
+}
+.error{
+    color:red;
+    margin-top:10px;
+    text-align:center;
+}
+</style>
+</head>
+<body>
+
+<div class="box">
+    <h2 style="text-align:center;">Login</h2>
+    
+    <input id="user" placeholder="Username / Roll No">
+    <input id="pass" placeholder="Password / DOB" type="password">
+    
+    <button onclick="login()">Login</button>
+    <div id="err" class="error"></div>
+</div>
+
+<script>
+const API = "http://127.0.0.1:5000";
+
+function login(){
+    const username = document.getElementById("user").value.trim();
+    const password = document.getElementById("pass").value.trim();
+    const err = document.getElementById("err");
+
+    if(username === "" || password === ""){
+        err.innerText = "Please enter username & password";
+        return;
+    }
+
+    fetch(API + "/login", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({username, password})
+    })
+    .then(r => r.json())
+    .then(res => {
+
+        if(!res.success){
+            err.innerText = res.message || "Login failed";
+            return;
+        }
+
+        // Save login token + role
+        localStorage.setItem("token", res.token);
+        localStorage.setItem("role", res.role);
+
+        // ---------- Teacher Extra Details ----------
+        if(res.role === "teacher"){
+            if(res.teacher){
+                localStorage.setItem("teacher_id", res.teacher.id);
+                localStorage.setItem("teacher_name", res.teacher.name);
+                localStorage.setItem("teacher_username", res.teacher.username);
+                localStorage.setItem("session", res.teacher.session);
+            }
+            window.location.href = "teacher_dashboard.html";
+            return;
+        }
+
+        // ---------- Admin ----------
+        if(res.role === "admin"){
+            window.location.href = "dashboard.html";
+            return;
+        }
+
+        // ---------- Student ----------
+        if(res.role === "student"){
+            localStorage.setItem("roll", username);
+            window.location.href = "student_portal.html";
+            return;
+        }
+
+    })
+    .catch(e => {
+        err.innerText = "Cannot reach server!";
+        console.log(e);
+    });
+}
+</script>
+
+</body>
+</html>

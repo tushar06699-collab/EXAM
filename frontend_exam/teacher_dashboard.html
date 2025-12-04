@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Teacher Dashboard</title>
+<meta name="viewport" content="width=device-width">
+<style>
+body {
+    margin:0;
+    font-family:Poppins, sans-serif;
+    background:#eef1f6;
+}
+
+.topbar {
+    background:#233465;
+    color:white;
+    padding:18px 25px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.topbar h2 {
+    margin:0;
+    font-size:22px;
+}
+
+.container {
+    width:90%;
+    max-width:900px;
+    margin:30px auto;
+}
+
+.card {
+    background:white;
+    padding:22px;
+    border-radius:12px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.1);
+    margin-bottom:20px;
+}
+
+.card h3 {
+    margin:0 0 10px 0;
+}
+
+.btn {
+    display:inline-block;
+    background:#324a87;
+    color:white;
+    padding:10px 18px;
+    border-radius:8px;
+    text-decoration:none;
+    font-size:15px;
+    margin-right:10px;
+}
+
+.logout {
+    background:#e63946 !important;
+}
+
+.info-box {
+    padding:12px;
+    background:#f1f3fb;
+    border-radius:8px;
+    margin-top:10px;
+    font-size:16px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="topbar">
+    <h2>Teacher Dashboard</h2>
+    <button class="btn logout" onclick="logout()">Logout</button>
+</div>
+
+<div class="container">
+
+    <div class="card">
+        <h3>Welcome, <span id="teacherName"></span> 👋</h3>
+        <div class="info-box">
+            Session: <b id="session"></b>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Quick Actions</h3>
+        <a href="teacher_marks_upload.html" class="btn">Upload Marks</a>
+        <a href="teacher_view_datesheet.html" class="btn">View Datesheet</a>
+        <a href="teacher_my_classes.html" class="btn">My Classes</a>
+        <a href="teacher_papers.html" class="btn">Question Papers</a>
+    </div>
+
+</div>
+
+<script>
+/* LOAD TEACHER DETAILS FROM LOGIN */
+let teacherName = localStorage.getItem("teacher_name");
+let teacherSession = localStorage.getItem("session");
+
+if(!teacherName){
+    alert("Login expired! Please login again.");
+    window.location.href = "login.html";
+}
+
+document.getElementById("teacherName").textContent = teacherName;
+document.getElementById("session").textContent = teacherSession;
+
+/* LOGOUT */
+function logout(){
+    localStorage.clear();
+    window.location.href = "login.html";
+}
+</script>
+
+</body>
+</html>

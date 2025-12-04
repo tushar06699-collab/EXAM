@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Class List - School ERP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body{
+    margin:0;
+    font-family:Poppins, sans-serif;
+    background:#f2f4f8;
+}
+.sidebar{
+    width:220px;
+    height:100vh;
+    background:#324a87;
+    color:#fff;
+    position:fixed;
+    left:0;
+    top:0;
+    padding:20px;
+}
+.sidebar a{
+    display:block;
+    padding:12px;
+    margin:5px 0;
+    color:#fff;
+    text-decoration:none;
+    border-radius:8px;
+}
+.sidebar a:hover, .active{
+    background:#233465;
+}
+
+.main{
+    margin-left:240px;
+    padding:30px;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    background:#fff;
+    border-radius:12px;
+    overflow:hidden;
+    box-shadow:0 3px 10px rgba(0,0,0,0.1);
+}
+th, td{
+    padding:12px;
+    text-align:left;
+}
+th{
+    background:#324a87;
+    color:#fff;
+}
+tr:nth-child(even){
+    background:#f8f8f8;
+}
+.studentList{
+    font-size:14px;
+    color:#333;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+    <h2>EXAM ERP</h2>
+    <a href="dashboard.html">Dashboard</a>
+    <a class="active" href="class_list.html">Classes</a>
+     <a href="incharge.html">Add Incharge</a>
+</div>
+
+<div class="main">
+    <h1>Class List</h1>
+
+    <label>Session: </label>
+    <select id="sessionSelect" onchange="loadClasses()"></select>
+
+    <br><br>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Class Name</th>
+                <th>Total Students</th>
+                <th>Incharge Name</th>
+            </tr>
+        </thead>
+        <tbody id="classTable">
+            <tr><td colspan="3" style="text-align:center;">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+const FEE_API = "https://fee-backend-ntas.onrender.com";
+const EXAM_API = "http://127.0.0.1:5000";
+
+/* ------------------------------------
+   LOAD SESSIONS
+------------------------------------ */
+async function loadSessions() {
+    try {
+        let res = await fetch(`${FEE_API}/session/list`);
+        let data = await res.json();
+
+        let sel = document.getElementById("sessionSelect");
+        sel.innerHTML = "";
+
+        data.sessions.forEach(s => {
+            let opt = document.createElement("option");
+            opt.value = s;
+            opt.innerText = s;
+            sel.appendChild(opt);
+        });
+
+        let saved = localStorage.getItem("session");
+        if (saved && data.sessions.includes(saved)) {
+            sel.value = saved;
+        } else {
+            sel.value = data.sessions[0];
+            localStorage.setItem("session", sel.value);
+        }
+
+        loadClasses();
+
+    } catch(err) {
+        console.log("Session load error", err);
+    }
+}
+
+/* ------------------------------------
+   LOAD CLASSES + REAL INCHARGE
+------------------------------------ */
+async function loadClasses() {
+
+    let session = document.getElementById("sessionSelect").value;
+    localStorage.setItem("session", session);
+
+    const tbody = document.getElementById("classTable");
+    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Loading...</td></tr>`;
+
+    try {
+        // 1) Fetch students
+        let res = await fetch(`${FEE_API}/students`, {
+            headers: { "X-Session": session }
+        });
+        let data = await res.json();
+        let students = data.students || [];
+
+        // 2) Fetch class incharge from backend
+        let incRes = await fetch(`${EXAM_API}/incharge/get?session=${session}`);
+        let incData = await incRes.json();
+        let inchargeMap = incData.incharge || {};
+
+        // Group by class
+        let classMap = {};
+        students.forEach(s => {
+            let cls = s.class_name || "Unknown";
+            if (!classMap[cls]) classMap[cls] = [];
+            classMap[cls].push(s);
+        });
+
+        tbody.innerHTML = "";
+
+        if (Object.keys(classMap).length === 0) {
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">No students found</td></tr>`;
+            return;
+        }
+
+        // Show classes
+        Object.keys(classMap).forEach(cls => {
+
+            let totalStudents = classMap[cls].length;
+
+            // Get real incharge from backend
+            let inchargeName = inchargeMap[cls] || "<span style='color:red;'>Not Assigned</span>";
+
+            let tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${cls}</td>
+                <td>${totalStudents}</td>
+                <td>${inchargeName}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+    } catch(err) {
+        console.log(err);
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Error loading classes</td></tr>`;
+    }
+}
+
+window.onload = loadSessions;
+</script>
+
+
+</body>
+</html>

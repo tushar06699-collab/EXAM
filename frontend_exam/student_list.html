@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Student List - School ERP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body{
+    margin:0;
+    font-family:Poppins, sans-serif;
+    background:#f2f4f8;
+}
+.sidebar{
+    width:220px;
+    height:100vh;
+    background:#324a87;
+    color:#fff;
+    position:fixed;
+    left:0;
+    top:0;
+    padding:20px;
+}
+.sidebar a{
+    display:block;
+    padding:12px;
+    margin:5px 0;
+    color:#fff;
+    text-decoration:none;
+    border-radius:8px;
+}
+.sidebar a:hover, .active{
+    background:#233465;
+}
+.main{
+    margin-left:240px;
+    padding:30px;
+}
+#sessionDisplay{
+    font-size:18px;
+    color:#324a87;
+    margin-bottom:15px;
+}
+table{
+    width:100%;
+    border-collapse:collapse;
+    background:#fff;
+    border-radius:12px;
+    overflow:hidden;
+    box-shadow:0 3px 10px rgba(0,0,0,0.1);
+}
+th, td{
+    padding:12px;
+    text-align:left;
+}
+th{
+    background:#324a87;
+    color:#fff;
+}
+tr:nth-child(even){
+    background:#f2f4f7;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+    <h2>EXAM ERP</h2>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="student_list.html" style="background: rgba(255,255,255,0.08);">Student List</a>
+
+
+</div>
+
+<div class="main">
+    <h1>Student List</h1>
+
+    <div id="sessionDisplay">Session: Loading...</div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Roll No</th>
+                <th>Name</th>
+                <th>Class</th>
+                <th>Previous Due</th>
+            </tr>
+        </thead>
+        <tbody id="studentTable">
+            <tr><td colspan="4" style="text-align:center;">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+const API = "https://fee-backend-ntas.onrender.com";
+
+// Load selected session
+const currentSession = localStorage.getItem("session") || "2024_25";
+document.getElementById("sessionDisplay").textContent = "Session: " + currentSession;
+
+// Load students
+async function loadStudents() {
+    const tbody = document.getElementById("studentTable");
+    tbody.innerHTML = "<tr><td colspan='4' style='text-align:center;'>Loading...</td></tr>";
+
+    try {
+        const res = await fetch(`${API}/students`, {
+            headers: { "X-Session": currentSession }
+        });
+
+        const data = await res.json();
+
+        if (!data.students) {
+            tbody.innerHTML = "<tr><td colspan='4' style='text-align:center;'>No students found</td></tr>";
+            return;
+        }
+
+        let students = data.students;
+
+        // Sort numerically where possible
+        students.sort((a, b) => {
+            let clsA = parseInt(a.class_name) || 0;
+            let clsB = parseInt(b.class_name) || 0;
+
+            if (clsA !== clsB) return clsA - clsB;
+
+            return (parseInt(a.roll) || 0) - (parseInt(b.roll) || 0);
+        });
+
+        tbody.innerHTML = "";
+
+        students.forEach(s => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${s.roll}</td>
+                <td>${s.name}</td>
+                <td>${s.class_name}</td>
+                <td>${s.previous_due}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+    } catch (err) {
+        tbody.innerHTML = "<tr><td colspan='4' style='text-align:center;'>Error loading students</td></tr>";
+    }
+}
+
+window.onload = loadStudents;
+</script>
+
+</body>
+</html>

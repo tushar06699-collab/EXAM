@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Class Incharge – School ERP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body{
+    margin:0;
+    font-family:Poppins, sans-serif;
+    background:#f2f4f8;
+}
+.sidebar{
+    width:220px;
+    height:100vh;
+    background:#324a87;
+    color:#fff;
+    position:fixed;
+    left:0;
+    top:0;
+    padding:20px;
+}
+.sidebar a{
+    display:block;
+    padding:12px;
+    margin:5px 0;
+    color:#fff;
+    text-decoration:none;
+    border-radius:8px;
+}
+.sidebar a:hover, .active{
+    background:#233465;
+}
+.main{
+    margin-left:240px;
+    padding:30px;
+}
+table{
+    width:100%;
+    border-collapse:collapse;
+    background:#fff;
+    border-radius:12px;
+    overflow:hidden;
+    box-shadow:0 3px 10px rgba(0,0,0,0.1);
+}
+th, td{
+    padding:12px;
+    text-align:left;
+}
+th{
+    background:#324a87;
+    color:#fff;
+}
+tr:nth-child(even){
+    background:#f8f8f8;
+}
+.btn{
+    padding:6px 12px;
+    background:#324a87;
+    color:white;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+}
+.btn:hover{
+    background:#233465;
+}
+.selectTeacher{
+    padding:6px;
+    border-radius:6px;
+    width:90%;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+    <h2>EXAM ERP</h2>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="class_list.html">Classes</a>
+     <a  class="active" href="incharge.html">Add Incharge</a></div>
+
+<div class="main">
+    <h1>Assign Class Incharge</h1>
+
+    <label>Session:</label>
+    <select id="sessionSelect" onchange="loadPage()"></select>
+
+    <br><br>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Class</th>
+                <th>Current Incharge</th>
+                <th>Change</th>
+                <th>Save</th>
+            </tr>
+        </thead>
+
+        <tbody id="inchargeTable">
+            <tr><td colspan="4" style="text-align:center;">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+const FEE_API = "https://fee-backend-ntas.onrender.com";
+const EXAM_API = "http://127.0.0.1:5000";
+
+/* --------------------------
+   LOAD SESSIONS
+--------------------------- */
+async function loadSessions() {
+    let res = await fetch(`${FEE_API}/session/list`);
+    let data = await res.json();
+
+    let sel = document.getElementById("sessionSelect");
+    sel.innerHTML = "";
+
+    data.sessions.forEach(s => {
+        let opt = document.createElement("option");
+        opt.value = s;
+        opt.innerText = s;
+        sel.appendChild(opt);
+    });
+
+    let saved = localStorage.getItem("session");
+    if (saved && data.sessions.includes(saved)) sel.value = saved;
+
+    loadPage();
+}
+
+/* --------------------------
+   LOAD CLASS + INCHARGE
+--------------------------- */
+async function loadPage() {
+    let session = document.getElementById("sessionSelect").value;
+    localStorage.setItem("session", session);
+
+    const tbody = document.getElementById("inchargeTable");
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">Loading...</td></tr>`;
+
+    try {
+        // Load classes
+        let resStudents = await fetch(`${FEE_API}/students`, {
+            headers: { "X-Session": session }
+        });
+        let dataStudents = await resStudents.json();
+
+        let students = dataStudents.students || [];
+        let classes = [...new Set(students.map(s => s.class_name))];
+
+        // Load incharge
+        let resInc = await fetch(`${EXAM_API}/incharge/get?session=${session}`);
+        let inchargeData = await resInc.json();
+        let inchargeMap = inchargeData.incharge || {};
+
+        tbody.innerHTML = "";
+
+        classes.forEach(cls => {
+            let savedName = inchargeMap[cls] || "Not Assigned";
+
+            let tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${cls}</td>
+                <td>${savedName}</td>
+                <td>
+                    <input type="text" id="t_${cls}" placeholder="Enter name"
+                           class="selectTeacher"
+                           value="${savedName !== 'Not Assigned' ? savedName : ''}">
+                </td>
+                <td>
+                    <button class="btn" onclick="saveIncharge('${cls}')">Save</button>
+                </td>
+            `;
+
+            tbody.appendChild(tr);
+        });
+
+    } catch (err) {
+        console.log(err);
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:red;">Error loading</td></tr>`;
+    }
+}
+
+/* --------------------------
+   SAVE INCHARGE
+--------------------------- */
+async function saveIncharge(cls) {
+    let session = document.getElementById("sessionSelect").value;
+    let teacher = document.getElementById("t_" + cls).value.trim();
+
+    if (teacher.length < 3) {
+        alert("Enter valid teacher name");
+        return;
+    }
+
+    let res = await fetch(`${EXAM_API}/incharge/set`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            session: session,
+            class_name: cls,
+            incharge: teacher
+        })
+    });
+
+    let data = await res.json();
+    alert(data.message || "Saved");
+
+    loadPage();
+}
+
+window.onload = loadSessions;
+</script>
+
+</body>
+</html>

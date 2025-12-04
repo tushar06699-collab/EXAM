@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Exam Papers – School ERP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- FIXED: Only ONE working DOCX library -->
+ <script src="https://unpkg.com/docx@7.7.0/build/index.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.3.2/docx.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+<style>
+body {
+    margin: 0;
+    font-family: Poppins, sans-serif;
+    background: #f2f4f7;
+    display: flex;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 240px;
+    background: #233465;
+    color: white;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    padding-top: 20px;
+}
+
+.sidebar h2 {
+    text-align: center;
+    font-size: 22px;
+    margin-bottom: 25px;
+}
+
+.sidebar a {
+    display: block;
+    padding: 12px 20px;
+    color: white;
+    text-decoration: none;
+    font-size: 16px;
+}
+
+.sidebar a:hover {
+    background: rgba(255,255,255,0.25);
+}
+
+.sidebar a.active {
+    background: rgba(255,255,255,0.35);
+}
+
+/* Page Content */
+.content {
+    margin-left: 240px;
+    width: calc(100% - 240px);
+    padding: 20px;
+}
+
+header {
+    background:#233465;
+    color:#fff;
+    padding:1rem;
+    text-align:center;
+    font-size:1.5rem;
+    border-radius:8px;
+}
+
+main {
+    max-width:700px;
+    margin:2rem auto;
+    background:#fff;
+    padding:2rem;
+    border-radius:12px;
+    box-shadow:0 2px 12px rgba(0,0,0,0.1);
+}
+
+label {
+    display:block;
+    font-weight:600;
+    margin-top:15px;
+}
+
+select, input {
+    width:100%;
+    padding:10px;
+    margin-top:5px;
+    border:1px solid #ccc;
+    border-radius:6px;
+}
+
+button {
+    margin-top:20px;
+    width:100%;
+    padding:12px;
+    background:#4f46e5;
+    color:white;
+    border:none;
+    font-size:16px;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+button:hover {
+    background:#3730a3;
+}
+
+#viewLink {
+    margin-top:10px;
+    text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+    <h2>School ERP</h2>
+    <a href="dashboard.html">Dashboard</a>
+    <a class="active" href="exam_paper.html">Upload Papers</a>
+    <a href="generate_rollno.html">Exam Roll No List</a>
+    <a href="get_exam_paper.html">Uploaded Exam Papers</a>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+<header>Upload / Download Exam Papers</header>
+
+<main>
+
+    <label>Session</label>
+    <select id="sessionSelect"></select>
+
+    <label>Exam</label>
+    <select id="examSelect"></select>
+
+    <label>Class</label>
+    <select id="classSelect"></select>
+
+    <label>Subject</label>
+    <select id="subjectSelect"></select>
+
+    <label>Upload PDF (Question Paper)</label>
+    <input type="file" id="paperFile" accept="application/pdf">
+
+    <button style="background:#1e8f3d;" onclick="downloadWord()">Download Paper Structure</button>
+
+
+    <button onclick="uploadPaper()">Upload Paper</button>
+
+    <div id="viewLink"></div>
+
+    
+</main>
+
+</div>
+
+<script>
+const FEE_API = "https://fee-backend-ntas.onrender.com";
+const EXAM_API = "http://127.0.0.1:5000";
+
+let EXAMS = [];
+let EXAM_DETAILS = {};  // 🔥 store total marks + time
+
+/* -------------------------
+    LOAD SESSION
+--------------------------*/
+async function loadSessions() {
+    const res = await fetch(`${FEE_API}/session/list`);
+    const data = await res.json();
+    sessionSelect.innerHTML = data.sessions.map(s => `<option>${s}</option>`).join("");
+    loadClasses();
+}
+loadSessions();
+
+sessionSelect.addEventListener("change", loadClasses);
+
+/* -------------------------
+    LOAD CLASSES
+--------------------------*/
+async function loadClasses() {
+    const res = await fetch(`${FEE_API}/students`, {
+        headers: { "X-Session": sessionSelect.value }
+    });
+    const data = await res.json();
+
+    const classes = [...new Set(data.students.map(s => s.class_name))].filter(c=>c).sort();
+
+    classSelect.innerHTML = `<option value="">Select</option>` + 
+        classes.map(c => `<option>${c}</option>`).join("");
+
+    if (classes.length > 0) {
+        classSelect.value = classes[0];
+        loadSubjects();
+    }
+}
+
+classSelect.addEventListener("change", loadSubjects);
+
+/* -------------------------
+    LOAD EXAMS
+--------------------------*/
+async function loadExams() {
+    const res = await fetch(`${EXAM_API}/exam/list-all`);
+    const data = await res.json();
+    EXAMS = data.exams || [];
+
+    examSelect.innerHTML = `<option value="">Select</option>` + 
+        EXAMS.map(e => `<option value="${e.exam_id}">${e.exam_name}</option>`).join("");
+}
+loadExams();
+
+/* -------------------------
+    LOAD EXAM DETAILS (TIME + MARKS)
+--------------------------*/
+async function loadExamDetails(examName, session) {
+    const res = await fetch(`${EXAM_API}/exam/get/${session}/${examName}`);
+    const data = await res.json();
+
+    if (data.success) {
+        EXAM_DETAILS = data.exam;
+    }
+}
+
+examSelect.addEventListener("change", async function() {
+    const examId = this.value;
+    const examData = EXAMS.find(e => e.exam_id == examId);
+    if (!examData) return;
+    await loadExamDetails(examData.exam_name, sessionSelect.value);
+    loadSubjects();
+});
+
+/* -------------------------
+    LOAD SUBJECTS
+--------------------------*/
+async function loadSubjects() {
+    const session = sessionSelect.value;
+    const cls = classSelect.value;
+    if (!cls || !session) return;
+
+    const res = await fetch(`${EXAM_API}/exam/subjects/get?session=${session}&class_name=${cls}`);
+    const data = await res.json();
+
+    if (data.success) {
+        subjectSelect.innerHTML = data.subjects.map(s => `<option>${s}</option>`).join("");
+    }
+
+    checkExistingPaper();
+}
+
+/* -------------------------
+    CHECK EXISTING PAPER
+--------------------------*/
+async function checkExistingPaper() {
+    const session = sessionSelect.value;
+    const exam = examSelect.value;
+    const cls = classSelect.value;
+    const sub = subjectSelect.value;
+
+    if (!session || !exam || !cls || !sub) return;
+
+    const examData = EXAMS.find(e => e.exam_id == exam);
+    if (!examData) return;
+
+    const url = `${EXAM_API}/exam/get-paper?session=${session}&class_name=${cls}&exam_name=${examData.exam_name}&subject=${sub}`;
+
+    const res = await fetch(url);
+    const div = document.getElementById("viewLink");
+
+    if (res.status === 200) {
+        div.innerHTML = `<a href="${url}" target="_blank" style="color:#4f46e5;font-weight:600;">📄 View Uploaded Paper</a>`;
+    } else {
+        div.innerHTML = `<p style="color:red;">No paper uploaded</p>`;
+    }
+}
+
+/* -------------------------
+    UPLOAD PDF
+--------------------------*/
+async function uploadPaper() {
+    const session = sessionSelect.value;
+    const examId = examSelect.value;
+    const cls = classSelect.value;
+    const sub = subjectSelect.value;
+    const file = document.getElementById("paperFile").files[0];
+
+    if (!file) return alert("Select PDF first!");
+
+    const examData = EXAMS.find(e => e.exam_id == examId);
+    if (!examData) return alert("Exam not found!");
+
+    const checkUrl = `${EXAM_API}/exam/get-paper?session=${session}&class_name=${cls}&exam_name=${examData.exam_name}&subject=${sub}`;
+    const checkRes = await fetch(checkUrl);
+
+    if (checkRes.status === 200) return alert("❌ Paper already uploaded!");
+
+    let fd = new FormData();
+    fd.append("pdf", file);
+    fd.append("session", session);
+    fd.append("class_name", cls);
+    fd.append("exam_name", examData.exam_name);
+    fd.append("subject", sub);
+
+    const res = await fetch(`${EXAM_API}/exam/upload-paper`, { method:"POST", body:fd });
+    const data = await res.json();
+
+    if (data.success) {
+        alert("✅ Uploaded!");
+        checkExistingPaper();
+    } else {
+        alert("Error: " + data.message);
+    }
+}
+
+/* -----------------------------------
+    WORD FILE GENERATOR (FIXED)
+------------------------------------*/
+async function downloadWord() {
+
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ImageRun } = docx;
+
+    const session = sessionSelect.value;
+    const className = classSelect.value;
+    const subject = subjectSelect.value;
+
+    const examId = examSelect.value;
+    const examData = EXAMS.find(e => e.exam_id == examId);
+    const examName = examData.exam_name;
+
+    // 🔥 LOAD TOTAL MARKS + TIME FROM BACKEND
+    const totalMarks = EXAM_DETAILS.total_marks || "";
+    const examTime = EXAM_DETAILS.exam_time || "";
+
+    // Load logo
+    const logoPath = "images/logo1.png";
+    const imgBlob = await fetch(logoPath).then(r => r.blob());
+    const imgArray = await imgBlob.arrayBuffer();
+
+    const doc = new Document({
+        sections: [{
+            children: [
+
+                // SCHOOL LOGO
+                new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    children: [
+                        new ImageRun({
+                            data: imgArray,
+                            transformation: { width: 80, height: 80 }
+                        })
+                    ]
+                }),
+
+                new Paragraph({
+                    text: "P.S. PUBLIC SCHOOL",
+                    heading: HeadingLevel.HEADING_1,
+                    alignment: AlignmentType.CENTER
+                }),
+
+                new Paragraph({ text:`Session: ${session}`, alignment: AlignmentType.CENTER }),
+                new Paragraph({ text:`Exam: ${examName}`, alignment: AlignmentType.CENTER }),
+                new Paragraph({ text:`Class: ${className}`, alignment: AlignmentType.CENTER }),
+                new Paragraph({ text:`Subject: ${subject}`, alignment: AlignmentType.CENTER }),
+
+                new Paragraph({ text:`Total Marks: ${totalMarks}                                                                                            Time: ${examTime}`, alignment: AlignmentType.CENTER }),
+
+                new Paragraph({ text:" ", }),
+                new Paragraph({
+                    text:"QUESTION PAPER",
+                    heading: HeadingLevel.HEADING_2
+                }),
+
+                new Paragraph({ text:" " })
+            ]
+        }]
+    });
+
+    const blob = await Packer.toBlob(doc);
+    saveAs(blob, `${subject}_${className}_${examName}.docx`);
+}
+
+</script>
+
+</body>
+</html>

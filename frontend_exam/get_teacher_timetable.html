@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Teacher-wise Timetable – School ERP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body { margin:0; font-family: Poppins, sans-serif; background:#f2f4f8; }
+
+.sidebar {
+    width:220px; height:100vh; background:#324a87; color:#fff;
+    position:fixed; left:0; top:0; padding:20px;
+}
+.sidebar a { display:block; padding:12px; margin:5px 0; color:#fff; text-decoration:none; border-radius:8px; }
+.sidebar a:hover, .sidebar a.active { background:#233465; }
+
+.main { margin-left:240px; padding:30px; }
+h1 { text-align:center; margin-bottom:20px; }
+
+.top-bar { display:flex; justify-content:center; gap:20px; margin-bottom:20px; }
+label { font-weight:600; }
+select { padding:5px; border-radius:5px; }
+
+table {
+    width:100%; border-collapse: collapse; background:white;
+    border-radius:10px; overflow:hidden; box-shadow:0 3px 10px rgba(0,0,0,0.1);
+    text-align:center;
+}
+th, td { padding:10px; border:1px solid #ddd; }
+th { background:#324a87; color:white; }
+tr:nth-child(even){ background:#f2f4f7; }
+.lunch-cell { background:#f0f0f0; font-weight:bold; }
+
+.timetable-cell { display:flex; flex-direction:column; gap:2px; font-size:13px; }
+.timetable-cell span { display:block; }
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+    <h2>EXAM ERP</h2>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="teachers.html">Teacher Management</a>
+    <a href="Timetable.html">Add Timetable</a>
+    <a href="get_classes_timetable.html">View Class Wise Timetable</a>
+    <a href="get_teacher_timetable.html" class="active">View Teacher Timetable</a>
+</div>
+
+<div class="main">
+    <h1>Teacher-wise Timetable</h1>
+
+    <div class="top-bar">
+        <div>
+            <label>Session:</label>
+            <select id="sessionSelect"></select>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr id="theadRow"><th>Teacher</th></tr>
+        </thead>
+        <tbody id="timetableBody"></tbody>
+    </table>
+</div>
+
+<script>
+const FEE_API = "https://fee-backend-ntas.onrender.com";
+const EXAM_API = "http://127.0.0.1:5000";
+
+const periods = ["Period 1","Period 2","Period 3","Period 4","Lunch","Period 5","Period 6","Period 7","Period 8"];
+const periodMap = {"Period 1":1,"Period 2":2,"Period 3":3,"Period 4":4,"Period 5":5,"Period 6":6,"Period 7":7,"Period 8":8};
+const weekDays = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+const sessionSelect = document.getElementById("sessionSelect");
+const theadRow = document.getElementById("theadRow");
+const timetableBody = document.getElementById("timetableBody");
+
+let classes = [];
+let teachers = [];
+let timetableData = {};
+
+// LOAD SESSIONS
+async function loadSessions() {
+    const res = await fetch(`${FEE_API}/session/list`);
+    const data = await res.json();
+    sessionSelect.innerHTML = data.sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
+}
+
+// LOAD CLASSES
+async function loadClasses() {
+    const res = await fetch(`${FEE_API}/students`);
+    const data = await res.json();
+    classes = [...new Set(data.students.map(s => s.class_name))].sort();
+}
+
+// LOAD TIMETABLE AND EXTRACT TEACHERS
+async function loadTimetableAndTeachers() {
+    const session = sessionSelect.value;
+    timetableData = {};
+    let tempTeachers = new Set();
+
+    for (let cls of classes) {
+        try {
+            const res = await fetch(`${EXAM_API}/timetable/classwise?session=${session}&class_name=${encodeURIComponent(cls)}`);
+            const data = await res.json();
+            timetableData[cls] = data.timetable || [];
+
+            // collect all teachers
+            timetableData[cls].forEach(item => {
+                weekDays.forEach(day => {
+                    if (item[day] && item[day].includes(" - ")) {
+                        const [teacher] = item[day].split(" - ");
+                        tempTeachers.add(teacher);
+                    }
+                });
+            });
+        } catch {
+            timetableData[cls] = [];
+        }
+    }
+
+    teachers = Array.from(tempTeachers).sort();
+}
+
+// RENDER TABLE
+function renderTable() {
+    theadRow.innerHTML = "<th>Teacher</th>" + periods.map(p => `<th>${p}</th>`).join("");
+    timetableBody.innerHTML = "";
+
+    for (let teacher of teachers) {
+        let rowHTML = `<tr><td><strong>${teacher}</strong></td>`;
+
+        for (let p of periods) {
+            if (p === "Lunch") {
+                rowHTML += `<td class="lunch-cell">Lunch</td>`;
+                continue;
+            }
+
+            const periodNumber = periodMap[p];
+            let cellSubjects = {};
+
+            // find all classes where this teacher teaches this period
+            classes.forEach(cls => {
+                const items = timetableData[cls].filter(item => Number(item.period) === periodNumber);
+                items.forEach(item => {
+                    weekDays.forEach(day => {
+                        if (item[day] && item[day].startsWith(teacher + " - ")) {
+                            const subject = item[day].split(" - ")[1];
+                            if (!cellSubjects[subject]) cellSubjects[subject] = {classes: new Set(), days: new Set()};
+                            cellSubjects[subject].classes.add(cls);
+                            cellSubjects[subject].days.add(day.slice(0,3));
+                        }
+                    });
+                });
+            });
+
+            let cellHTML = "";
+            for (let subject in cellSubjects) {
+                cellHTML += `
+                    <div class="timetable-cell">
+                        <span>${subject}</span>
+                        <span>Class: ${[...cellSubjects[subject].classes].join(",")}</span>
+                        <span>${[...cellSubjects[subject].days].join(",")}</span>
+                    </div>
+                `;
+            }
+
+            rowHTML += `<td>${cellHTML}</td>`;
+        }
+
+        rowHTML += "</tr>";
+        timetableBody.innerHTML += rowHTML;
+    }
+}
+
+// INIT
+async function init() {
+    await loadSessions();
+    await loadClasses();
+
+    sessionSelect.onchange = async () => {
+        await loadTimetableAndTeachers();
+        renderTable();
+    };
+
+    await loadTimetableAndTeachers();
+    renderTable();
+}
+
+init();
+</script>
+
+</body>
+</html>

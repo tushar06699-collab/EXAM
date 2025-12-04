@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Datesheet Add – School ERP</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: Poppins, sans-serif;
+  background: #f2f4f7;
+  display: flex;
+}
+
+/* ===== FIXED LEFT SIDEBAR ===== */
+.sidebar {
+  width: 240px;
+  background: #233465;
+  color: white;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  padding-top: 20px;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+}
+
+.sidebar h2 {
+  text-align: center;
+  font-size: 22px;
+  margin-bottom: 30px;
+}
+
+.sidebar a {
+  display: block;
+  padding: 12px 20px;
+  color: white;
+  text-decoration: none;
+  font-size: 16px;
+}
+
+.sidebar a:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.sidebar a.active {
+  background: rgba(255,255,255,0.25);
+}
+
+/* ===== CONTENT AREA ===== */
+.content {
+  margin-left: 240px;
+  width: calc(100% - 240px);
+  padding: 20px;
+}
+
+header {
+  background: #233465;
+  color: white;
+  padding: 1rem;
+  text-align: center;
+  font-size: 1.5rem;
+  border-radius: 8px;
+}
+
+main {
+  max-width: 900px;
+  margin: 2rem auto;
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+}
+
+label { font-weight: 600; margin-top: 1rem; display: block; }
+input, select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+th, td {
+  border: 1px solid #ccc;
+  padding: 10px;
+  text-align: center;
+}
+th { background: #f0f0f0; }
+
+button {
+  margin-top: 25px;
+  padding: 12px 18px;
+  background: #4f46e5;
+  color: white;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+}
+button:hover { background: #3730a3; }
+</style>
+</head>
+
+<body>
+
+<!-- ============== SIDEBAR ============== -->
+<div class="sidebar">
+  <h2>School ERP</h2>
+  <a href="dashboard.html">Dashboard</a>
+    <a href="subject_add.html">Add Subjects</a>
+    <a href="exam_create.html">Exam Create</a>
+    <a href="datesheet.html"style="background: rgba(255,255,255,0.2);">Make Datesheet</a>
+    <a href="datesheet_full.html">See Datesheet</a>
+</div>
+
+<!-- ============== CONTENT AREA ============== -->
+<div class="content">
+
+<header>Datesheet Add</header>
+
+<main>
+
+  <label>Session</label>
+  <select id="sessionSelect"></select>
+
+  <label>Class</label>
+  <select id="classSelect"></select>
+
+  <label>Select Exam</label>
+  <select id="examSelect"></select>
+
+  <label>Exam Time</label>
+  <input type="text" id="examTime" disabled>
+
+  <label>Total Marks</label>
+  <input type="number" id="totalMarks" disabled>
+
+  <table id="sheetTable">
+    <thead>
+      <tr>
+        <th>Subject</th>
+        <th>Date</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <button onclick="saveDatesheet()">Save Datesheet</button>
+
+</main>
+</div>
+
+<script>
+const FEE_API = "https://fee-backend-ntas.onrender.com";
+const EXAM_API = "http://127.0.0.1:5000";
+
+const sessionSelect = document.getElementById("sessionSelect");
+const classSelect = document.getElementById("classSelect");
+const examSelect = document.getElementById("examSelect");
+const examTimeInput = document.getElementById("examTime");
+const totalMarksInput = document.getElementById("totalMarks");
+const tableBody = document.querySelector("#sheetTable tbody");
+
+let EXAMS = [];
+
+// Load Sessions
+async function loadSessions() {
+  const res = await fetch(`${FEE_API}/session/list`);
+  const data = await res.json();
+  sessionSelect.innerHTML = data.sessions.map(s => `<option value="${s}">${s}</option>`).join("");
+}
+loadSessions();
+
+// Load Classes
+async function loadClasses() {
+  const res = await fetch(`${FEE_API}/students`, {
+    headers: { "X-Session": sessionSelect.value }
+  });
+  const data = await res.json();
+  const classes = [...new Set(data.students.map(s => s.class_name))].sort();
+  classSelect.innerHTML =
+    `<option value="">Select Class</option>` +
+    classes.map(c => `<option value="${c}">${c}</option>`).join("");
+}
+sessionSelect.addEventListener("change", loadClasses);
+loadClasses();
+
+// Load Exams
+async function loadExams() {
+  const res = await fetch(`${EXAM_API}/exam/list-all`);
+  const data = await res.json();
+  EXAMS = data.exams || [];
+  examSelect.innerHTML =
+    `<option value="">Select Exam</option>` +
+    EXAMS.map(ex => `<option value="${ex.exam_id}">${ex.exam_name}</option>`).join("");
+}
+loadExams();
+
+// Auto-fill on exam change
+examSelect.addEventListener("change", async () => {
+  const id = examSelect.value;
+  const exam = EXAMS.find(e => e.exam_id == id);
+
+  if (!exam) {
+    examTimeInput.value = "";
+    totalMarksInput.value = "";
+    tableBody.innerHTML = "";
+    return;
+  }
+
+  examTimeInput.value = exam.exam_time;
+  totalMarksInput.value = exam.total_marks;
+
+  if (!classSelect.value) return;
+
+  await loadSubjectsWithDates(classSelect.value, sessionSelect.value, exam.exam_name);
+});
+
+// Auto-load when class chosen
+classSelect.addEventListener("change", async () => {
+  const className = classSelect.value;
+  if (!className || !examSelect.value) return;
+
+  const exam = EXAMS.find(e => e.exam_id == examSelect.value);
+  await loadSubjectsWithDates(className, sessionSelect.value, exam.exam_name);
+});
+
+// Load subjects + datesheet
+async function loadSubjectsWithDates(className, session, examName) {
+  const res = await fetch(
+    `${EXAM_API}/exam/get-datesheet?class_name=${className}&session=${session}&exam_name=${examName}`
+  );
+  const data = await res.json();
+  const subjects = data.datesheet || data.subjects || [];
+
+  tableBody.innerHTML = "";
+  subjects.forEach(sub => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${sub.subject}</td>
+      <td><input type="date" value="${sub.date || ""}"></td>`;
+    tableBody.appendChild(tr);
+  });
+}
+
+// Save datesheet
+async function saveDatesheet() {
+  const className = classSelect.value;
+  const session = sessionSelect.value;
+  const examId = examSelect.value;
+  const exam = EXAMS.find(e => e.exam_id == examId);
+
+  if (!className || !session || !exam) return alert("Select session, class, and exam.");
+
+  const rows = tableBody.querySelectorAll("tr");
+  const subjects = [];
+  const datesheet = [];
+
+  for (let r of rows) {
+    const subject = r.cells[0].innerText;
+    const date = r.cells[1].querySelector("input").value;
+
+    if (!date) return alert(`Please select date for subject: ${subject}`);
+
+    subjects.push(subject);
+    datesheet.push({ subject, date, total_marks: exam.total_marks, duration: 180 });
+  }
+
+  // Save subjects
+  const res1 = await fetch(`${EXAM_API}/exam/subjects/add`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session, class_name: className, subjects })
+  });
+  const d1 = await res1.json();
+  if (!d1.success) return alert("Error saving subjects: " + d1.message);
+
+  // Save datesheet
+  const res2 = await fetch(`${EXAM_API}/exam/add-datesheet`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      session,
+      class_name: className,
+      exam_name: exam.exam_name,
+      datesheet
+    })
+  });
+  const d2 = await res2.json();
+
+  if (d2.success) alert("Datesheet saved successfully!");
+  else alert("Error saving datesheet: " + d2.message);
+}
+</script>
+
+</body>
+</html>

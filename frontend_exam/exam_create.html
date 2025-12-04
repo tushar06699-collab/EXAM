@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create Exam – School ERP</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: Poppins, sans-serif;
+  background: #f2f4f7;
+  display: flex;
+}
+
+/* ======= FIXED SIDEBAR (Always Visible) ======= */
+.sidebar {
+  width: 240px;
+  background: #233465;
+  color: white;
+  height: 100vh;
+  padding: 20px 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+}
+
+.sidebar h2 {
+  text-align: center;
+  font-size: 22px;
+  margin-bottom: 30px;
+}
+
+.sidebar a {
+  display: block;
+  padding: 12px 20px;
+  color: white;
+  text-decoration: none;
+  font-size: 16px;
+}
+
+.sidebar a:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+/* ACTIVE PAGE */
+.sidebar a.active {
+  background: rgba(255,255,255,0.25);
+}
+
+/* ======= CONTENT AREA ======= */
+.content {
+  margin-left: 240px;
+  width: calc(100% - 240px);
+  padding: 25px;
+}
+
+header {
+  background: #233465;
+  color: white;
+  padding: 1rem;
+  text-align: center;
+  border-radius: 8px;
+  font-size: 1.5rem;
+}
+
+main {
+  max-width: 500px;
+  margin: 2rem auto;
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+}
+
+label { font-weight: 600; margin-top: 1rem; display: block; }
+
+input, select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 7px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+button {
+  margin-top: 20px;
+  width: 100%;
+  padding: 12px;
+  background: #4f46e5;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+button:hover {
+  background: #3730a3;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ===== SIDEBAR ===== -->
+<div class="sidebar">
+    <h2>School ERP</h2>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="subject_add.html">Add Subjects</a>
+    <a href="exam_create.html"style="background: rgba(255,255,255,0.2);">Exam Create</a>
+    <a href="datesheet.html">Make Datesheet</a>
+    <a href="datesheet_full.html">See Datesheet</a>
+</div>
+
+<!-- ===== CONTENT ===== -->
+<div class="content">
+
+<header>Create New Exam</header>
+
+<main>
+
+  <label>Session</label>
+  <select id="sessionSelect"></select>
+
+  <label>Exam Name</label>
+  <input type="text" id="examName" placeholder="Example: UT-1, Half Yearly, Final" />
+
+  <label>Exam Time</label>
+  <input type="text" id="examTime" placeholder="Example: 8:00 AM - 11:00 AM" />
+
+  <label>Total Marks</label>
+  <input type="number" id="totalMarks" placeholder="Example: 80" />
+
+  <button onclick="createExam()">Create Exam</button>
+
+</main>
+
+</div>
+
+<script>
+const FEE_API = "https://fee-backend-ntas.onrender.com";
+const EXAM_API = "http://127.0.0.1:5000";
+
+/* LOAD SESSION */
+async function loadSessions() {
+  const res = await fetch(`${FEE_API}/session/list`);
+  const data = await res.json();
+  document.getElementById("sessionSelect").innerHTML =
+    data.sessions.map(s => `<option>${s}</option>`).join("");
+}
+loadSessions();
+
+/* CREATE EXAM */
+async function createExam() {
+  const session = document.getElementById("sessionSelect").value;
+  const exam_name = document.getElementById("examName").value.trim();
+  const exam_time = document.getElementById("examTime").value.trim();
+  const total_marks = document.getElementById("totalMarks").value.trim();
+
+  if (!exam_name || !exam_time || !total_marks) {
+    alert("Please fill all fields");
+    return;
+  }
+
+  const res = await fetch(`${EXAM_API}/exam/create`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ exam_name, session, exam_time, total_marks })
+  });
+
+  const data = await res.json();
+
+  if (data.success) {
+    alert("Exam created successfully!");
+    document.getElementById("examName").value = "";
+    document.getElementById("examTime").value = "";
+    document.getElementById("totalMarks").value = "";
+  } else {
+    alert("Error: " + data.message);
+  }
+}
+</script>
+
+</body>
+</html>

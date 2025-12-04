@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Teacher Management – School ERP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<style>
+/* ===== Global ===== */
+body {
+    margin: 0;
+    font-family: Poppins, sans-serif;
+    background: #f2f4f7;
+    display: flex;
+}
+
+/* ===== Sidebar ===== */
+.sidebar {
+    width: 240px;
+    background: #233465;
+    color: white;
+    height: 100vh;
+    padding: 20px 0;
+    position: fixed;
+    left: 0;
+    top: 0;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+}
+
+.sidebar h2 {
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 22px;
+}
+
+.sidebar a {
+    display: block;
+    padding: 12px 20px;
+    color: white;
+    text-decoration: none;
+    font-size: 16px;
+}
+
+.sidebar a:hover, .sidebar a.active {
+    background: rgba(255,255,255,0.2);
+}
+
+/* ===== Content Area ===== */
+.content {
+    margin-left: 260px;
+    width: calc(100% - 260px);
+    padding: 25px;
+}
+
+header {
+    background: #233465;
+    color: white;
+    padding: 1rem;
+    text-align: center;
+    font-size: 1.4rem;
+    border-radius: 8px;
+}
+
+main {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    margin-top: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+label {
+    display: block;
+    margin-top: 1rem;
+    font-weight: 600;
+}
+
+input, select {
+    width: 100%;
+    padding: .6rem;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    margin-top: .3rem;
+}
+
+button {
+    margin-top: 1rem;
+    padding: 0.7rem 1.5rem;
+    background: #302c7d;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #3730a3;
+}
+
+table {
+    width: 100%;
+    margin-top: 1rem;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 10px;
+    border: 1px solid #ccc;
+    text-align: left;
+}
+
+.delete-btn {
+    background: #e63946;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.delete-btn:hover {
+    background: #c5303f;
+}
+
+.session-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.session-slider {
+    flex: 1;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ===== SIDEBAR ===== -->
+<div class="sidebar">
+    <h2>School ERP</h2>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="teachers.html" class="active">Teacher Management</a>
+    <a href="Timetable.html">Add Timetable</a>
+    <a href="get_classes_timetable.html">View Class Wise Timetable</a>
+    <a href="get_teacher_timetable.html">View Teacher Wise Timetable</a>
+
+    
+</div>
+
+<!-- ===== PAGE CONTENT ===== -->
+<div class="content">
+<header>Teacher Management</header>
+
+<main>
+    <div class="session-box">
+        Current Session: <span id="curSession">Loading...</span>
+        <span id="sliderSessionLabel"></span>
+    </div>
+
+    <h3>Add Teacher</h3>
+    <input id="name" placeholder="Full Name">
+    <input id="username" placeholder="Username">
+    <input id="password" placeholder="Password" type="password">
+    <button onclick="addTeacher()">Add Teacher</button>
+
+    <h3 style="margin-top:30px;">All Teachers</h3>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Username</th>
+                <th>Session</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="teacherTable"></tbody>
+    </table>
+</main>
+</div>
+
+<script>
+const API = "http://127.0.0.1:5000";
+const FEE_API = "https://fee-backend-ntas.onrender.com";
+
+let sessions = [];
+let currentSession = localStorage.getItem("session") || "";
+
+/* Load sessions and setup slider */
+async function loadSessions() {
+    const res = await fetch(`${FEE_API}/session/list`);
+    const data = await res.json();
+    sessions = data.sessions;
+
+    if (!currentSession || !sessions.includes(currentSession)) {
+        currentSession = sessions[0];
+        localStorage.setItem("session", currentSession);
+    }
+
+    document.getElementById("curSession").textContent = currentSession;
+
+    loadTeachers();
+}
+
+function updateSession() {
+    const slider = document.getElementById("sessionSlider");
+    currentSession = sessions[slider.value];
+    document.getElementById("curSession").textContent = currentSession;
+    document.getElementById("sliderSessionLabel").textContent = currentSession;
+    localStorage.setItem("session", currentSession);
+    loadTeachers();
+}
+
+/* Add teacher */
+function addTeacher(){
+    let name = document.getElementById("name").value;
+    let username = document.getElementById("username").value;
+    let password = document.getElementById("password").value;
+
+    if(!name || !username || !password){
+        alert("All fields required!");
+        return;
+    }
+
+    fetch(API + "/teacher/add",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ session: currentSession, name, username, password })
+    })
+    .then(r => r.json())
+    .then(res => { alert(res.message); loadTeachers(); });
+}
+
+/* Load teachers */
+function loadTeachers(){
+    fetch(API + `/teacher/list?session=${currentSession}`)
+    .then(r => r.json())
+    .then(res => {
+        let tbl = document.getElementById("teacherTable");
+        tbl.innerHTML = "";
+
+        if (!res.teachers || res.teachers.length === 0){
+            tbl.innerHTML = `<tr><td colspan="5">No teachers found for ${currentSession}</td></tr>`;
+            return;
+        }
+
+        res.teachers.forEach(t => {
+            tbl.innerHTML += `
+                <tr>
+                    <td>${t.id}</td>
+                    <td>${t.name}</td>
+                    <td>${t.username}</td>
+                    <td>${currentSession}</td>
+                    <td><button class="delete-btn" onclick="delTeacher(${t.id})">Delete</button></td>
+                </tr>`;
+        });
+    });
+}
+
+/* Delete teacher */
+function delTeacher(id){
+    if(!confirm("Delete this teacher?")) return;
+
+    fetch(API + "/teacher/delete/" + id,{ method:"DELETE" })
+    .then(r => r.json())
+    .then(res => { alert(res.message); loadTeachers(); });
+}
+
+/* Initial load */
+loadSessions();
+</script>
+
+</body>
+</html>

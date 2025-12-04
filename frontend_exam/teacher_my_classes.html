@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>My Timetable - Teacher</title>
+<meta name="viewport" content="width=device-width">
+<style>
+body{
+    margin:0;
+    font-family:Poppins, sans-serif;
+    background:#eef1f6;
+}
+.topbar {
+    background:#233465;
+    color:white;
+    padding:18px 25px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+.topbar h2{
+    margin:0;
+    font-size:22px;
+}
+.container{
+    width:95%;
+    max-width:1000px;
+    margin:30px auto;
+}
+.card{
+    background:white;
+    padding:22px;
+    border-radius:12px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.1);
+    margin-bottom:20px;
+}
+table{
+    width:100%;
+    border-collapse:collapse;
+    text-align:center;
+}
+th,td{
+    padding:12px;
+    border:1px solid #ddd;
+    vertical-align:top;
+}
+th{
+    background:#f1f3fa;
+}
+.lunch-cell{
+    background:#f0f0f0;
+    font-weight:bold;
+}
+.timetable-cell{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    font-size:13px;
+}
+.timetable-cell span{ display:block; }
+.back-btn{
+    background:#324a87;
+    padding:10px 18px;
+    border-radius:8px;
+    color:white;
+    text-decoration:none;
+}
+</style>
+</head>
+
+<body>
+
+<div class="topbar">
+    <h2>My Timetable</h2>
+    <a href="teacher_dashboard.html" class="back-btn">⬅ Back</a>
+</div>
+
+<div class="container">
+    <div class="card">
+        <h3>Timetable for <span id="teacherNameDisplay"></span></h3>
+        <label>Session: </label>
+        <select id="sessionSelect"></select>
+        <table>
+            <thead>
+                <tr id="theadRow">
+                    <th>Period</th>
+                    <th>Monday</th>
+                    <th>Tuesday</th>
+                    <th>Wednesday</th>
+                    <th>Thursday</th>
+                    <th>Friday</th>
+                    <th>Saturday</th>
+                </tr>
+            </thead>
+            <tbody id="timetableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+const EXAM_API = "http://127.0.0.1:5000";
+const FEE_API = "https://fee-backend-ntas.onrender.com";
+
+const periods = ["Period 1","Period 2","Period 3","Period 4","Lunch","Period 5","Period 6","Period 7","Period 8"];
+const periodMap = {"Period 1":1,"Period 2":2,"Period 3":3,"Period 4":4,"Period 5":5,"Period 6":6,"Period 7":7,"Period 8":8};
+const weekDays = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+let teacherName = localStorage.getItem("teacher_name");
+let teacherSession = localStorage.getItem("session");
+
+if(!teacherName){
+    alert("Login expired! Please login again.");
+    window.location.href = "login.html";
+}
+
+document.getElementById("teacherNameDisplay").textContent = teacherName;
+
+const sessionSelect = document.getElementById("sessionSelect");
+const timetableBody = document.getElementById("timetableBody");
+
+let classes = [];
+let timetableData = {};
+
+// Load sessions
+async function loadSessions() {
+    const res = await fetch(`${FEE_API}/session/list`);
+    const data = await res.json();
+    sessionSelect.innerHTML = data.sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
+}
+
+// Load all classes
+async function loadClasses() {
+    const res = await fetch(`${FEE_API}/students`);
+    const data = await res.json();
+    classes = [...new Set(data.students.map(s => s.class_name))].sort();
+}
+
+// Load class-wise timetable and filter by logged-in teacher
+async function loadTimetable() {
+    const session = sessionSelect.value;
+    timetableData = {};
+
+    for(let cls of classes){
+        try{
+            const res = await fetch(`${EXAM_API}/timetable/classwise?session=${session}&class_name=${encodeURIComponent(cls)}`);
+            const data = await res.json();
+            timetableData[cls] = data.timetable || [];
+        }catch{
+            timetableData[cls] = [];
+        }
+    }
+}
+
+// Render timetable for teacher
+function renderTable() {
+    timetableBody.innerHTML = "";
+    
+    for(let p of periods){
+        let rowHTML = `<tr><td>${p}</td>`;
+        if(p === "Lunch"){
+            rowHTML += `<td colspan="6" class="lunch-cell">Lunch</td>`;
+            rowHTML += "</tr>";
+            timetableBody.innerHTML += rowHTML;
+            continue;
+        }
+
+        // For each day
+        weekDays.forEach(day=>{
+            let cellHTML = "";
+            classes.forEach(cls=>{
+                const items = timetableData[cls].filter(item => Number(item.period) === periodMap[p]);
+                items.forEach(item=>{
+                    if(item[day] && item[day].startsWith(teacherName + " - ")){
+                        const subject = item[day].split(" - ")[1];
+                        cellHTML += `
+                            <div class="timetable-cell">
+                                <span>${subject}</span>
+                                <span>Class: ${cls}</span>
+                            </div>
+                        `;
+                    }
+                });
+            });
+            rowHTML += `<td>${cellHTML}</td>`;
+        });
+
+        rowHTML += "</tr>";
+        timetableBody.innerHTML += rowHTML;
+    }
+}
+
+// Initialize
+async function init(){
+    await loadSessions();
+    await loadClasses();
+
+    sessionSelect.value = teacherSession;
+    sessionSelect.onchange = async ()=>{
+        teacherSession = sessionSelect.value;
+        await loadTimetable();
+        renderTable();
+    };
+
+    await loadTimetable();
+    renderTable();
+}
+
+init();
+
+</script>
+
+</body>
+</html>

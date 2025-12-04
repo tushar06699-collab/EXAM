@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Exam List - School ERP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body{margin:0;font-family:Poppins,sans-serif;background:#f2f4f8;}
+.sidebar{width:220px;height:100vh;background:#324a87;color:#fff;position:fixed;left:0;top:0;padding:20px;}
+.sidebar h2{font-size:22px;margin-bottom:25px;}
+.sidebar a{display:block;padding:12px;margin:5px 0;text-decoration:none;color:#fff;border-radius:8px;transition:0.2s;}
+.sidebar a:hover,.active{background:#233465;}
+.main{margin-left:240px;padding:30px;}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 3px 10px rgba(0,0,0,0.1);}
+th,td{padding:12px 15px;text-align:left;}
+th{background:#324a87;color:#fff;}
+tr:nth-child(even){background:#f2f4f7;}
+button{padding:6px 12px;border:none;border-radius:6px;cursor:pointer;}
+.delete-btn{background:#e74c3c;color:#fff;}
+.delete-btn:hover{background:#c0392b;}
+#sessionSelect{padding:6px 10px;border-radius:6px;border:1px solid #ccc;margin-bottom:20px;font-size:14px;}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+<h2>EXAM ERP</h2>
+<a href="dashboard.html">Dashboard</a>
+<a href="exam_list.html" class="active">Exams</a>
+</div>
+
+<div class="main">
+<h1>Exam List</h1>
+
+<label>Select Session: </label>
+<select id="sessionSelect"></select>
+
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Exam Name</th>
+<th>Session</th>
+<th>Exam Time</th>
+<th>Total Marks</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody id="examTable">
+<tr><td colspan="6" style="text-align:center;">Loading...</td></tr>
+</tbody>
+</table>
+</div>
+
+<script>
+const EXAM_API = "http://127.0.0.1:5000"; 
+
+// Sessions - static list
+const sessions = ["2024_25","2025_26"];
+let currentSession = localStorage.getItem("session") || sessions[0];
+
+function loadSessions(){
+    const sel = document.getElementById("sessionSelect");
+    sel.innerHTML = sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
+    sel.value = currentSession;
+
+    sel.onchange = () => {
+        currentSession = sel.value;
+        localStorage.setItem("session", currentSession);
+        loadExams();
+    };
+
+    loadExams();
+}
+
+async function loadExams(){
+    const tbody = document.getElementById("examTable");
+    tbody.innerHTML = "<tr><td colspan='6' style='text-align:center;'>Loading...</td></tr>";
+
+    try{
+        const res = await fetch(`${EXAM_API}/exam/list-all`);
+        const data = await res.json();
+
+        let exams = data.exams || [];
+        // Filter by selected session
+        exams = exams.filter(e=>e.session === currentSession);
+
+        if(exams.length === 0){
+            tbody.innerHTML = "<tr><td colspan='6' style='text-align:center;'>No exams found</td></tr>";
+            return;
+        }
+
+        tbody.innerHTML = "";
+
+        exams.forEach(exam=>{
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${exam.exam_id}</td>
+                <td>${exam.exam_name}</td>
+                <td>${exam.session}</td>
+                <td>${exam.exam_time || '—'}</td>
+                <td>${exam.total_marks || '—'}</td>
+                <td>
+                    <button class="delete-btn" onclick="deleteExam(${exam.exam_id})">Delete</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+    } catch(err){
+        console.error(err);
+        tbody.innerHTML = "<tr><td colspan='6' style='text-align:center;'>Error loading exams</td></tr>";
+    }
+}
+
+async function deleteExam(id){
+    if(!confirm("Are you sure you want to delete this exam?")) return;
+
+    try{
+        const res = await fetch(`${EXAM_API}/exam/delete/${id}`, {
+            method: "DELETE"
+        });
+
+        const data = await res.json();
+        if(data.success){
+            alert("Exam deleted successfully");
+            loadExams();
+        } else {
+            alert("Failed: " + data.message);
+        }
+
+    } catch(e){
+        alert("Server error");
+        console.error(e);
+    }
+}
+
+window.onload = loadSessions;
+</script>
+
+</body>
+</html>

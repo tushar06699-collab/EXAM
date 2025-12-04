@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>School Exam ERP – Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body {
+    margin:0; 
+    font-family:Poppins, sans-serif; 
+    background:#eef1f6; 
+}
+.sidebar {
+    width:230px; height:100vh; background:#233465; color:#fff;
+    position:fixed; left:0; top:0; padding:25px;
+}
+.sidebar h2 { font-size:22px; margin-bottom:30px; }
+.sidebar a {
+    display:block; padding:14px; margin:8px 0; color:#fff; text-decoration:none;
+    border-radius:10px; font-size:15px;
+}
+.sidebar a.active, .sidebar a:hover { background:#1a2648; }
+
+.main { margin-left:250px; padding:30px; }
+
+.topbar { display:flex; justify-content:space-between; margin-bottom:30px; }
+.cards { display:flex; gap:25px; flex-wrap:wrap; }
+.card {
+    background:#fff; width:260px; padding:25px; border-radius:14px;
+    box-shadow:0 4px 15px rgba(0,0,0,0.1); text-align:center;
+    cursor:pointer; transition:0.25s;
+}
+.card p { font-size:34px; font-weight:700; margin:0; color:#233465; }
+.card:hover { transform:scale(1.04); }
+
+.quick { display:flex; gap:20px; margin-top:20px; }
+.qbtn {
+    background:#324a87; color:#fff; padding:16px 24px; border-radius:10px;
+    font-size:16px; text-decoration:none;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+    <h2>EXAM ERP</h2>
+    <a href="dashboard.html" class="active">Dashboard</a>
+    <a href="teachers.html">Teachers Management</a>
+    <a href="subject_add.html">Pre Exam Corner</a>
+    <a href="exam_paper.html">Exams Corner</a>
+    <a href="result_upload.html">Post Exam Corner</a>
+</div>
+
+<div class="main">
+
+    <div class="topbar">
+        <h1>Dashboard</h1>
+        <div>
+            <label>Session:</label>
+            <select id="sessionSelect"></select>
+        </div>
+    </div>
+
+    <!-- Cards -->
+    <div class="cards">
+
+        <div class="card" onclick="location.href='exam_list.html'">
+            <h3>Total Exams</h3>
+            <p id="examCount">0</p>
+        </div>
+
+        <div class="card" onclick="location.href='class_list.html'">
+            <h3>Total Classes</h3>
+            <p id="classCount">0</p>
+        </div>
+
+        <div class="card" onclick="location.href='student_list.html'">
+            <h3>Total Students</h3>
+            <p id="studentCount">0</p>
+        </div>
+
+    </div>
+
+
+</div>
+
+<script>
+const FEE_API = "https://fee-backend-ntas.onrender.com";
+
+let currentSession = localStorage.getItem("session") || "";
+
+/* LOAD SESSIONS */
+async function loadSessions() {
+    try {
+        const res = await fetch(`${FEE_API}/session/list`);
+        const data = await res.json();
+
+        const sel = document.getElementById("sessionSelect");
+        sel.innerHTML = "";
+
+        data.sessions.forEach(s => {
+            let op = document.createElement("option");
+            op.value = s;
+            op.textContent = s;
+            sel.appendChild(op);
+        });
+
+        if (!data.sessions.includes(currentSession))
+            currentSession = data.sessions[0];
+
+        sel.value = currentSession;
+        localStorage.setItem("session", currentSession);
+
+        sel.onchange = () => {
+            currentSession = sel.value;
+            localStorage.setItem("session", currentSession);
+            loadStats();
+        };
+
+        loadStats();
+    } catch(e) {
+        alert("Error loading sessions");
+        console.error(e);
+    }
+}
+
+/* LOAD ALL STATS */
+function loadStats() {
+    loadStudentCount();
+    loadClassCount();
+    // Exams not available → skip or remove card
+}
+
+/* LOAD ALL STATS */
+function loadStats() {
+    loadStudentCount();
+    loadClassCount();
+    loadExamCount();  // add this
+}
+
+/* EXAM COUNT */
+async function loadExamCount() {
+    const EXAM_API = "http://127.0.0.1:5000"; // your exam backend
+
+    try {
+        const res = await fetch(`${EXAM_API}/exam/list-all`);
+        const data = await res.json();
+
+        if (!data.success) {
+            document.getElementById("examCount").textContent = 0;
+            return;
+        }
+
+        // Filter by session
+        const exams = data.exams.filter(e => e.session === currentSession);
+
+        document.getElementById("examCount").textContent = exams.length;
+
+    } catch (e) {
+        console.error(e);
+        document.getElementById("examCount").textContent = 0;
+    }
+}
+
+
+/* STUDENT COUNT */
+async function loadStudentCount() {
+    try {
+        const res = await fetch(`${FEE_API}/students`, {
+            headers: { "X-Session": currentSession }
+        });
+        const data = await res.json();
+
+        const students = Array.isArray(data.students) ? data.students : [];
+        document.getElementById("studentCount").textContent = students.length;
+    } catch(e) {
+        console.error(e);
+        document.getElementById("studentCount").textContent = 0;
+    }
+}
+
+/* CLASS COUNT (UNIQUE CLASSES) */
+async function loadClassCount() {
+    try {
+        const res = await fetch(`${FEE_API}/students`, {
+            headers: { "X-Session": currentSession }
+        });
+        const data = await res.json();
+
+        const students = Array.isArray(data.students) ? data.students : [];
+        const unique = new Set();
+        students.forEach(s => {
+            if (s.class_name) unique.add(s.class_name.trim());
+        });
+
+        document.getElementById("classCount").textContent = unique.size;
+    } catch(e) {
+        console.error(e);
+        document.getElementById("classCount").textContent = 0;
+    }
+}
+
+window.onload = loadSessions;
+</script>
+
+</body>
+</html>

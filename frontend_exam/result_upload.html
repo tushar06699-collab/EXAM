@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Mark Upload – School ERP</title>
+<style>
+  :root{
+    --brand:#233465;
+    --accent:#4f46e5;
+    --muted:#f2f4f7;
+    --fail-bg:#ef4444;
+    --error-color:#f87171;
+  }
+  html,body{height:100%;margin:0;font-family:Poppins,Segoe UI,Roboto,Helvetica,Arial;}
+  body { background: var(--muted); display:flex; min-height:100vh; }
+  .sidebar { width:240px; background:var(--brand); color:#fff; height:100vh; position:fixed; left:0; top:0; padding-top:20px; box-shadow:2px 0 10px rgba(0,0,0,.12); }
+  .sidebar h2{ text-align:center; font-size:20px; margin:0 8px 18px; }
+  .sidebar a{ display:block; padding:12px 18px; color:white; text-decoration:none; font-size:15px; }
+  .sidebar a:hover{ background: rgba(255,255,255,0.08); }
+  .content { margin-left:240px; width:calc(100% - 240px); padding:20px; box-sizing:border-box; }
+  header { background:var(--brand); color:white; padding:12px 16px; border-radius:8px; font-size:18px; }
+  main { max-width:1280px; margin:20px auto; background:#fff; padding:18px; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.06); overflow:auto; }
+  label{ display:block; font-weight:600; margin-top:12px; }
+  select,input{ width:100%; padding:8px 10px; margin-top:6px; border-radius:6px; border:1px solid #d1d5db; box-sizing:border-box; }
+  .controls{ display:flex; gap:12px; align-items:flex-end; margin-bottom:12px; }
+  .controls > *{ flex:1; min-width:120px; }
+  .btn { padding:10px 14px; border-radius:8px; border:none; cursor:pointer; background:var(--accent); color:#fff; }
+  .btn.secondary{ background:#10b981; }
+  .btn.ghost{ background:transparent; color:var(--brand); border:1px solid #e5e7eb; }
+  .meta { margin-top:10px; font-size:13px; color:#374151; }
+
+  /* Table styling */
+  .table-wrapper { overflow:auto; max-width:100%; border-radius:6px; margin-top:14px; }
+  table { border-collapse:collapse; width:100%; min-width:900px; table-layout:fixed; }
+  thead th { background:#f8fafc; border-bottom:1px solid #e6e6e6; padding:10px; text-align:center; font-weight:700; position:sticky; top:0; z-index:5; }
+  tbody td { border-bottom:1px solid #f1f5f9; padding:8px; text-align:center; vertical-align:middle; position:relative; }
+  th, td { font-size:13px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  input.mark-input { width:100%; box-sizing:border-box; padding:6px; text-align:center; border-radius:4px; border:1px solid #d1d5db; }
+  input.mark-input:focus{ outline:none; box-shadow:0 0 0 3px rgba(79,70,229,0.08); border-color:var(--accent); }
+
+  /* Sticky first two columns */
+  th.sticky-col, td.sticky-col { position: sticky; left:0; background:#f8fafc; z-index:6; box-shadow: 2px 0 4px rgba(0,0,0,0.04); }
+  th.sticky-col2, td.sticky-col2 { position: sticky; left:120px; background:#fff; z-index:6; box-shadow: 2px 0 4px rgba(0,0,0,0.02); }
+
+  /* adjust left offsets: first col width assumed 120px */
+  .col-roll { width:120px; min-width:120px; max-width:160px; }
+  .col-name { width:220px; min-width:160px; max-width:300px; text-align:left; padding-left:10px; }
+
+  /* Fail highlight */
+  td.fail { background: var(--fail-bg); color: white; }
+  td.error::after { content: "⚠ Exceeds total"; color: var(--error-color); font-size:10px; position:absolute; top:2px; right:2px; }
+
+  /* Totals */
+  td.total-cell { font-weight:700; background:#f9fafb; }
+
+  /* Responsive helpers */
+  @media (max-width:900px){
+    th.sticky-col2, td.sticky-col2 { left:100px; }
+  }
+
+  .small-note{ font-size:12px; color:#6b7280; margin-top:8px; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h2>School ERP</h2>
+  <a href="dashboard.html">Dashboard</a>
+  <a href="result_upload.html" style="background: rgba(255,255,255,0.08);">Mark Upload</a>
+  <a href="marksheet.html">Marksheet</a>
+</div>
+
+<div class="content">
+  <header>Mark Upload</header>
+
+  <main>
+    <div class="controls">
+      <div>
+        <label>Session</label>
+        <select id="sessionSelect"></select>
+      </div>
+      <div>
+        <label>Class</label>
+        <select id="classSelect"></select>
+      </div>
+      <div>
+        <label>Select Exam</label>
+        <select id="examSelect"></select>
+      </div>
+      <div style="flex:0 0 160px;">
+        <label>&nbsp;</label>
+        <button id="exportBtn" class="btn ghost" title="Export current table to CSV">Export CSV</button>
+      </div>
+    </div>
+
+    <div class="meta" id="metaInfo">Choose Session → Class → Exam to load the sheet.</div>
+
+    <div class="table-wrapper" id="tableWrapper">
+      <table id="markTable" aria-live="polite">
+        <thead>
+          <tr id="tableHeader"></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <div style="display:flex; gap:12px; margin-top:14px; align-items:center;">
+      <button id="saveBtn" class="btn">Save Marks</button>
+      <button id="fillZeroBtn" class="btn secondary">Fill blanks with 0</button>
+      <div style="flex:1"></div>
+      <div class="small-note">Fail if marks &lt; (Total marks / 3) — per-subject coloring is applied automatically.</div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const FEE_API = "https://fee-backend-ntas.onrender.com";
+const EXAM_API = "http://127.0.0.1:5000";
+const sessionSelect = document.getElementById("sessionSelect");
+const classSelect = document.getElementById("classSelect");
+const examSelect = document.getElementById("examSelect");
+const tableHeader = document.getElementById("tableHeader");
+const tableBody = document.getElementById("tableBody");
+const metaInfo = document.getElementById("metaInfo");
+const saveBtn = document.getElementById("saveBtn");
+const exportBtn = document.getElementById("exportBtn");
+const fillZeroBtn = document.getElementById("fillZeroBtn");
+
+let EXAMS = [], STUDENTS = [], SUBJECTS = [], PREV_MARKS = {}, CURRENT_EXAM = null;
+
+function qs(sel, el=document){ return el.querySelector(sel); }
+function qsa(sel, el=document){ return Array.from(el.querySelectorAll(sel)); }
+function fmt(v){ return v===null||v===undefined?'':String(v);}
+function debounce(fn,ms=150){let t; return (...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);}}
+
+// Load sessions and classes
+async function loadSessions(){
+  const res = await fetch(`${FEE_API}/session/list`);
+  const data = await res.json();
+  sessionSelect.innerHTML = data.sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
+}
+loadSessions();
+
+async function loadClasses(){
+  const res = await fetch(`${FEE_API}/students`,{headers:{"X-Session":sessionSelect.value}});
+  const data = await res.json();
+  const classes = [...new Set(data.students.map(s=>s.class_name))].sort();
+  classSelect.innerHTML = `<option value="">Select Class</option>`+classes.map(c=>`<option value="${c}">${c}</option>`).join("");
+}
+sessionSelect.addEventListener("change",loadClasses);
+loadClasses();
+
+async function loadExams(){
+  examSelect.innerHTML=`<option value="">Loading exams...</option>`;
+  try{
+    const res = await fetch(`${EXAM_API}/exam/list-all`);
+    const data = await res.json();
+    EXAMS = data.exams||[];
+    if(EXAMS.length){
+      examSelect.innerHTML=`<option value="">Select Exam</option>`+EXAMS.map(ex=>`<option value="${ex.exam_id}">${ex.exam_name}</option>`).join("");
+      examSelect.selectedIndex=1;
+      await loadStudentsAndSubjects();
+    } else examSelect.innerHTML=`<option value="">No exams</option>`;
+  }catch(err){
+    console.warn("loadExams",err);
+    examSelect.innerHTML=`<option value="">(Exam API unreachable)</option>`;
+    EXAMS=[]; SUBJECTS=[];
+  }
+}
+
+// Load students, subjects, and previous marks
+async function loadStudentsAndSubjects(){
+  const s = sessionSelect.value;
+  const cls = classSelect.value;
+  const examId = examSelect.value;
+  tableHeader.innerHTML=''; tableBody.innerHTML=''; PREV_MARKS={}; CURRENT_EXAM=null;
+  if(!s||!cls||!examId){ metaInfo.textContent="Choose Session → Class → Exam to load the sheet."; return; }
+  metaInfo.textContent="Loading students and subjects...";
+  try{
+    let res = await fetch(`${FEE_API}/students`,{headers:{"X-Session":s}});
+    let data = await res.json();
+    STUDENTS=(data.students||[]).filter(st=>st.class_name===cls);
+    const exam = EXAMS.find(e=>String(e.exam_id)===String(examId));
+    CURRENT_EXAM = exam||null;
+    let subjects=[];
+    try{
+      const encodedExamName = encodeURIComponent((exam && exam.exam_name)||"");
+      const r2 = await fetch(`${EXAM_API}/exam/get-datesheet?class_name=${encodeURIComponent(cls)}&session=${encodeURIComponent(s)}&exam_name=${encodedExamName}`);
+      const d2 = await r2.json();
+      subjects = d2.datesheet?d2.datesheet.map(d=>d.subject):[];
+    }catch(err){ console.warn("get-datesheet failed",err); subjects=[]; }
+    SUBJECTS = subjects||[];
+    await loadPreviousMarksForExam(s,cls,exam && exam.exam_name);
+    renderMarkTable();
+    metaInfo.textContent=`Loaded ${STUDENTS.length} students • ${SUBJECTS.length} subjects`;
+  }catch(err){
+    console.error(err);
+    metaInfo.textContent="Error loading students / subjects. See console.";
+    STUDENTS=[]; SUBJECTS=[];
+    renderMarkTable();
+  }
+}
+
+async function loadPreviousMarksForExam(session,cls,exam_name){
+  PREV_MARKS={};
+  if(!exam_name) return;
+  try{
+    const q=`?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&exam_name=${encodeURIComponent(exam_name)}`;
+    const res=await fetch(`${EXAM_API}/exam/get-marks${q}`);
+    const d=await res.json();
+    if(d && d.success && Array.isArray(d.marks)){
+      d.marks.forEach(item=>{
+        const roll=String(item.student_id||item.roll);
+        if(!roll) return;
+        PREV_MARKS[roll]=PREV_MARKS[roll]||{};
+        PREV_MARKS[roll][item.subject]=Number(item.marks||0);
+      });
+    }
+  }catch(err){ console.warn(err); }
+}
+
+// Render the table
+function renderMarkTable(){
+  const ths=[];
+  ths.push(`<th class="sticky-col col-roll">Roll No</th>`);
+  ths.push(`<th class="sticky-col2 col-name">Student Name</th>`);
+  SUBJECTS.forEach(sub=>ths.push(`<th>${escapeHtml(sub)}</th>`));
+  ths.push(`<th>Total</th>`); ths.push(`<th>%</th>`);
+  tableHeader.innerHTML=ths.join("");
+  tableBody.innerHTML='';
+
+  STUDENTS.forEach(student=>{
+    const rollNo = student.roll||student.roll_no||student.rollno||student.admission_no||student.id||"—";
+    const name = student.name||student.full_name||"—";
+    const tr=document.createElement("tr");
+    const cells=[];
+    cells.push(`<td class="sticky-col col-roll">${escapeHtml(rollNo)}</td>`);
+    cells.push(`<td class="sticky-col2 col-name">${escapeHtml(name)}</td>`);
+    SUBJECTS.forEach(subject=>{
+      const pre=(PREV_MARKS[rollNo] && PREV_MARKS[rollNo][subject]!==undefined)?PREV_MARKS[rollNo][subject]:"";
+      cells.push(`<td data-student="${rollNo}" data-subject="${escapeHtml(subject)}">
+                    <input type="number" min="0" class="mark-input" data-student="${rollNo}" data-subject="${escapeHtml(subject)}" value="${fmt(pre)}" />
+                  </td>`);
+    });
+    cells.push(`<td class="total-cell" data-student="${rollNo}" data-type="total">0</td>`);
+    cells.push(`<td class="total-cell" data-student="${rollNo}" data-type="percent">0%</td>`);
+    tr.innerHTML=cells.join("");
+    tableBody.appendChild(tr);
+  });
+
+  qsa(".mark-input",tableBody).forEach(input=>{
+    input.addEventListener("blur", onInputBlur);
+    input.addEventListener("input", debounce(onInputChange,80));
+  });
+
+  recalcAllTotals();
+}
+
+// Handle input events
+function onInputBlur(e){ 
+  const inp=e.target; 
+  if(inp.value===""||inp.value===null) inp.value="0"; 
+  checkMarksLimit(inp);
+  applyFailHighlightToCell(inp); 
+  recalcRowForStudent(inp.dataset.student);
+}
+
+function onInputChange(e){ 
+  const inp=e.target; 
+  checkMarksLimit(inp);
+  applyFailHighlightToCell(inp); 
+  recalcRowForStudent(inp.dataset.student);
+}
+
+// ✅ Prevent marks > total marks
+function checkMarksLimit(inputEl){
+  const val = Number(inputEl.value||0);
+  const examTotal = (CURRENT_EXAM && Number(CURRENT_EXAM.total_marks))?Number(CURRENT_EXAM.total_marks):100;
+  const td = inputEl.closest("td");
+  if(val > examTotal){
+    td.classList.add("error");
+    inputEl.value = examTotal;
+  } else td.classList.remove("error");
+}
+
+// Apply fail highlight
+function applyFailHighlightToCell(inputEl){
+  const td=inputEl.closest("td");
+  const val=Number(inputEl.value||0);
+  const examTotal=(CURRENT_EXAM && Number(CURRENT_EXAM.total_marks))?Number(CURRENT_EXAM.total_marks):null;
+  if(examTotal && examTotal>0){ 
+    const passMark = examTotal/3; 
+    td.classList.toggle("fail",val<passMark); 
+  } else td.classList.remove("fail");
+}
+
+// Recalculate totals
+function recalcRowForStudent(studentId){
+  const inputs=qsa(`input.mark-input[data-student="${studentId}"]`);
+  let sum=0; 
+  inputs.forEach(inp=>{
+    const v=Number(inp.value||0); 
+    sum+=isNaN(v)?0:v; 
+  });
+  const totalCell = tableBody.querySelector(`td[data-student="${studentId}"][data-type="total"]`);
+  const percentCell = tableBody.querySelector(`td[data-student="${studentId}"][data-type="percent"]`);
+  totalCell && (totalCell.textContent=sum);
+  const examTotal=(CURRENT_EXAM && Number(CURRENT_EXAM.total_marks))?Number(CURRENT_EXAM.total_marks):null;
+  if(examTotal && SUBJECTS.length){
+    const maxTotal=examTotal*SUBJECTS.length;
+    const pct=Math.round((sum/maxTotal)*100);
+    percentCell && (percentCell.textContent=`${Math.min(pct,100)}%`);
+  } else percentCell && (percentCell.textContent="—");
+}
+
+function recalcAllTotals(){ 
+  const studentIds=[...new Set(qsa("input.mark-input",tableBody).map(i=>i.dataset.student))]; 
+  studentIds.forEach(id=>recalcRowForStudent(id));
+}
+
+function fillBlanksWithZero(){ 
+  qsa("input.mark-input",tableBody).forEach(inp=>{ 
+    if(inp.value===""||inp.value===null) inp.value="0"; 
+    checkMarksLimit(inp);
+    applyFailHighlightToCell(inp); 
+  }); 
+  recalcAllTotals();
+}
+fillZeroBtn.addEventListener("click",fillBlanksWithZero);
+
+// Save marks
+async function saveMarks(){
+  const examId = examSelect.value;
+  const exam = EXAMS.find(e=>String(e.exam_id)===String(examId));
+  if(!exam) return alert("Select exam.");
+  const inputs = qsa(".mark-input", tableBody);
+  if(!inputs.length) return alert("Table is empty.");
+  fillBlanksWithZero();
+  const marks=[];
+  inputs.forEach(inp=>marks.push({roll:String(inp.dataset.student), subject:inp.dataset.subject, marks:Number(inp.value||0), total_marks:exam.total_marks||100}));
+  const payload={ session: sessionSelect.value, class_name: classSelect.value, exam_name:exam.exam_name||exam.name||String(examId), marks};
+  saveBtn.disabled=true; saveBtn.textContent="Saving...";
+  try{
+    const res=await fetch(`${EXAM_API}/exam/add-marks`,{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+    const d=await res.json();
+    if(d?.success){ 
+      alert("Marks saved successfully!"); 
+      await loadPreviousMarksForExam(sessionSelect.value,classSelect.value,exam.exam_name); 
+      renderMarkTable();
+    }
+    else alert("Error saving marks: "+(d.message||"Unknown"));
+  }catch(err){ console.error(err); alert("Network error while saving marks.");}
+  finally{ saveBtn.disabled=false; saveBtn.textContent="Save Marks";}
+}
+saveBtn.addEventListener("click", saveMarks);
+
+// CSV export
+exportBtn.addEventListener("click", ()=>{
+  const rows=[];
+  const headerCells=Array.from(tableHeader.querySelectorAll("th"));
+  rows.push(headerCells.map(h=>`"${h.textContent.trim()}"`).join(","));
+  Array.from(tableBody.querySelectorAll("tr")).forEach(tr=>{
+    const cells=Array.from(tr.querySelectorAll("td")).map(td=>{
+      const inp=td.querySelector("input");
+      if(inp) return `"${inp.value}"`;
+      else return `"${td.textContent.trim()}"`;
+    });
+    rows.push(cells.join(","));
+  });
+  const blob=new Blob([rows.join("\n")], {type:"text/csv"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download=`marks_${classSelect.value||'class'}_${examSelect.selectedIndex||'exam'}.csv`; a.click();
+  URL.revokeObjectURL(url);
+});
+
+// Escape HTML
+function escapeHtml(text){ return text.replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[m]);}
+
+// Load exams automatically after class selection
+classSelect.addEventListener("change",loadExams);
+examSelect.addEventListener("change",loadStudentsAndSubjects);
+</script>
+</body>
+</html>

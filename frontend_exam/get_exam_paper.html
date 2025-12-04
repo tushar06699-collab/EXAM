@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>View Exam Papers – School ERP</title>
+<style>
+body {
+    margin: 0;
+    font-family: Poppins, sans-serif;
+    background: #f2f4f7;
+    display: flex;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 240px;
+    background: #233465;
+    color: white;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    padding-top: 20px;
+}
+
+.sidebar h2 {
+    text-align: center;
+    font-size: 22px;
+    margin-bottom: 25px;
+}
+
+.sidebar a {
+    display: block;
+    padding: 12px 20px;
+    color: white;
+    text-decoration: none;
+    font-size: 16px;
+}
+
+.sidebar a:hover {
+    background: rgba(255,255,255,0.25);
+}
+
+.sidebar a.active {
+    background: rgba(255,255,255,0.35);
+}
+
+/* Page Content */
+.content {
+    margin-left: 240px;
+    width: calc(100% - 240px);
+    padding: 20px;
+}
+
+header {
+    background:#233465;
+    color:#fff;
+    padding:1rem;
+    text-align:center;
+    font-size:1.5rem;
+    border-radius:8px;
+}
+
+main {
+    max-width:700px;
+    margin:2rem auto;
+    background:#fff;
+    padding:2rem;
+    border-radius:12px;
+    box-shadow:0 2px 12px rgba(0,0,0,0.1);
+}
+
+label {
+    display:block;
+    font-weight:600;
+    margin-top:15px;
+}
+
+select {
+    width:100%;
+    padding:10px;
+    margin-top:5px;
+    border:1px solid #ccc;
+    border-radius:6px;
+}
+
+#viewLink {
+    margin-top:20px;
+    text-align:center;
+}
+
+button {
+    margin-top: 15px;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-weight: 600;
+}
+button.delete {
+    background: #d14343;
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+    <h2>School ERP</h2>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="exam_paper.html">Upload Papers</a>
+    <a href="generate_rollno.html">Exam Roll No List</a>
+    <a class="active" href="get_exam_paper.html">Uploaded Exam Papers</a>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+<header>View Uploaded Exam Papers</header>
+
+<main>
+    <label>Session</label>
+    <select id="sessionSelect"></select>
+
+    <label>Exam</label>
+    <select id="examSelect"></select>
+
+    <label>Class</label>
+    <select id="classSelect"></select>
+
+    <label>Subject</label>
+    <select id="subjectSelect"></select>
+
+    <div id="viewLink"></div>
+    <button class="delete" onclick="deletePaper()">Delete Uploaded Paper</button>
+</main>
+</div>
+
+<script>
+const FEE_API = "https://fee-backend-ntas.onrender.com";
+const EXAM_API = "http://127.0.0.1:5000";
+
+let EXAMS = [];
+
+// Load sessions
+async function loadSessions() {
+    const res = await fetch(`${FEE_API}/session/list`);
+    const data = await res.json();
+    sessionSelect.innerHTML = data.sessions.map(s => `<option value="${s}">${s}</option>`).join("");
+    sessionSelect.value = data.sessions[0];
+    loadClasses();
+}
+loadSessions();
+sessionSelect.addEventListener("change", loadClasses);
+
+// Load classes
+async function loadClasses() {
+    const res = await fetch(`${FEE_API}/students`, { headers: { "X-Session": sessionSelect.value } });
+    const data = await res.json();
+    const classes = [...new Set(data.students.map(s => s.class_name).filter(c => c && c.trim() !== ""))].sort();
+    classSelect.innerHTML = `<option value="">Select</option>` + classes.map(c => `<option value="${c}">${c}</option>`).join("");
+    if (classes.length > 0) {
+        classSelect.value = classes[0];
+        loadSubjects();
+    }
+}
+classSelect.addEventListener("change", loadSubjects);
+
+// Load exams
+async function loadExams() {
+    const res = await fetch(`${EXAM_API}/exam/list-all`);
+    const data = await res.json();
+    EXAMS = data.exams || [];
+    examSelect.innerHTML = `<option value="">Select</option>` + EXAMS.map(e => `<option value="${e.exam_id}">${e.exam_name}</option>`).join("");
+}
+loadExams();
+examSelect.addEventListener("change", checkPaper);
+
+// Load subjects
+async function loadSubjects() {
+    const session = sessionSelect.value;
+    const cls = classSelect.value;
+    if (!cls || !session) return;
+
+    const res = await fetch(`${EXAM_API}/exam/subjects/get?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}`);
+    const data = await res.json();
+
+    if (data.success) {
+        subjectSelect.innerHTML = `<option value="">Select</option>` + data.subjects.map(s => `<option value="${s}">${s}</option>`).join("");
+    } else {
+        subjectSelect.innerHTML = `<option value="">No subjects found</option>`;
+        console.error(data.message);
+    }
+
+    subjectSelect.addEventListener("change", checkPaper);
+}
+
+// Check and show existing paper
+async function checkPaper() {
+    const session = sessionSelect.value;
+    const examId = examSelect.value;
+    const cls = classSelect.value;
+    const sub = subjectSelect.value;
+    if (!session || !examId || !cls || !sub) {
+        viewLink.innerHTML = "";
+        return;
+    }
+
+    const examData = EXAMS.find(e => e.exam_id.toString() === examId);
+    if (!examData) return;
+
+    const url = `${EXAM_API}/exam/get-paper?session=${session}&class_name=${cls}&exam_name=${examData.exam_name}&subject=${sub}`;
+
+    try {
+        const res = await fetch(url, { method: "HEAD" });
+        if (res.ok) {
+            viewLink.innerHTML = `<a href="${url}" target="_blank" style="color:#4f46e5;font-weight:600;">📄 View Uploaded Paper</a>`;
+        } else {
+            viewLink.innerHTML = `<p style="color:red;">No paper uploaded</p>`;
+        }
+    } catch (err) {
+        console.error(err);
+        viewLink.innerHTML = `<p style="color:red;">Error fetching paper</p>`;
+    }
+}
+
+// Delete uploaded paper
+async function deletePaper() {
+    const session = sessionSelect.value;
+    const className = classSelect.value;
+    const examId = examSelect.value;
+    const subject = subjectSelect.value;
+
+    const examData = EXAMS.find(e => e.exam_id == examId);
+    if (!examData) return alert("Select exam first!");
+
+    const payload = {
+        session,
+        class_name: className,
+        exam_name: examData.exam_name,
+        subject
+    };
+
+    try {
+        const res = await fetch(`${EXAM_API}/exam/delete-paper`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        alert(data.message);
+        checkPaper(); // refresh link after deletion
+    } catch (err) {
+        console.error(err);
+        alert("Error deleting paper");
+    }
+}
+</script>
+</body>
+</html>
