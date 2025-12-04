@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "name": "EXAM",
+  "builds": [
+    { "src": "login.html", "use": "@vercel/static" },
+    { "src": "assets/**", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "/$1" }
+  ]
+}
