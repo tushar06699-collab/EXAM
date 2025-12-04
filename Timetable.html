@@ -22,6 +22,8 @@ th { background:#324a87; color:white; }
 tr:nth-child(even){ background:#f2f4f7; }
 button { margin-top:15px; padding:10px 20px; background:#324a87; color:white; border:none; border-radius:6px; cursor:pointer; }
 button:hover { background:#233465; }
+.block { margin:2px 0; padding:2px 4px; background:#eef1f6; border-radius:4px; font-size:13px; display:flex; justify-content:space-between; align-items:center;}
+.block span { margin-right:5px;}
 </style>
 </head>
 <body>
@@ -29,10 +31,12 @@ button:hover { background:#233465; }
 <div class="sidebar">
     <h2>EXAM ERP</h2>
     <a href="dashboard.html">Dashboard</a>
+    <a href="subject_add.html">Subject_Management</a>
     <a href="teachers.html">Teacher Management</a>
     <a href="Timetable.html" class="active">Add Timetable</a>
     <a href="get_classes_timetable.html">View Class Wise Timetable</a>
     <a href="get_teacher_timetable.html">View Teacher Wise Timetable</a>
+    
 </div>
 
 <div class="main">
@@ -79,13 +83,7 @@ const timetableBody = document.getElementById("timetableBody");
 const sessionSelect = document.getElementById("sessionSelect");
 const teacherSelect = document.getElementById("teacherSelect");
 
-function normalizePeriodValue(pp) {
-    if (!pp) return NaN;
-    if (typeof pp === "number") return pp;
-    if (typeof pp === "string") return Number(pp.replace(/[^0-9]/g,"")) || NaN;
-    return NaN;
-}
-
+// ----------------- Load Data -----------------
 async function loadSessions() {
     try {
         const res = await fetch(`${FEE_API}/session/list`);
@@ -148,6 +146,21 @@ async function loadExistingTimetable() {
     }
 }
 
+// ----------------- Get Used Days for Conflict -----------------
+async function getUsedDays(className, periodNum) {
+    if(!className) return [];
+    try {
+        const res = await fetch(`${EXAM_API}/timetable/used_days?session=${sessionSelect.value}&class_name=${className}&period=${periodNum}`);
+        const data = await res.json();
+        if(!data.success) return [];
+        return data.used_days; // array of integers
+    } catch(e) {
+        console.error(e);
+        return [];
+    }
+}
+
+// ----------------- Generate Rows -----------------
 async function generateRows(existing=[]) {
     timetableBody.innerHTML = "";
 
@@ -158,50 +171,103 @@ async function generateRows(existing=[]) {
             continue;
         }
         const periodNum = periodMap[periodText];
-        const existingRow = existing.find(r => normalizePeriodValue(r.period)===periodNum) || {};
+        const periodRows = existing.filter(r => r.period==periodNum);
 
-        const startDay = existingRow.startDay || 1;
-        const endDay = existingRow.endDay || 1;
-        const subjectValue = weekDays.map(d=>existingRow[d]).find(s=>s) || "";
+        // Existing blocks
+        for(const r of periodRows){
+            const subjectValue = weekDays.map(d=>r[d]).find(s=>s) || "";
+            timetableBody.innerHTML += `<tr data-period="${periodNum}">
+                <td>${periodText}</td>
+                <td>
+                    <select class="classSelect">
+                        <option value="">Select Class</option>
+                        ${classes.map(c=>`<option value="${c}" ${c===r.class?'selected':''}>${c}</option>`).join("")}
+                    </select>
+                </td>
+                <td>
+                    <select class="subjectSelect">
+                        <option value="">Select Subject</option>
+                        ${subjectValue?`<option value="${subjectValue}" selected>${subjectValue}</option>`:""}
+                    </select>
+                </td>
+                <td>
+                    <select class="startDay">
+                        ${weekDays.map((day,d)=>`<option value="${d+1}" ${d+1===r.startDay?'selected':''}>${day.slice(0,3)}</option>`).join("")}
+                    </select> -
+                    <select class="endDay">
+                        ${weekDays.map((day,d)=>`<option value="${d+1}" ${d+1===r.endDay?'selected':''}>${day.slice(0,3)}</option>`).join("")}
+                    </select>
+                </td>
+            </tr>`;
+        }
 
-        timetableBody.innerHTML += `<tr data-period="${periodNum}">
-            <td>${periodText}</td>
-            <td>
-                <select class="classSelect" data-index="${i}">
-                    <option value="">Select Class</option>
-                    ${classes.map(c=>`<option value="${c}" ${c===(existingRow.class||"")?'selected':''}>${c}</option>`).join("")}
-                </select>
-            </td>
-            <td>
-                <select class="subjectSelect" data-index="${i}">
-                    <option value="">Select Subject</option>
-                    ${subjectValue?`<option value="${subjectValue}" selected>${subjectValue}</option>`:""}
-                </select>
-            </td>
-            <td>
-                <select class="startDay" data-index="${i}">
-                    ${weekDays.map((day,d)=>`<option value="${d+1}" ${d+1===startDay?'selected':''}>${day.slice(0,3)}</option>`).join("")}
-                </select> -
-                <select class="endDay" data-index="${i}">
-                    ${weekDays.map((day,d)=>`<option value="${d+1}" ${d+1===endDay?'selected':''}>${day.slice(0,3)}</option>`).join("")}
-                </select>
-            </td>
-        </tr>`;
+        // Free block for remaining days
+        const usedDays = new Set();
+        for(const r of periodRows){
+            for(let d=r.startDay; d<=r.endDay; d++) usedDays.add(d);
+        }
+
+        const freeDays = weekDays.map((_,i)=>i+1).filter(d=>!usedDays.has(d));
+        if(freeDays.length>0){
+            const start = freeDays[0];
+            const end = freeDays[freeDays.length-1];
+            timetableBody.innerHTML += `<tr data-period="${periodNum}" class="freeBlock">
+                <td>${periodText}</td>
+                <td>
+                    <select class="classSelect">
+                        <option value="">Select Class</option>
+                        ${classes.map(c=>`<option value="${c}">${c}</option>`).join("")}
+                    </select>
+                </td>
+                <td>
+                    <select class="subjectSelect">
+                        <option value="">Select Subject</option>
+                    </select>
+                </td>
+                <td>
+                    <select class="startDay">
+                        ${weekDays.map((day,d)=>`<option value="${d+1}" ${d+1===start?'selected':''}>${day.slice(0,3)}</option>`).join("")}
+                    </select> -
+                    <select class="endDay">
+                        ${weekDays.map((day,d)=>`<option value="${d+1}" ${d+1===end?'selected':''}>${day.slice(0,3)}</option>`).join("")}
+                    </select>
+                </td>
+            </tr>`;
+        }
     }
 
+    // Bind class change for dynamic subjects + day conflict check
     document.querySelectorAll(".classSelect").forEach(sel=>{
-        const idx = sel.dataset.index;
-        const subjSel = document.querySelector(`.subjectSelect[data-index="${idx}"]`);
+        const tr = sel.closest("tr");
+        const subjSel = tr.querySelector(".subjectSelect");
+        const startDaySel = tr.querySelector(".startDay");
+        const endDaySel = tr.querySelector(".endDay");
+
         sel.onchange = async function(){
             subjSel.innerHTML = `<option value="">Select Subject</option>`;
             if(this.value){
                 const subjects = await loadSubjects(this.value);
                 subjSel.innerHTML += subjects.map(s=>`<option value="${s}">${s}</option>`).join("");
             }
+
+            // Conflict check: fetch used days for this class & period
+            const periodNum = parseInt(tr.dataset.period);
+            const used = await getUsedDays(this.value, periodNum);
+            const available = weekDays.map((_,i)=>i+1).filter(d=>!used.includes(d));
+
+            if(available.length===0){
+                alert("Class already filled for this period!");
+                startDaySel.innerHTML = `<option value="">N/A</option>`;
+                endDaySel.innerHTML = `<option value="">N/A</option>`;
+            } else {
+                startDaySel.innerHTML = available.map(d=>`<option value="${d}">${weekDays[d-1].slice(0,3)}</option>`).join("");
+                endDaySel.innerHTML = available.map(d=>`<option value="${d}">${weekDays[d-1].slice(0,3)}</option>`).join("");
+            }
         };
     });
 }
 
+// ----------------- Save Timetable -----------------
 document.getElementById("saveBtn").onclick = async ()=>{
     const teacherId = teacherSelect.value;
     const session = sessionSelect.value;
@@ -214,17 +280,16 @@ document.getElementById("saveBtn").onclick = async ()=>{
         const subjSel = row.querySelector(".subjectSelect");
         const startDay = parseInt(row.querySelector(".startDay").value || 1);
         const endDay = parseInt(row.querySelector(".endDay").value || 1);
-
         if(!selClass || !subjSel) return;
 
         const className = selClass.value || "";
         const subject = subjSel.value || "";
+        if(!className || !subject) return;
 
         const periodData = { period: periodNum, class: className, startDay, endDay };
         weekDays.forEach((day, idx)=>{
             periodData[day] = (idx+1>=startDay && idx+1<=endDay)?subject:"";
         });
-
         timetable.push(periodData);
     });
 
@@ -236,23 +301,29 @@ document.getElementById("saveBtn").onclick = async ()=>{
         });
         const data = await res.json();
         alert(data.message || "Saved successfully!");
-
-        // <-- FIX: update frontend with saved data instead of reloading from backend
-        await generateRows(timetable);
-
+        const existing = await loadExistingTimetable();
+        await generateRows(existing);
     }catch(e){
         console.error(e);
         alert("Error saving timetable");
     }
 };
 
+// ----------------- Init -----------------
 async function init(){
     await loadSessions();
     await loadTeachers();
     await loadClasses();
 
-    sessionSelect.onchange = async ()=>{ await loadTeachers(); await generateRows(); };
-    teacherSelect.onchange = async ()=>{ const existing = await loadExistingTimetable(); await generateRows(existing); };
+    sessionSelect.onchange = async ()=>{ 
+        await loadTeachers(); 
+        const existing = await loadExistingTimetable(); 
+        await generateRows(existing); 
+    };
+    teacherSelect.onchange = async ()=>{ 
+        const existing = await loadExistingTimetable(); 
+        await generateRows(existing); 
+    };
 
     const existing = await loadExistingTimetable();
     await generateRows(existing);

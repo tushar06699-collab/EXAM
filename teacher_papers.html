@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Upload Exam Papers – Teacher</title>
+<meta name="viewport" content="width=device-width">
+
+<!-- DOCX -->
+<script src="https://unpkg.com/docx@7.7.0/build/index.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+<style>
+body {
+    margin: 0;
+    font-family: Poppins, sans-serif;
+    background: #eef1f6;
+}
+
+/* ================= TOPBAR WITH HAMBURGER ================= */
+.topbar {
+    background:#233465;
+    color:white;
+    padding:18px 20px;
+    display:flex;
+    align-items:center;
+    gap:20px;
+}
+.menu-icon{
+    font-size:28px;
+    cursor:pointer;
+    user-select:none;
+}
+.topbar h2{
+    margin:0;
+    font-size:22px;
+}
+
+/* ================= SLIDING SIDEBAR ================= */
+.sidebar {
+    width: 240px;
+    background: #233465;
+    color: white;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: -260px;
+    padding-top: 30px;
+    transition: 0.3s ease;
+    z-index: 1000;
+}
+.sidebar.active {
+    left: 0;
+}
+.sidebar h2 {
+    text-align: center;
+    font-size: 22px;
+    margin-bottom: 30px;
+}
+.sidebar a {
+    display: block;
+    padding: 14px 20px;
+    color: white;
+    text-decoration: none;
+    font-size: 16px;
+}
+.sidebar a:hover {
+    background: rgba(255,255,255,0.25);
+}
+.close-btn{
+    position:absolute;
+    top:10px;
+    right:15px;
+    font-size:28px;
+    cursor:pointer;
+    color:white;
+}
+
+/* ================= OVERLAY ================= */
+.overlay {
+    position: fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.4);
+    display:none;
+    z-index: 999;
+}
+.overlay.active { display:block; }
+
+/* ================= MAIN CONTENT BOX ================= */
+.main {
+    max-width:650px;
+    margin:30px auto;
+    background:#fff;
+    padding:25px;
+    border-radius:12px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.1);
+}
+
+label {
+    display:block;
+    margin-top:12px;
+    font-weight:600;
+}
+select, input {
+    width:100%;
+    padding:10px;
+    margin-top:5px;
+    border-radius:6px;
+    border:1px solid #ccc;
+}
+
+button {
+    width:100%;
+    margin-top:20px;
+    padding:12px;
+    border:none;
+    border-radius:6px;
+    background:#324a87;
+    color:white;
+    font-size:16px;
+}
+button:hover {
+    background:#233465;
+}
+
+#viewLink {
+    margin-top:10px;
+    text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ================= TOPBAR ================= -->
+<div class="topbar">
+    <span class="menu-icon" onclick="openMenu()">☰</span>
+    <h2>Upload Exam Paper</h2>
+</div>
+
+<!-- ================= SLIDING SIDEBAR ================= -->
+<div class="sidebar" id="sidebar">
+    <span class="close-btn" onclick="closeMenu()">×</span>
+
+    <h2>School ERP</h2>
+
+    <a href="teacher_dashboard.html">Dashboard</a>
+    <a href="teacher_my_classes.html">My Time Table</a>
+    <a href="teacher_view_datesheet.html">View Datesheet</a>
+    <a href="teacher_papers.html" style="background: rgba(255,255,255,0.25);">Question Papers</a>
+    <a href="teacher_marks_upload.html">Upload Marks</a>
+</div>
+
+<!-- ================= OVERLAY ================= -->
+<div class="overlay" id="overlay" onclick="closeMenu()"></div>
+
+
+<!-- ================= CONTENT ================= -->
+<div class="main">
+
+    <label>Session</label>
+    <select id="sessionSelect" disabled></select>
+
+    <label>Select Exam</label>
+    <select id="examSelect"></select>
+
+    <label>Select Class</label>
+    <select id="classSelect"></select>
+
+    <label>Select Subject</label>
+    <select id="subjectSelect"></select>
+
+    <label>Upload PDF</label>
+    <input type="file" id="paperFile" accept="application/pdf">
+
+    <button onclick="downloadStructure()">Download Paper Structure</button>
+    <button onclick="uploadPaper()">Upload Paper</button>
+
+    <div id="viewLink"></div>
+</div>
+
+
+<script>
+/* ================= SLIDE MENU FUNCTIONS ================= */
+function openMenu(){
+    document.getElementById("sidebar").classList.add("active");
+    document.getElementById("overlay").classList.add("active");
+}
+function closeMenu(){
+    document.getElementById("sidebar").classList.remove("active");
+    document.getElementById("overlay").classList.remove("active");
+}
+
+/* ================= BACKEND ================= */
+const FEE_API = "https://fee-backend-ntas.onrender.com";
+const EXAM_API = "http://127.0.0.1:5000";
+
+let teacherId = localStorage.getItem("teacher_id");
+let session = localStorage.getItem("session");
+
+if (!teacherId) {
+    alert("Login expired!");
+    window.location.href = "login.html";
+}
+
+document.getElementById("sessionSelect").innerHTML = `<option>${session}</option>`;
+
+/* -------------------------- LOAD EXAMS -------------------------- */
+async function loadExams() {
+    const res = await fetch(`${EXAM_API}/exam/list-all`);
+    const data = await res.json();
+
+    examSelect.innerHTML =
+        `<option value="">Select Exam</option>` +
+        data.exams
+            .filter(e => e.session === session)
+            .map(e => `<option value="${e.exam_id}">${e.exam_name}</option>`)
+            .join("");
+}
+loadExams();
+
+/* ---------------------- LOAD TIMETABLE → CLASSES ---------------------- */
+let teacherClasses = [];
+let teacherSubjects = {};
+
+async function loadTeacherTimetable() {
+    const url = `${EXAM_API}/timetable/get?session=${session}&teacher_id=${teacherId}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    teacherClasses = [];
+    teacherSubjects = {};
+
+    data.timetable.forEach(row => {
+        const cls = row.class;
+        if (!cls) return;
+
+        if (!teacherClasses.includes(cls)) teacherClasses.push(cls);
+        teacherSubjects[cls] = teacherSubjects[cls] || [];
+
+        ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
+        .forEach(day => {
+            if (row[day] && !teacherSubjects[cls].includes(row[day])) {
+                teacherSubjects[cls].push(row[day]);
+            }
+        });
+    });
+
+    classSelect.innerHTML = 
+        `<option value="">Select</option>` +
+        teacherClasses.map(c => `<option>${c}</option>`).join("");
+}
+
+loadTeacherTimetable();
+
+/* --------------------- LOAD SUBJECTS FOR CLASS --------------------- */
+classSelect.addEventListener("change", () => {
+    const cls = classSelect.value;
+    subjectSelect.innerHTML =
+        `<option value="">Select</option>` +
+        teacherSubjects[cls].map(s => `<option>${s}</option>`).join("");
+
+    checkExistingPaper();
+});
+
+/* --------------------------- EXAM DETAILS --------------------------- */
+let EXAMS = [];
+let CURRENT_EXAM = {};
+
+examSelect.addEventListener("change", async function() {
+    const examId = this.value;
+    if (!examId) return;
+
+    const res = await fetch(`${EXAM_API}/exam/list-all`);
+    const data = await res.json();
+    EXAMS = data.exams;
+
+    CURRENT_EXAM = EXAMS.find(e => e.exam_id == examId) || {};
+    checkExistingPaper();
+});
+
+/* ------------------------ CHECK EXISTING PAPER ------------------------ */
+async function checkExistingPaper() {
+    const cls = classSelect.value;
+    const sub = subjectSelect.value;
+    const examId = examSelect.value;
+
+    if (!cls || !sub || !examId) return;
+
+    const examData = EXAMS.find(e => e.exam_id == examId);
+    if (!examData) return;
+
+    const url = `${EXAM_API}/exam/get-paper?session=${session}&class_name=${cls}&exam_name=${examData.exam_name}&subject=${sub}`;
+
+    const res = await fetch(url);
+
+    if (res.status === 200) {
+        viewLink.innerHTML = `<a href="${url}" target="_blank" style="color:green;">📄 View Uploaded Paper</a>`;
+    } else {
+        viewLink.innerHTML = `<p style="color:red;">No paper uploaded</p>`;
+    }
+}
+
+/* ----------------------------- UPLOAD PDF ----------------------------- */
+async function uploadPaper() {
+    const cls = classSelect.value;
+    const sub = subjectSelect.value;
+    const examId = examSelect.value;
+    const file = paperFile.files[0];
+
+    if (!cls || !sub || !examId || !file) {
+        alert("Please select all fields and choose file!");
+        return;
+    }
+
+    const exam = EXAMS.find(e => e.exam_id == examId);
+
+    let fd = new FormData();
+    fd.append("pdf", file);
+    fd.append("session", session);
+    fd.append("class_name", cls);
+    fd.append("exam_name", exam.exam_name);
+    fd.append("subject", sub);
+
+    const res = await fetch(`${EXAM_API}/exam/upload-paper`, {
+        method: "POST",
+        body: fd
+    });
+
+    const data = await res.json();
+    alert(data.message);
+    checkExistingPaper();
+}
+
+/* ---------------------- DOWNLOAD STRUCTURE ---------------------- */
+async function downloadStructure() {
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = docx;
+
+    const cls = classSelect.value;
+    const sub = subjectSelect.value;
+    const exam = CURRENT_EXAM;
+
+    const doc = new Document({
+        sections: [{
+            children: [
+                new Paragraph({
+                    text: "P.S. PUBLIC SCHOOL",
+                    alignment: AlignmentType.CENTER,
+                    heading: HeadingLevel.HEADING_1
+                }),
+
+                new Paragraph({ text:`Session: ${session}`, alignment: AlignmentType.CENTER }),
+                new Paragraph({ text:`Exam: ${exam.exam_name}`, alignment: AlignmentType.CENTER }),
+                new Paragraph({ text:`Class: ${cls}`, alignment: AlignmentType.CENTER }),
+                new Paragraph({ text:`Subject: ${sub}`, alignment: AlignmentType.CENTER }),
+
+                new Paragraph({ text:" " }),
+                new Paragraph({ text:"QUESTION PAPER", heading: HeadingLevel.HEADING_2 }),
+                new Paragraph({ text:" " })
+            ]
+        }]
+    });
+
+    const blob = await Packer.toBlob(doc);
+    saveAs(blob, `${cls}_${sub}_${exam.exam_name}.docx`);
+}
+</script>
+
+</body>
+</html>

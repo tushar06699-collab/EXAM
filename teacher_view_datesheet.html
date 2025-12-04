@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Full Datesheet – School ERP</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Poppins, sans-serif;
+    background: #f2f4f7;
+}
+
+/* ================= TOPBAR WITH HAMBURGER ================= */
+.topbar {
+    background:#233465;
+    color:white;
+    padding:18px 20px;
+    display:flex;
+    align-items:center;
+    gap:20px;
+}
+.menu-icon{
+    font-size:28px;
+    cursor:pointer;
+    user-select:none;
+}
+.topbar h2{
+    margin:0;
+    font-size:22px;
+}
+
+/* ================= SLIDING SIDEBAR ================= */
+.sidebar {
+    width: 240px;
+    background: #233465;
+    color: white;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: -260px;
+    padding-top: 30px;
+    transition: 0.3s ease;
+    z-index: 1000;
+}
+.sidebar.active {
+    left: 0;
+}
+.sidebar h2 {
+    text-align: center;
+    font-size: 22px;
+    margin-bottom: 30px;
+}
+.sidebar a {
+    display: block;
+    padding: 14px 20px;
+    color: white;
+    text-decoration: none;
+    font-size: 16px;
+}
+.sidebar a:hover {
+    background: rgba(255,255,255,0.25);
+}
+.close-btn{
+    position:absolute;
+    top:10px;
+    right:15px;
+    font-size:28px;
+    cursor:pointer;
+    color:white;
+}
+
+/* ================= OVERLAY WHEN MENU OPEN ================= */
+.overlay {
+    position: fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.4);
+    display:none;
+    z-index: 999;
+}
+.overlay.active { display:block; }
+
+/* ================= PAGE CONTENT ================= */
+.content {
+    padding: 20px;
+    margin-top:20px;
+}
+
+header {
+    background:#233465;
+    color:#fff;
+    padding:1rem;
+    text-align:center;
+    font-size:1.5rem;
+    border-radius:8px;
+}
+
+main {
+    max-width:1200px;
+    margin:2rem auto;
+    background:#fff;
+    padding:2rem;
+    border-radius:12px;
+    box-shadow:0 2px 12px rgba(0,0,0,0.1);
+}
+
+label {
+    font-weight:600;
+    display:block;
+    margin-top:1rem;
+}
+select {
+    padding:10px;
+    width:100%;
+    border-radius:6px;
+    border:1px solid #ccc;
+}
+
+.head-title { 
+    text-align:center; 
+    font-size:20px; 
+    font-weight:700; 
+    margin-top:15px; 
+}
+.school-sub { 
+    text-align:center; 
+    font-size:14px; 
+    margin-bottom:20px; 
+}
+
+table {
+    width:100%;
+    border-collapse:collapse;
+    margin-top:20px;
+    font-size:14px;
+}
+th, td {
+    border:1px solid #ccc;
+    padding:8px;
+    text-align:center;
+}
+th { background:#f0f0f0; }
+
+</style>
+</head>
+<body>
+
+<!-- ================= HAMBURGER TOP BAR ================= -->
+<div class="topbar">
+    <span class="menu-icon" onclick="openMenu()">☰</span>
+    <h2>Full Datesheet</h2>
+</div>
+
+<!-- ================= SLIDING SIDEBAR ================= -->
+<div class="sidebar" id="sidebar">
+    <span class="close-btn" onclick="closeMenu()">×</span>
+
+    <h2>School ERP</h2>
+
+    <a href="teacher_dashboard.html">Dashboard</a>
+    <a href="teacher_my_classes.html">My Time Table</a>
+    <a href="teacher_view_datesheet.html" style="background: rgba(255,255,255,0.25);">View Datesheet</a>
+    <a href="teacher_papers.html">Question Papers</a>
+    <a href="teacher_marks_upload.html">Upload Marks</a>
+</div>
+
+<!-- ================= OVERLAY ================= -->
+<div class="overlay" id="overlay" onclick="closeMenu()"></div>
+
+<!-- ================= CONTENT AREA ================= -->
+<div class="content">
+
+<header>Full Datesheet</header>
+
+<main>
+
+    <div class="head-title">P.S. PUBLIC SCHOOL</div>
+    <div class="school-sub">Near Ganaur Road Bhurri (Sonipat)</div>
+
+    <label>Select Session</label>
+    <select id="sessionSelect"></select>
+
+    <label>Select Exam</label>
+    <select id="examSelect"></select>
+
+    <table id="fullTable">
+        <thead>
+            <tr id="tableHeadRow">
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+
+</main>
+
+</div>
+
+<script>
+/* ================= SLIDING MENU FUNCTIONS ================= */
+function openMenu(){
+    document.getElementById("sidebar").classList.add("active");
+    document.getElementById("overlay").classList.add("active");
+}
+function closeMenu(){
+    document.getElementById("sidebar").classList.remove("active");
+    document.getElementById("overlay").classList.remove("active");
+}
+
+/* ================= BACKEND API ================= */
+const FEE_API = "https://fee-backend-ntas.onrender.com";
+const EXAM_API = "http://127.0.0.1:5000";
+
+let EXAMS = [];
+let CLASSES = [];
+
+// Load Sessions
+async function loadSessions() {
+    const res = await fetch(`${FEE_API}/session/list`);
+    const data = await res.json();
+    sessionSelect.innerHTML = data.sessions.map(s => `<option value="${s}">${s}</option>`).join("");
+}
+loadSessions();
+
+// Load Classes
+async function loadClasses() {
+    const res = await fetch(`${FEE_API}/students`, {
+        headers: { "X-Session": sessionSelect.value }
+    });
+    const data = await res.json();
+    CLASSES = [...new Set(data.students.map(s => s.class_name))].sort();
+}
+sessionSelect.addEventListener("change", loadClasses);
+loadClasses();
+
+// Load Exams
+async function loadExams() {
+    const res = await fetch(`${EXAM_API}/exam/list-all`);
+    const data = await res.json();
+    EXAMS = data.exams || [];
+
+    examSelect.innerHTML = `<option value="">Select Exam</option>` +
+        EXAMS.map(ex => `<option value="${ex.exam_id}">${ex.exam_name}</option>`).join("");
+}
+loadExams();
+
+// Load Full Datesheet
+examSelect.addEventListener("change", loadFullDatesheet);
+
+async function loadFullDatesheet() {
+    const session = sessionSelect.value;
+    const examId = examSelect.value;
+    if (!session || !examId) return;
+
+    const exam = EXAMS.find(e => e.exam_id == examId);
+
+    const headRow = document.getElementById("tableHeadRow");
+    headRow.innerHTML = "<th>Date</th>" + CLASSES.map(c => `<th>${c}</th>`).join("");
+
+    let allRows = {};
+
+    for (let cls of CLASSES) {
+        const res = await fetch(
+            `${EXAM_API}/exam/get-datesheet?class_name=${cls}&session=${session}&exam_name=${exam.exam_name}`
+        );
+        const data = await res.json();
+        const sheet = data.datesheet || [];
+
+        sheet.forEach(item => {
+            if (!allRows[item.date]) allRows[item.date] = {};
+            allRows[item.date][cls] = item.subject;
+        });
+    }
+
+    const body = document.getElementById("tableBody");
+    body.innerHTML = "";
+
+    const sortedDates = Object.keys(allRows).sort();
+
+    sortedDates.forEach(date => {
+        let row = `<tr><td>${date}</td>`;
+        CLASSES.forEach(cls => {
+            row += `<td>${allRows[date][cls] || ""}</td>`;
+        });
+        row += "</tr>";
+        body.innerHTML += row;
+    });
+}
+</script>
+
+</body>
+</html>
