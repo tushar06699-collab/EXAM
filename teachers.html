@@ -226,7 +226,7 @@ function addTeacher(){
         return;
     }
 
-    fetch(API + "/teacher/add",{
+    fetch(EXAM_API + "/teacher/add",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({ session: currentSession, name, username, password })
@@ -237,7 +237,7 @@ function addTeacher(){
 
 /* Load teachers */
 function loadTeachers(){
-    fetch(API + `/teacher/list?session=${currentSession}`)
+    fetch(EXAM_API + `/teacher/list?session=${currentSession}`)
     .then(r => r.json())
     .then(res => {
         let tbl = document.getElementById("teacherTable");
@@ -265,7 +265,7 @@ function loadTeachers(){
 function delTeacher(id){
     if(!confirm("Delete this teacher?")) return;
 
-    fetch(API + "/teacher/delete/" + id,{ method:"DELETE" })
+    fetch(EXAM_API + "/teacher/delete/" + id,{ method:"DELETE" })
     .then(r => r.json())
     .then(res => { alert(res.message); loadTeachers(); });
 }
