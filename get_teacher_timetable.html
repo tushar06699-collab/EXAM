@@ -68,8 +68,9 @@ tr:nth-child(even){ background:#f2f4f7; }
 </div>
 
 <script>
-const FEE_API = "https://fee-backend-ntas.onrender.com";
-const EXAM_API = "https://exam-backend-ko0t.onrender.com";
+const EXAM_API = "https://exam-backend-ko0t.onrender.com"; // use deployed backend
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
+
 
 const periods = ["Period 1","Period 2","Period 3","Period 4","Lunch","Period 5","Period 6","Period 7","Period 8"];
 const periodMap = {"Period 1":1,"Period 2":2,"Period 3":3,"Period 4":4,"Period 5":5,"Period 6":6,"Period 7":7,"Period 8":8};
@@ -85,16 +86,42 @@ let timetableData = {};
 
 // LOAD SESSIONS
 async function loadSessions() {
-    const res = await fetch(`${FEE_API}/session/list`);
+    const res = await fetch(`${EXAM_API}/session/list`);
     const data = await res.json();
     sessionSelect.innerHTML = data.sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
 }
 
 // LOAD CLASSES
+
+// LOAD CLASSES
 async function loadClasses() {
-    const res = await fetch(`${FEE_API}/students`);
-    const data = await res.json();
-    classes = [...new Set(data.students.map(s => s.class_name))].sort();
+    try {
+        const res = await fetch(`${STUDENT_API}/students`);
+        const data = await res.json();
+
+        // Support both array directly or object with 'students' property
+        const studentList = Array.isArray(data) ? data : (data.students || []);
+
+        // Extract unique class names
+        classes = [...new Set(studentList.map(s => s.class_name).filter(Boolean))];
+
+        // Custom sort: numeric first, then stream
+        classes.sort((a,b)=>{
+            const regex = /^(\d+)(?:\s*(.*))?$/;
+            const ma = a.match(regex), mb = b.match(regex);
+            if(!ma || !mb) return 0;
+            const numA = parseInt(ma[1]), numB = parseInt(mb[1]);
+            if(numA !== numB) return numA - numB;
+            const streamA = ma[2]||"", streamB = mb[2]||"";
+            return streamA.localeCompare(streamB);
+        });
+
+        console.log("Classes loaded:", classes);
+
+    } catch(e) {
+        console.error("Error loading classes:", e);
+        classes = [];
+    }
 }
 
 // LOAD TIMETABLE AND EXTRACT TEACHERS

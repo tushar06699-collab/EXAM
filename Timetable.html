@@ -69,8 +69,8 @@ button:hover { background:#233465; }
 </div>
 
 <script>
-const FEE_API = "https://fee-backend-ntas.onrender.com";
-const EXAM_API = "https://exam-backend-ko0t.onrender.com";
+const EXAM_API = "https://exam-backend-ko0t.onrender.com"; 
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
 
 let classes = [];
 let subjectsByClass = {};
@@ -86,7 +86,7 @@ const teacherSelect = document.getElementById("teacherSelect");
 // ----------------- Load Data -----------------
 async function loadSessions() {
     try {
-        const res = await fetch(`${FEE_API}/session/list`);
+        const res = await fetch(`${EXAM_API}/session/list`);
         const data = await res.json();
         sessionSelect.innerHTML = data.sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
     } catch(e){
@@ -108,12 +108,32 @@ async function loadTeachers() {
 }
 
 async function loadClasses() {
+    // Show temporary loading message
+    timetableBody.innerHTML = `<tr><td colspan="4">Loading classes...</td></tr>`;
+
     try {
-        const res = await fetch(`${FEE_API}/students`);
-        const data = await res.json();
-        classes = [...new Set(data.students.map(s => s.class_name))].sort();
+        const res = await fetch(`${STUDENT_API}/students`);
+        const students = await res.json();
+
+        // Extract unique class names
+        classes = [...new Set(students.map(s => s.class_name).filter(Boolean))];
+
+        // Sort 1st → 12th (numeric)
+        classes.sort((a,b)=>{
+            const regex = /^(\d+)(?:\s*(.*))?$/;
+            const ma = a.match(regex), mb = b.match(regex);
+            if(!ma || !mb) return 0;
+            const numA = parseInt(ma[1]), numB = parseInt(mb[1]);
+            if(numA !== numB) return numA - numB;
+            const streamA = ma[2]||"", streamB = mb[2]||"";
+            return streamA.localeCompare(streamB);
+        });
+
+        timetableBody.innerHTML = ""; // clear loading message
+        console.log("Classes loaded:", classes);
     } catch(e) {
-        console.error(e);
+        console.error("Error loading classes:", e);
+        timetableBody.innerHTML = `<tr><td colspan="4">Failed to load classes</td></tr>`;
         classes = [];
     }
 }

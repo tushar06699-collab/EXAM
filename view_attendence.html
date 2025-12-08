@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Monthly Attendance – School ERP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{margin:0;font-family:Poppins,sans-serif;background:#f2f4f7;display:flex;}
+.sidebar{width:240px;background:#233465;color:white;height:100vh;position:fixed;left:0;top:0;padding-top:20px;}
+.sidebar h2{text-align:center;font-size:22px;margin-bottom:25px;}
+.sidebar a{display:block;padding:12px 20px;color:white;text-decoration:none;font-size:16px;}
+.sidebar a:hover{background:rgba(255,255,255,0.25);}
+.sidebar a.active{background:rgba(255,255,255,0.35);}
+.content{margin-left:240px;width:calc(100% - 240px);padding:20px;}
+header{background:#233465;color:#fff;padding:1rem;text-align:center;font-size:1.5rem;border-radius:8px;}
+main{max-width:900px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.1);}
+label{display:block;font-weight:600;margin-top:15px;}
+select,input{width:100%;padding:10px;margin-top:5px;border:1px solid #ccc;border-radius:6px;}
+button{margin-top:20px;width:100%;padding:12px;background:#4f46e5;color:white;border:none;font-size:16px;border-radius:6px;cursor:pointer;}
+button:hover{background:#3730a3;}
+table{width:100%;border-collapse:collapse;margin-top:20px;}
+th,td{border:1px solid #ccc;padding:8px;text-align:center;}
+th{background:#233465;color:white;}
+.export-btn{background:#f59e0b;margin-top:10px;}
+</style>
+</head>
+
+<body>
+<div class="sidebar">
+<h2>School ERP</h2>
+<a href="dashboard.html">Dashboard</a>
+<a href="admin_attendence.html">Attendance Upload</a>
+<a href="view_attendence.html" style="background: rgba(255,255,255,0.08);">Monthly Attendance</a>
+</div>
+
+<div class="content">
+<header>Monthly Attendance</header>
+<main>
+<label>Session</label>
+<select id="sessionSelect"></select>
+
+<label>Class</label>
+<select id="classSelect"></select>
+
+<label>Month</label>
+<input type="month" id="monthSelect">
+
+<button onclick="loadAttendance()">Load Attendance</button>
+
+<div id="tableContainer"></div>
+<button onclick="exportCSV()" class="export-btn">Export CSV</button>
+</main>
+</div>
+
+<script>
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
+const ATTENDANCE_API = "https://exam-backend-ko0t.onrender.com";
+
+// ------------------ Load Sessions ------------------
+async function loadSessions() {
+    const res = await fetch(`${ATTENDANCE_API}/session/list`);
+    const data = await res.json();
+    if(data.sessions){
+        sessionSelect.innerHTML = `<option value="">Select Session</option>` + 
+            data.sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
+        if(data.sessions.length) sessionSelect.value = data.sessions[0];
+        loadClasses();
+    }
+}
+loadSessions();
+sessionSelect.addEventListener("change", loadClasses);
+
+// ------------------ Load Classes ------------------
+async function loadClasses(){
+    const session = sessionSelect.value;
+    if(!session) return;
+    const res = await fetch(`${STUDENT_API}/students?session=${session}`);
+    const students = await res.json();
+    const classes = [...new Set(students.map(s=>s.class_name).filter(Boolean))];
+    classSelect.innerHTML = `<option value="">Select Class</option>` + classes.map(c=>`<option value="${c}">${c}</option>`).join("");
+}
+
+// ------------------ Load Attendance ------------------
+async function loadAttendance(){
+    const session = sessionSelect.value;
+    const cls = classSelect.value;
+    const month = monthSelect.value;
+
+    if(!session||!cls||!month) return alert("Select session, class, and month");
+
+    const [year, mon] = month.split("-");
+    const daysInMonth = new Date(year, mon, 0).getDate();
+
+    // Load students
+    const res = await fetch(`${STUDENT_API}/students?session=${session}`);
+    const students = await res.json();
+    const classStudents = students.filter(s=>s.class_name===cls);
+    if(!classStudents.length) return alert("No students found");
+
+    // Prepare attendance object
+    let attendanceMap = {};
+    classStudents.forEach(s => {
+        attendanceMap[s.id] = {name: s.student_name};
+        for(let d=1; d<=daysInMonth; d++){
+            const day = d.toString().padStart(2,'0');
+            attendanceMap[s.id][`${year}-${mon}-${day}`] = "-"; // default
+        }
+    });
+
+    // Fetch attendance day by day
+    for(let d=1; d<=daysInMonth; d++){
+        const day = d.toString().padStart(2,'0');
+        const dateStr = `${year}-${mon}-${day}`;
+        try{
+            const attRes = await fetch(`${ATTENDANCE_API}/attendance/list?session=${session}&class_name=${encodeURIComponent(cls)}&date=${dateStr}`);
+            const attData = await attRes.json();
+            if(attData.success && attData.attendance){
+                attData.attendance.forEach(a => {
+                    if(attendanceMap[a.student_id]) attendanceMap[a.student_id][dateStr] = a.status;
+                });
+            }
+        }catch(err){console.error("Error fetching attendance for", dateStr, err);}
+    }
+
+    // Build table
+    let html = `<table><tr><th>Roll No</th><th>Student Name</th>`;
+    for(let d=1; d<=daysInMonth; d++){
+        html += `<th>${d}</th>`;
+    }
+    html += `<th>Present</th><th>Absent</th><th>Leave</th></tr>`;
+
+    let roll=1;
+    for(const [id, info] of Object.entries(attendanceMap)){
+        let present=0, absent=0, leave=0;
+        html += `<tr><td>${roll++}</td><td>${info.name}</td>`;
+        for(let d=1; d<=daysInMonth; d++){
+            const day = d.toString().padStart(2,'0');
+            const status = info[`${year}-${mon}-${day}`];
+            html += `<td>${status}</td>`;
+            if(status==="present") present++;
+            else if(status==="absent") absent++;
+            else if(status==="leave") leave++;
+        }
+        html += `<td>${present}</td><td>${absent}</td><td>${leave}</td></tr>`;
+    }
+
+    html += `</table>`;
+    document.getElementById("tableContainer").innerHTML = html;
+}
+
+// ------------------ Export CSV ------------------
+function exportCSV(){
+    const table = document.querySelector("#tableContainer table");
+    if(!table) return alert("No data to export!");
+    let csv = [];
+    const rows = table.querySelectorAll("tr");
+    rows.forEach(tr=>{
+        const row = [];
+        tr.querySelectorAll("th,td").forEach(td=>{
+            row.push(td.textContent.trim());
+        });
+        csv.push(row.join(","));
+    });
+    const blob = new Blob([csv.join("\n")],{type:"text/csv"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `attendance_${monthSelect.value}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>

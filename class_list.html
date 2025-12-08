@@ -32,12 +32,10 @@ body{
 .sidebar a:hover, .active{
     background:#233465;
 }
-
 .main{
     margin-left:240px;
     padding:30px;
 }
-
 table{
     width:100%;
     border-collapse:collapse;
@@ -57,146 +55,127 @@ th{
 tr:nth-child(even){
     background:#f8f8f8;
 }
-.studentList{
-    font-size:14px;
-    color:#333;
+.sessionBox{
+    background:#233465;
+    color:#fff;
+    padding:10px 16px;
+    width:max-content;
+    border-radius:6px;
+    margin-bottom:20px;
 }
 </style>
 </head>
-
 <body>
 
 <div class="sidebar">
     <h2>EXAM ERP</h2>
     <a href="dashboard.html">Dashboard</a>
     <a class="active" href="class_list.html">Classes</a>
-     <a href="incharge.html">Add Incharge</a>
+    <a href="incharge.html">Add Incharge</a>
 </div>
 
 <div class="main">
     <h1>Class List</h1>
 
-    <label>Session: </label>
-    <select id="sessionSelect" onchange="loadClasses()"></select>
-
-    <br><br>
+    <!-- SHOW ONLY CURRENT SESSION -->
+    <div id="currentSession" class="sessionBox">Loading session...</div>
 
     <table>
         <thead>
             <tr>
                 <th>Class Name</th>
-                <th>Total Students</th>
-                <th>Incharge Name</th>
+                <th>Current Incharge</th>
             </tr>
         </thead>
         <tbody id="classTable">
-            <tr><td colspan="3" style="text-align:center;">Loading...</td></tr>
+            <tr><td colspan="2" style="text-align:center;">Loading...</td></tr>
         </tbody>
     </table>
 </div>
 
 <script>
-const FEE_API = "https://fee-backend-ntas.onrender.com";
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
 const EXAM_API = "https://exam-backend-ko0t.onrender.com";
 
-/* ------------------------------------
-   LOAD SESSIONS
------------------------------------- */
-async function loadSessions() {
+let CURRENT_SESSION = "";
+
+/* LOAD ONLY CURRENT SESSION */
+async function loadSession() {
     try {
-        let res = await fetch(`${FEE_API}/session/list`);
+        let res = await fetch(`${EXAM_API}/session/list`);
         let data = await res.json();
 
-        let sel = document.getElementById("sessionSelect");
-        sel.innerHTML = "";
-
-        data.sessions.forEach(s => {
-            let opt = document.createElement("option");
-            opt.value = s;
-            opt.innerText = s;
-            sel.appendChild(opt);
-        });
-
-        let saved = localStorage.getItem("session");
-        if (saved && data.sessions.includes(saved)) {
-            sel.value = saved;
-        } else {
-            sel.value = data.sessions[0];
-            localStorage.setItem("session", sel.value);
-        }
-
-        loadClasses();
-
-    } catch(err) {
-        console.log("Session load error", err);
-    }
-}
-
-/* ------------------------------------
-   LOAD CLASSES + REAL INCHARGE
------------------------------------- */
-async function loadClasses() {
-
-    let session = document.getElementById("sessionSelect").value;
-    localStorage.setItem("session", session);
-
-    const tbody = document.getElementById("classTable");
-    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Loading...</td></tr>`;
-
-    try {
-        // 1) Fetch students
-        let res = await fetch(`${FEE_API}/students`, {
-            headers: { "X-Session": session }
-        });
-        let data = await res.json();
-        let students = data.students || [];
-
-        // 2) Fetch class incharge from backend
-        let incRes = await fetch(`${EXAM_API}/incharge/get?session=${session}`);
-        let incData = await incRes.json();
-        let inchargeMap = incData.incharge || {};
-
-        // Group by class
-        let classMap = {};
-        students.forEach(s => {
-            let cls = s.class_name || "Unknown";
-            if (!classMap[cls]) classMap[cls] = [];
-            classMap[cls].push(s);
-        });
-
-        tbody.innerHTML = "";
-
-        if (Object.keys(classMap).length === 0) {
-            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">No students found</td></tr>`;
+        if (!data.sessions.length) {
+            document.getElementById("currentSession").innerText = "No sessions found!";
             return;
         }
 
-        // Show classes
-        Object.keys(classMap).forEach(cls => {
+        // Use LAST session (latest added)
+        CURRENT_SESSION = data.sessions[data.sessions.length - 1];
 
-            let totalStudents = classMap[cls].length;
+        document.getElementById("currentSession").innerText =
+            "Current Session: " + CURRENT_SESSION;
 
-            // Get real incharge from backend
-            let inchargeName = inchargeMap[cls] || "<span style='color:red;'>Not Assigned</span>";
+        loadClasses();
 
-            let tr = document.createElement("tr");
+    } catch (error) {
+        console.error("Session fetch error:", error);
+        document.getElementById("currentSession").innerText = "Error loading session!";
+    }
+}
+
+/* LOAD CLASSES BASED ON CURRENT SESSION */
+async function loadClasses() {
+    const tbody = document.getElementById("classTable");
+    tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;">Loading...</td></tr>`;
+
+    try {
+        let res = await fetch(`${STUDENT_API}/students?session=${CURRENT_SESSION}`);
+        let students = await res.json();
+
+        if (!Array.isArray(students)) {
+            students = students.students || [];
+        }
+
+        const uniqueClasses = [...new Set(
+            students.map(s => s.class_name ?? s.class).filter(Boolean)
+        )];
+
+        uniqueClasses.sort((a, b) => {
+            let n1 = parseInt(a.match(/\d+/)?.[0] ?? 0);
+            let n2 = parseInt(b.match(/\d+/)?.[0] ?? 0);
+            return n1 - n2;
+        });
+
+        // Load Incharge
+        let resInc = await fetch(`${EXAM_API}/incharge/get?session=${CURRENT_SESSION}`);
+        let incData = await resInc.json();
+
+        let map = incData.incharge || {};
+
+        tbody.innerHTML = "";
+        if (uniqueClasses.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;">No classes found</td></tr>`;
+            return;
+        }
+
+        uniqueClasses.forEach(cls => {
+            const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td>${cls}</td>
-                <td>${totalStudents}</td>
-                <td>${inchargeName}</td>
+                <td>${map[cls] || "Not Assigned"}</td>
             `;
             tbody.appendChild(tr);
         });
 
-    } catch(err) {
-        console.log(err);
-        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Error loading classes</td></tr>`;
+    } catch (error) {
+        console.error(error);
+        tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:red;">Error loading classes</td></tr>`;
     }
 }
 
-window.onload = loadSessions;
+window.onload = loadSession;
 </script>
-
 
 </body>
 </html>

@@ -2,301 +2,243 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Datesheet Add – School ERP</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body {
-  margin: 0;
-  font-family: Poppins, sans-serif;
-  background: #f2f4f7;
-  display: flex;
-}
-
-/* ===== FIXED LEFT SIDEBAR ===== */
-.sidebar {
-  width: 240px;
-  background: #233465;
-  color: white;
-  height: 100vh;
-  position: fixed;
-  top: 0;
-  left: 0;
-  padding-top: 20px;
-  box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-}
-
-.sidebar h2 {
-  text-align: center;
-  font-size: 22px;
-  margin-bottom: 30px;
-}
-
-.sidebar a {
-  display: block;
-  padding: 12px 20px;
-  color: white;
-  text-decoration: none;
-  font-size: 16px;
-}
-
-.sidebar a:hover {
-  background: rgba(255,255,255,0.2);
-}
-
-.sidebar a.active {
-  background: rgba(255,255,255,0.25);
-}
-
-/* ===== CONTENT AREA ===== */
-.content {
-  margin-left: 240px;
-  width: calc(100% - 240px);
-  padding: 20px;
-}
-
-header {
-  background: #233465;
-  color: white;
-  padding: 1rem;
-  text-align: center;
-  font-size: 1.5rem;
-  border-radius: 8px;
-}
-
-main {
-  max-width: 900px;
-  margin: 2rem auto;
-  background: white;
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-}
-
-label { font-weight: 600; margin-top: 1rem; display: block; }
-input, select {
-  width: 100%;
-  padding: 10px;
-  margin-top: 5px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 20px;
-}
-th, td {
-  border: 1px solid #ccc;
-  padding: 10px;
-  text-align: center;
-}
-th { background: #f0f0f0; }
-
-button {
-  margin-top: 25px;
-  padding: 12px 18px;
-  background: #4f46e5;
-  color: white;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  width: 100%;
-}
-button:hover { background: #3730a3; }
+/* ... same CSS as before ... */
+body {margin:0;font-family:Poppins,sans-serif;background:#f2f4f7;display:flex;}
+.sidebar {width:240px;background:#233465;color:white;height:100vh;position:fixed;left:0;top:0;padding:20px;transition: transform 0.3s ease;}
+.sidebar.closed {transform: translateX(-240px);}
+.sidebar h2{text-align:center;margin-bottom:20px;}
+.sidebar a{color:white;text-decoration:none;display:block;padding:10px 15px;}
+.sidebar a.active{background:rgba(255,255,255,0.2);}
+.content {margin-left:240px;padding:20px;width:calc(100% - 240px);transition: margin-left 0.3s ease;}
+.content.full {margin-left:0;width:100%;}
+header {background:#233465;padding:15px;color:white;text-align:center;font-size:20px;border-radius:8px;position:relative;}
+.hamburger {position:absolute;left:15px;top:50%;transform:translateY(-50%);cursor:pointer;width:30px;height:20px;display:flex;flex-direction:column;justify-content:space-between;}
+.hamburger div {height:4px;background:white;border-radius:2px;}
+table {width:100%;border-collapse:collapse;margin-top:20px;}
+th, td {border:1px solid #ccc;padding:10px;text-align:center;}
+th {background:#e8e8e8;}
+input[type="date"] {padding:6px;width:120px;}
+button {margin-top:20px;padding:12px;width:100%;background:#4f46e5;color:white;border:none;border-radius:6px;cursor:pointer;}
 </style>
 </head>
-
 <body>
 
-<!-- ============== SIDEBAR ============== -->
-<div class="sidebar">
+<div class="sidebar" id="sidebar">
   <h2>School ERP</h2>
   <a href="dashboard.html">Dashboard</a>
-    <a href="exam_create.html">Exam Create</a>
-    <a href="datesheet.html"style="background: rgba(255,255,255,0.2);">Make Datesheet</a>
-    <a href="datesheet_full.html">See Datesheet</a>
+  <a href="exam_create.html">Exam Create</a>
+  <a href="datesheet.html" style="background: rgba(255,255,255,0.2);">Make Datesheet</a>
+  <a href="datesheet_full.html">See Datesheet</a>
 </div>
 
-<!-- ============== CONTENT AREA ============== -->
-<div class="content">
+<div class="content" id="content">
+<header>
+  <div class="hamburger" id="hamburger">
+    <div></div>
+    <div></div>
+    <div></div>
+  </div>
+  Datesheet (All Classes at Once)
+</header>
 
-<header>Datesheet Add</header>
+<div class="controls">
+  <div class="form-group">
+    <label for="sessionSelect">......Session</label>
+    <select id="sessionSelect" disabled></select>
+  </div>
 
-<main>
+  <div class="form-group">
+    <label for="examSelect">Select Exam</label>
+    <select id="examSelect"></select>
+  </div>
+</div>
 
-  <label>Session</label>
-  <select id="sessionSelect"></select>
+<style>
+/* Controls layout */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 20px; /* space between Session and Exam */
+  margin: 15px 0;
+}
 
-  <label>Class</label>
-  <select id="classSelect"></select>
+.form-group {
+  display: flex;
+  align-items: center;
+  gap: 5px; /* space between label and select */
+}
 
-  <label>Select Exam</label>
-  <select id="examSelect"></select>
+.form-group label {
+  min-width: 70px; /* ensures "Session" fits fully */
+  font-weight: 500;
+}
 
-  <label>Exam Time</label>
-  <input type="text" id="examTime" disabled>
+.form-group select {
+  padding: 5px 8px;
+  font-size: 14px;
+}
+</style>
 
-  <label>Total Marks</label>
-  <input type="number" id="totalMarks" disabled>
+<table id="sheetTable">
+  <thead id="thead"></thead>
+  <tbody id="tbody"></tbody>
+</table>
 
-  <table id="sheetTable">
-    <thead>
-      <tr>
-        <th>Subject</th>
-        <th>Date</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-
-  <button onclick="saveDatesheet()">Save Datesheet</button>
-
-</main>
+<button onclick="saveAll()">SAVE FULL DATESHEET</button>
 </div>
 
 <script>
 const FEE_API = "https://fee-backend-ntas.onrender.com";
 const EXAM_API = "https://exam-backend-ko0t.onrender.com";
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
 
 const sessionSelect = document.getElementById("sessionSelect");
-const classSelect = document.getElementById("classSelect");
 const examSelect = document.getElementById("examSelect");
-const examTimeInput = document.getElementById("examTime");
-const totalMarksInput = document.getElementById("totalMarks");
-const tableBody = document.querySelector("#sheetTable tbody");
+const thead = document.getElementById("thead");
+const tbody = document.getElementById("tbody");
 
+let CLASS_LIST = [];
 let EXAMS = [];
+let SUBJECTS_BY_CLASS = {};
 
-// Load Sessions
-async function loadSessions() {
-  const res = await fetch(`${FEE_API}/session/list`);
-  const data = await res.json();
-  sessionSelect.innerHTML = data.sessions.map(s => `<option value="${s}">${s}</option>`).join("");
-}
-loadSessions();
+// Sidebar toggle
+const sidebar = document.getElementById("sidebar");
+const content = document.getElementById("content");
+const hamburger = document.getElementById("hamburger");
+hamburger.addEventListener("click", () => {
+  sidebar.classList.toggle("closed");
+  content.classList.toggle("full");
+});
 
-// Load Classes
-async function loadClasses() {
-  const res = await fetch(`${FEE_API}/students`, {
-    headers: { "X-Session": sessionSelect.value }
-  });
-  const data = await res.json();
-  const classes = [...new Set(data.students.map(s => s.class_name))].sort();
-  classSelect.innerHTML =
-    `<option value="">Select Class</option>` +
-    classes.map(c => `<option value="${c}">${c}</option>`).join("");
-}
-sessionSelect.addEventListener("change", loadClasses);
-loadClasses();
-
-// Load Exams
-async function loadExams() {
-  const res = await fetch(`${EXAM_API}/exam/list-all`);
-  const data = await res.json();
-  EXAMS = data.exams || [];
-  examSelect.innerHTML =
-    `<option value="">Select Exam</option>` +
-    EXAMS.map(ex => `<option value="${ex.exam_id}">${ex.exam_name}</option>`).join("");
-}
-loadExams();
-
-// Auto-fill on exam change
-examSelect.addEventListener("change", async () => {
-  const id = examSelect.value;
-  const exam = EXAMS.find(e => e.exam_id == id);
-
-  if (!exam) {
-    examTimeInput.value = "";
-    totalMarksInput.value = "";
-    tableBody.innerHTML = "";
-    return;
+/* ------------------ LOAD SESSIONS AND LOCK TO LATEST ------------------ */
+async function loadSessionsAndLock(){
+  try {
+    const res = await fetch(`${FEE_API}/session/list`);
+    const data = await res.json();
+    const sessions = data.sessions || [];
+    if(sessions.length > 0){
+      // Pick latest session (or first) as current
+      const currentSession = sessions[sessions.length-1];
+      sessionSelect.innerHTML = `<option value="${currentSession}">${currentSession}</option>`;
+      sessionSelect.disabled = true;
+    } else {
+      alert("No session available!");
+    }
+  } catch(e){
+    console.error("Failed to load sessions", e);
+    alert("Failed to load sessions");
   }
+}
 
-  examTimeInput.value = exam.exam_time;
-  totalMarksInput.value = exam.total_marks;
+/* ------------------ LOAD EXAMS ------------------ */
+async function loadExams(){
+  const session = sessionSelect.value;  // current session: e.g. "2025_26"
+  try {
+    const res = await fetch(`${EXAM_API}/exam/list-all`);
+    const data = await res.json();
+    // Filter exams that belong to the current session only
+    EXAMS = (data.exams || []).filter(e => e.session === session);
 
-  if (!classSelect.value) return;
+    examSelect.innerHTML =
+      `<option value="">Select Exam</option>` +
+      EXAMS.map(e => `<option value="${e.exam_name}">${e.exam_name}</option>`).join("");
 
-  await loadSubjectsWithDates(classSelect.value, sessionSelect.value, exam.exam_name);
-});
+    // Optional: auto-select the first exam if exists
+    if(EXAMS.length > 0){
+      examSelect.value = EXAMS[0].exam_name;
+      buildTable();
+    }
 
-// Auto-load when class chosen
-classSelect.addEventListener("change", async () => {
-  const className = classSelect.value;
-  if (!className || !examSelect.value) return;
+  } catch(e){
+    console.error("Failed to load exams", e);
+  }
+}
 
-  const exam = EXAMS.find(e => e.exam_id == examSelect.value);
-  await loadSubjectsWithDates(className, sessionSelect.value, exam.exam_name);
-});
-
-// Load subjects + datesheet
-async function loadSubjectsWithDates(className, session, examName) {
-  const res = await fetch(
-    `${EXAM_API}/exam/get-datesheet?class_name=${className}&session=${session}&exam_name=${examName}`
-  );
+/* ------------------ LOAD CLASSES ------------------ */
+async function loadClasses(){
+  const res = await fetch(`${STUDENT_API}/students`);
   const data = await res.json();
-  const subjects = data.datesheet || data.subjects || [];
-
-  tableBody.innerHTML = "";
-  subjects.forEach(sub => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${sub.subject}</td>
-      <td><input type="date" value="${sub.date || ""}"></td>`;
-    tableBody.appendChild(tr);
+  CLASS_LIST = [...new Set(data.map(s=>s.class_name))].filter(Boolean).sort((a,b)=>{
+    let n1=parseInt(a), n2=parseInt(b);
+    if(!isNaN(n1) && !isNaN(n2)) return n1-n2;
+    return a.localeCompare(b);
   });
 }
 
-// Save datesheet
-async function saveDatesheet() {
-  const className = classSelect.value;
+/* ------------------ BUILD TABLE ------------------ */
+examSelect.addEventListener("change", buildTable);
+
+async function buildTable(){
   const session = sessionSelect.value;
-  const examId = examSelect.value;
-  const exam = EXAMS.find(e => e.exam_id == examId);
+  const exam = examSelect.value;
+  if(!session || !exam) return;
 
-  if (!className || !session || !exam) return alert("Select session, class, and exam.");
+  await loadClasses();
+  SUBJECTS_BY_CLASS = {};
 
-  const rows = tableBody.querySelectorAll("tr");
-  const subjects = [];
-  const datesheet = [];
-
-  for (let r of rows) {
-    const subject = r.cells[0].innerText;
-    const date = r.cells[1].querySelector("input").value;
-
-    if (!date) return alert(`Please select date for subject: ${subject}`);
-
-    subjects.push(subject);
-    datesheet.push({ subject, date, total_marks: exam.total_marks, duration: 180 });
+  for(let cls of CLASS_LIST){
+    try {
+      const res = await fetch(`${EXAM_API}/exam/get-datesheet?class_name=${cls}&session=${session}&exam_name=${exam}`);
+      const data = await res.json();
+      SUBJECTS_BY_CLASS[cls] = data.datesheet || [];
+    } catch(e){
+      SUBJECTS_BY_CLASS[cls] = [];
+    }
   }
 
-  // Save subjects
-  const res1 = await fetch(`${EXAM_API}/exam/subjects/add`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session, class_name: className, subjects })
-  });
-  const d1 = await res1.json();
-  if (!d1.success) return alert("Error saving subjects: " + d1.message);
+  let allSubjectsSet = new Set();
+  Object.values(SUBJECTS_BY_CLASS).forEach(arr => arr.forEach(sub => {
+    if(sub && sub.subject) allSubjectsSet.add(sub.subject);
+  }));
+  let allSubjects = Array.from(allSubjectsSet);
 
-  // Save datesheet
-  const res2 = await fetch(`${EXAM_API}/exam/add-datesheet`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      session,
-      class_name: className,
-      exam_name: exam.exam_name,
-      datesheet
-    })
-  });
-  const d2 = await res2.json();
+  thead.innerHTML = `<tr><th>Class</th>${allSubjects.map(s => `<th>${s}</th>`).join('')}</tr>`;
 
-  if (d2.success) alert("Datesheet saved successfully!");
-  else alert("Error saving datesheet: " + d2.message);
+  tbody.innerHTML = "";
+  for(let cls of CLASS_LIST){
+    const row = document.createElement("tr");
+    row.innerHTML = `<td>${cls}</td>` + allSubjects.map(sub => {
+      const existing = (SUBJECTS_BY_CLASS[cls] || []).find(e => e.subject === sub);
+      return `<td><input type="date" value="${existing ? existing.date : ''}" id="d_${cls}_${sub.replace(/ /g,'_')}"></td>`;
+    }).join('');
+    tbody.appendChild(row);
+  }
 }
+
+/* ------------------ SAVE DATESHEET ------------------ */
+async function saveAll(){
+  const session = sessionSelect.value;
+  const exam = examSelect.value;
+  if(!session || !exam) { alert("Select exam"); return; }
+
+  let rows = document.querySelectorAll("#sheetTable tbody tr");
+  for(let r of rows){
+    const cls = r.children[0].innerText;
+    let datesheet = [];
+    for(let i=1; i<r.children.length; i++){
+      const subject = thead.querySelectorAll("th")[i].innerText;
+      const dateVal = r.children[i].querySelector("input").value;
+      if(dateVal){
+        datesheet.push({subject, date: dateVal, total_marks:100, duration:180});
+      }
+    }
+    if(datesheet.length > 0){
+      await fetch(`${EXAM_API}/exam/add-datesheet`, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({session, class_name:cls, exam_name:exam, datesheet})
+      });
+    }
+  }
+
+  alert("Datesheet saved successfully!");
+}
+
+// INITIAL LOAD
+loadSessionsAndLock().then(loadExams);
 </script>
 
 </body>

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>All Notices – School ERP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body {
+    margin:0;
+    font-family:Poppins, sans-serif;
+    background:#f4f6f9;
+    color:#333;
+    transition: margin-left 0.3s;
+}
+
+/* Sidebar */
+.sidebar {
+    width:240px;
+    background:#233465;
+    color:white;
+    height:100vh;
+    position:fixed;
+    top:0;
+    left:0;
+    padding-top:20px;
+    transition: transform 0.3s;
+    z-index:1000;
+}
+
+.sidebar h2 {
+    text-align:center;
+    margin-bottom:20px;
+}
+
+.sidebar a {
+    display:block;
+    padding:12px 20px;
+    color:white;
+    text-decoration:none;
+    border-radius:6px;
+}
+
+.sidebar a:hover,
+.sidebar a.active {
+    background:rgba(255,255,255,0.25);
+}
+
+/* Collapsed sidebar */
+.sidebar.closed {
+    transform: translateX(-250px);
+}
+
+/* Hamburger button */
+#hamburger {
+    position:fixed;
+    top:15px;
+    left:15px;
+    z-index:1100;
+    cursor:pointer;
+    width:30px;
+    height:25px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+}
+
+#hamburger div {
+    width:100%;
+    height:4px;
+    background:#233465;
+    border-radius:2px;
+    transition: all 0.3s;
+}
+
+/* Page Content */
+.content {
+    margin-left:240px;
+    padding:20px;
+    transition: margin-left 0.3s;
+}
+
+/* Adjust content when sidebar closed */
+.content.shifted {
+    margin-left:0;
+}
+
+/* Header */
+header {
+    background:#233465;
+    color:white;
+    padding:15px 20px;
+    text-align:center;
+    font-size:24px;
+    font-weight:600;
+    box-shadow:0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Notice cards */
+.notice-container {
+    max-width:900px;
+    margin:30px auto;
+    padding:0 20px;
+}
+
+.notice-card {
+    background:white;
+    border-left:5px solid #233465;
+    border-radius:8px;
+    padding:20px;
+    margin-bottom:20px;
+    box-shadow:0 3px 8px rgba(0,0,0,0.08);
+    transition: transform 0.2s;
+}
+
+.notice-card:hover {
+    transform: translateY(-3px);
+}
+
+.notice-card h3 {
+    margin:0 0 10px 0;
+    font-size:20px;
+    color:#233465;
+}
+
+.notice-card p {
+    margin:5px 0;
+    font-size:15px;
+    line-height:1.5;
+}
+
+.notice-card .date {
+    font-size:14px;
+    color:#555;
+    margin-top:8px;
+}
+
+.notice-card .actions {
+    margin-top:15px;
+}
+
+.notice-card .actions button {
+    padding:8px 15px;
+    margin-right:10px;
+    border:none;
+    border-radius:5px;
+    cursor:pointer;
+    font-size:14px;
+}
+
+.notice-card .actions .view-btn {
+    background:#0077b6;
+    color:white;
+}
+
+.notice-card .actions .view-btn:hover {
+    background:#005f87;
+}
+
+/* Responsive */
+@media(max-width:768px){
+    .content {
+        margin-left:0;
+    }
+    .sidebar {
+        transform: translateX(-250px);
+    }
+}
+</style>
+</head>
+<body>
+
+<!-- Hamburger button -->
+<div id="hamburger">
+    <div></div>
+    <div></div>
+    <div></div>
+</div>
+
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+    <h2>TEACHER ERP</h2>
+     <a href="teacher_dashboard.html">Dashboard</a>
+    <a href="view_notices.html" class="active">Notices and Circular</a>
+    <a href="teacher_my_classes.html">My Time Table</a>
+    <a href="teacher_view_datesheet.html">View Datesheet</a>
+    <a href="teacher_papers.html">Question Papers</a>
+    <a href="teacher_marks_upload.html">Upload Marks</a>
+</div>
+
+<!-- Page Content -->
+<div class="content" id="content">
+    <header>📄 All Notices</header>
+
+    <div class="notice-container" id="noticeList">
+        <!-- Notices will be injected here -->
+    </div>
+</div>
+
+<script>
+const API = "https://exam-backend-ko0t.onrender.com";
+
+/* Sidebar toggle */
+const sidebar = document.getElementById('sidebar');
+const content = document.getElementById('content');
+document.getElementById('hamburger').addEventListener('click', () => {
+    sidebar.classList.toggle('closed');
+    content.classList.toggle('shifted');
+});
+
+/* Load all notices */
+async function loadNotices() {
+    try {
+        const res = await fetch(`${API}/notice/list`);
+        const data = await res.json();
+
+        const container = document.getElementById("noticeList");
+        container.innerHTML = "";
+
+        if (!data.success || !data.notices.length) {
+            container.innerHTML = "<p style='text-align:center; color:#555; margin-top:50px;'>No notices available.</p>";
+            return;
+        }
+
+        data.notices.forEach(n => {
+            const card = document.createElement("div");
+            card.classList.add("notice-card");
+
+            let pdfButton = "";
+            if(n.file){ // only show if PDF exists
+                pdfButton = `<button class="view-btn" onclick="viewNotice('${n.file}')">View PDF</button>`;
+            }
+
+            card.innerHTML = `
+                <h3>📌 ${n.title}</h3>
+                <p>${n.description || ""}</p>
+                <p class="date">Date: ${n.date}</p>
+                <div class="actions">
+                    ${pdfButton}
+                </div>
+            `;
+            container.appendChild(card);
+        });
+
+    } catch (err) {
+        console.error(err);
+        document.getElementById("noticeList").innerHTML = "<p style='text-align:center; color:red; margin-top:50px;'>Failed to load notices.</p>";
+    }
+}
+
+loadNotices();
+
+/* View PDF */
+function viewNotice(filename){
+    window.open(`${API}/notice/get-file/${filename}`, "_blank");
+}
+</script>
+
+</body>
+</html>

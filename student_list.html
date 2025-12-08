@@ -36,10 +36,16 @@ body{
     margin-left:240px;
     padding:30px;
 }
-#sessionDisplay{
-    font-size:18px;
-    color:#324a87;
+#filters{
+    display:flex;
+    gap:15px;
     margin-bottom:15px;
+}
+#filters input{
+    padding:8px;
+    border:1px solid #ccc;
+    border-radius:6px;
+    width:100%;
 }
 table{
     width:100%;
@@ -52,6 +58,7 @@ table{
 th, td{
     padding:12px;
     text-align:left;
+    font-size:14px;
 }
 th{
     background:#324a87;
@@ -68,83 +75,118 @@ tr:nth-child(even){
 <div class="sidebar">
     <h2>EXAM ERP</h2>
     <a href="dashboard.html">Dashboard</a>
-    <a href="student_list.html" style="background: rgba(255,255,255,0.08);">Student List</a>
-
-
+    <a class="active" href="student_list.html">Student List</a>
 </div>
 
 <div class="main">
     <h1>Student List</h1>
 
-    <div id="sessionDisplay">Session: Loading...</div>
+    <div id="filters">
+        <input type="text" id="search" placeholder="Search by name or roll">
+        <input type="text" id="classFilter" placeholder="Filter by class">
+        <input type="text" id="sessionFilter" placeholder="Filter by session">
+    </div>
 
     <table>
         <thead>
             <tr>
                 <th>Roll No</th>
+                <th>PAN No</th>
                 <th>Name</th>
+                <th>Father</th>
+                <th>Mother</th>
                 <th>Class</th>
-                <th>Previous Due</th>
+                <th>Gender</th>
+                <th>Aadhar No</th>
+                <th>Session</th>
             </tr>
         </thead>
-        <tbody id="studentTable">
-            <tr><td colspan="4" style="text-align:center;">Loading...</td></tr>
+        <tbody id="studentBody">
+            <tr><td colspan="9" style="text-align:center;">Loading...</td></tr>
         </tbody>
     </table>
 </div>
 
 <script>
-const API = "https://fee-backend-ntas.onrender.com";
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
+let allStudents = [];
 
-// Load selected session
-const currentSession = localStorage.getItem("session") || "2024_25";
-document.getElementById("sessionDisplay").textContent = "Session: " + currentSession;
-
-// Load students
-async function loadStudents() {
-    const tbody = document.getElementById("studentTable");
-    tbody.innerHTML = "<tr><td colspan='4' style='text-align:center;'>Loading...</td></tr>";
-
+async function loadStudents(){
     try {
-        const res = await fetch(`${API}/students`, {
-            headers: { "X-Session": currentSession }
-        });
-
-        const data = await res.json();
-
-        if (!data.students) {
-            tbody.innerHTML = "<tr><td colspan='4' style='text-align:center;'>No students found</td></tr>";
-            return;
-        }
-
-        let students = data.students;
-
-        // Sort numerically where possible
-        students.sort((a, b) => {
-            let clsA = parseInt(a.class_name) || 0;
-            let clsB = parseInt(b.class_name) || 0;
-
-            if (clsA !== clsB) return clsA - clsB;
-
-            return (parseInt(a.roll) || 0) - (parseInt(b.roll) || 0);
-        });
-
-        tbody.innerHTML = "";
-
-        students.forEach(s => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td>${s.roll}</td>
-                <td>${s.name}</td>
-                <td>${s.class_name}</td>
-                <td>${s.previous_due}</td>
-            `;
-            tbody.appendChild(tr);
-        });
-
-    } catch (err) {
-        tbody.innerHTML = "<tr><td colspan='4' style='text-align:center;'>Error loading students</td></tr>";
+        const res = await fetch(`${STUDENT_API}/students`);
+        allStudents = await res.json();
+        displayStudents(allStudents);
+    } catch(err){
+        console.error("LOAD ERROR:", err);
+        document.getElementById("studentBody").innerHTML = '<tr><td colspan="9" style="text-align:center;">Failed to load students</td></tr>';
     }
+}
+
+function displayStudents(list){
+    const body = document.getElementById("studentBody");
+    body.innerHTML = "";
+
+    if(list.length === 0){
+        body.innerHTML = '<tr><td colspan="9" style="text-align:center;">No students found</td></tr>';
+        return;
+    }
+
+    // Sort naturally by class number then roll number
+    list.sort((a,b) => {
+        let classA = a.class_name ?? a.class ?? "";
+        let classB = b.class_name ?? b.class ?? "";
+
+        let numA = parseInt(classA.match(/\d+/)?.[0] ?? -1);
+        let numB = parseInt(classB.match(/\d+/)?.[0] ?? -1);
+
+        if(numA !== numB) return numA - numB;
+        if(classA < classB) return -1;
+        if(classA > classB) return 1;
+
+        let rollA = Number(a.rollno ?? 0);
+        let rollB = Number(b.rollno ?? 0);
+        return rollA - rollB;
+    });
+
+    list.forEach(s => {
+        body.innerHTML += `
+            <tr>
+                <td>${s.rollno ?? ""}</td>
+                <td>${s.panno ?? ""}</td>
+                <td>${s.student_name ?? ""}</td>
+                <td>${s.father_name ?? ""}</td>
+                <td>${s.mother_name ?? ""}</td>
+                <td>${s.class_name ?? s.class ?? ""}</td>
+                <td>${s.gender ?? ""}</td>
+                <td>${s.aadharno ?? ""}</td>
+                <td>${s.session ?? ""}</td>
+            </tr>
+        `;
+    });
+}
+
+// Filter inputs
+document.getElementById("search").addEventListener("input", filterList);
+document.getElementById("classFilter").addEventListener("input", filterList);
+document.getElementById("sessionFilter").addEventListener("input", filterList);
+
+function filterList(){
+    const search = document.getElementById("search").value.toLowerCase();
+    const classF = document.getElementById("classFilter").value.toLowerCase();
+    const sessF = document.getElementById("sessionFilter").value.toLowerCase();
+
+    const filtered = allStudents.filter(st => {
+        const rollStr = (st.rollno ?? "").toString().toLowerCase();
+        const nameStr = (st.student_name ?? "").toLowerCase();
+        const classStr = (st.class_name ?? st.class ?? "").toLowerCase();
+        const sessionStr = (st.session ?? "").toLowerCase();
+
+        return (nameStr.includes(search) || rollStr.includes(search)) &&
+               classStr.includes(classF) &&
+               sessionStr.includes(sessF);
+    });
+
+    displayStudents(filtered);
 }
 
 window.onload = loadStudents;

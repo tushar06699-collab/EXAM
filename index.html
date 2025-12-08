@@ -58,8 +58,7 @@ button{
 </div>
 
 <script>
-const EXAM_API = "https://exam-backend-ko0t.onrender.com";
-const API = "https://exam-backend-ko0t.onrender.com";
+const API = "https://exam-backend-ko0t.onrender.com"; 
 
 function login(){
     const username = document.getElementById("user").value.trim();
@@ -71,7 +70,7 @@ function login(){
         return;
     }
 
-    fetch(EXAM_API + "/login", {
+    fetch(API + "/login", {
         method: "POST",
         headers: {"Content-Type":"application/json"},
         body: JSON.stringify({username, password})

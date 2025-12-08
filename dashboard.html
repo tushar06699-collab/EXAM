@@ -45,6 +45,8 @@ body {
 <div class="sidebar">
     <h2>EXAM ERP</h2>
     <a href="dashboard.html" class="active">Dashboard</a>
+    <a href="admin_notice.html">Notices and Circular</a>
+        <a href="admin_attendence.html">Attendance</a>
     <a href="subject_add.html">School Corner</a>
     <a href="exam_create.html">Pre Exam Corner</a>
     <a href="exam_paper.html">Exams Corner</a>
@@ -55,10 +57,13 @@ body {
 
     <div class="topbar">
         <div class="topbar-left">
-            <h1>Dashboard</h1>
-            <label>Session:</label>
-            <select id="sessionSelect"></select>
-        </div>
+    <h1>Dashboard</h1>
+    <label>Session:</label>
+    <select id="sessionSelect"></select>
+    <!-- New Manage Sessions button -->
+    <button id="manageSessionBtn" style="margin-left:10px;">Manage Sessions</button>
+</div>
+
         <button id="logoutBtn">Logout</button>
     </div>
 
@@ -85,19 +90,31 @@ body {
 </div>
 
 <script>
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
+const EXAM_API = "https://exam-backend-ko0t.onrender.com"; 
 const FEE_API = "https://fee-backend-ntas.onrender.com";
-const EXAM_API = "https://exam-backend-ko0t.onrender.com";
+
+document.getElementById("manageSessionBtn").onclick = () => {
+    window.location.href = "session_manage.html"; // change if your page name is different
+};
 
 let currentSession = localStorage.getItem("session") || "";
 
 /* LOAD SESSIONS */
+/* LOAD SESSIONS */
 async function loadSessions() {
     try {
-        const res = await fetch(`${FEE_API}/session/list`);
+        const res = await fetch(`${EXAM_API}/session/list`);
         const data = await res.json();
 
         const sel = document.getElementById("sessionSelect");
         sel.innerHTML = "";
+
+        // If no sessions exist
+        if (!data.sessions || data.sessions.length === 0) {
+            sel.innerHTML = `<option value="">No Sessions</option>`;
+            return;
+        }
 
         data.sessions.forEach(s => {
             let op = document.createElement("option");
@@ -106,8 +123,9 @@ async function loadSessions() {
             sel.appendChild(op);
         });
 
-        if (!data.sessions.includes(currentSession))
+        if (!data.sessions.includes(currentSession)) {
             currentSession = data.sessions[0];
+        }
 
         sel.value = currentSession;
         localStorage.setItem("session", currentSession);
@@ -120,10 +138,11 @@ async function loadSessions() {
 
         loadStats();
     } catch(e) {
-        alert("Error loading sessions");
-        console.error(e);
+        console.error("Session load error", e);
+        alert("Failed to load sessions");
     }
 }
+
 
 /* LOAD ALL STATS */
 function loadStats() {
@@ -132,7 +151,45 @@ function loadStats() {
     loadExamCount();
 }
 
-/* EXAM COUNT */
+
+/* 🔵 STUDENT COUNT */
+async function loadStudentCount() {
+    try {
+        const res = await fetch(`${STUDENT_API}/students`);
+        const students = await res.json();
+
+        document.getElementById("studentCount").textContent = students.length;
+
+    } catch(e) {
+        console.error(e);
+        document.getElementById("studentCount").textContent = 0;
+    }
+}
+
+
+/* 🟢 CLASS COUNT (UNIQUE CLASSES) */
+async function loadClassCount() {
+    try {
+        const res = await fetch(`${STUDENT_API}/students`);
+        const students = await res.json();
+
+        const unique = new Set();
+
+        students.forEach(s => {
+            let cls = s.class_name || s.class;
+            if (cls) unique.add(cls.trim());
+        });
+
+        document.getElementById("classCount").textContent = unique.size;
+
+    } catch(e) {
+        console.error(e);
+        document.getElementById("classCount").textContent = 0;
+    }
+}
+
+
+/* 🔴 EXAM COUNT */
 async function loadExamCount() {
     try {
         const res = await fetch(`${EXAM_API}/exam/list-all`);
@@ -144,6 +201,7 @@ async function loadExamCount() {
         }
 
         const exams = data.exams.filter(e => e.session === currentSession);
+
         document.getElementById("examCount").textContent = exams.length;
 
     } catch (e) {
@@ -152,48 +210,13 @@ async function loadExamCount() {
     }
 }
 
-/* STUDENT COUNT */
-async function loadStudentCount() {
-    try {
-        const res = await fetch(`${FEE_API}/students`, {
-            headers: { "X-Session": currentSession }
-        });
-        const data = await res.json();
-
-        const students = Array.isArray(data.students) ? data.students : [];
-        document.getElementById("studentCount").textContent = students.length;
-    } catch(e) {
-        console.error(e);
-        document.getElementById("studentCount").textContent = 0;
-    }
-}
-
-/* CLASS COUNT (UNIQUE CLASSES) */
-async function loadClassCount() {
-    try {
-        const res = await fetch(`${FEE_API}/students`, {
-            headers: { "X-Session": currentSession }
-        });
-        const data = await res.json();
-
-        const students = Array.isArray(data.students) ? data.students : [];
-        const unique = new Set();
-        students.forEach(s => {
-            if (s.class_name) unique.add(s.class_name.trim());
-        });
-
-        document.getElementById("classCount").textContent = unique.size;
-    } catch(e) {
-        console.error(e);
-        document.getElementById("classCount").textContent = 0;
-    }
-}
 
 /* LOGOUT BUTTON */
 document.getElementById("logoutBtn").onclick = () => {
-    localStorage.removeItem("session"); // optional: clear session
+    localStorage.removeItem("session");
     window.location.href = "index.html";
 };
+
 
 window.onload = loadSessions;
 </script>

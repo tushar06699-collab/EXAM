@@ -55,37 +55,53 @@ button{padding:6px 12px;border:none;border-radius:6px;cursor:pointer;}
 </div>
 
 <script>
-const EXAM_API = "https://exam-backend-ko0t.onrender.com";
+const EXAM_API = "https://exam-backend-ko0t.onrender.com"; 
+let sessions = [];
+let currentSession = localStorage.getItem("session") || "";
 
-// Sessions - static list
-const sessions = ["2024_25","2025_26"];
-let currentSession = localStorage.getItem("session") || sessions[0];
-
-function loadSessions(){
+// Load sessions dynamically from backend
+async function loadSessions(){
     const sel = document.getElementById("sessionSelect");
-    sel.innerHTML = sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
-    sel.value = currentSession;
+    sel.innerHTML = "<option>Loading sessions...</option>";
 
-    sel.onchange = () => {
-        currentSession = sel.value;
-        localStorage.setItem("session", currentSession);
+    try{
+        const res = await fetch(`${EXAM_API}/session/list`);
+        const data = await res.json();
+        sessions = data.sessions || [];
+
+        if(sessions.length === 0){
+            sel.innerHTML = "<option>No sessions found</option>";
+            return;
+        }
+
+        currentSession = currentSession || sessions[0];
+        sel.innerHTML = sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
+        sel.value = currentSession;
+
+        sel.onchange = () => {
+            currentSession = sel.value;
+            localStorage.setItem("session", currentSession);
+            loadExams();
+        };
+
         loadExams();
-    };
 
-    loadExams();
+    } catch(err){
+        console.error(err);
+        sel.innerHTML = "<option>Error loading sessions</option>";
+    }
 }
 
+// Load exams filtered by current session
 async function loadExams(){
     const tbody = document.getElementById("examTable");
     tbody.innerHTML = "<tr><td colspan='6' style='text-align:center;'>Loading...</td></tr>";
 
     try{
-        const res = await fetch(`${EXAM_API}/exam/list-all`);
+        const res = await fetch(`${EXAM_API}/exam/list-all?session=${currentSession}`);
         const data = await res.json();
 
-        let exams = data.exams || [];
-        // Filter by selected session
-        exams = exams.filter(e=>e.session === currentSession);
+        const exams = data.exams || [];
 
         if(exams.length === 0){
             tbody.innerHTML = "<tr><td colspan='6' style='text-align:center;'>No exams found</td></tr>";
@@ -93,7 +109,6 @@ async function loadExams(){
         }
 
         tbody.innerHTML = "";
-
         exams.forEach(exam=>{
             const tr = document.createElement("tr");
             tr.innerHTML = `
@@ -103,7 +118,7 @@ async function loadExams(){
                 <td>${exam.exam_time || '—'}</td>
                 <td>${exam.total_marks || '—'}</td>
                 <td>
-                    <button class="delete-btn" onclick="deleteExam(${exam.exam_id})">Delete</button>
+                    <button class="delete-btn" onclick="deleteExam('${exam.exam_id}')">Delete</button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -119,10 +134,7 @@ async function deleteExam(id){
     if(!confirm("Are you sure you want to delete this exam?")) return;
 
     try{
-        const res = await fetch(`${EXAM_API}/exam/delete/${id}`, {
-            method: "DELETE"
-        });
-
+        const res = await fetch(`${EXAM_API}/exam/delete/${id}`, { method: "DELETE" });
         const data = await res.json();
         if(data.success){
             alert("Exam deleted successfully");
@@ -130,7 +142,6 @@ async function deleteExam(id){
         } else {
             alert("Failed: " + data.message);
         }
-
     } catch(e){
         alert("Server error");
         console.error(e);

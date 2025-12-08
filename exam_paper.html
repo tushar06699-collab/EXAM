@@ -5,10 +5,8 @@
 <title>Exam Papers – School ERP</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- FIXED: Only ONE working DOCX library -->
- <script src="https://unpkg.com/docx@7.7.0/build/index.js"></script>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.3.2/docx.min.js"></script>
+<!-- DOCX + FileSaver -->
+<script src="https://unpkg.com/docx@7.7.0/build/index.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
 <style>
@@ -114,10 +112,8 @@ button:hover {
 }
 </style>
 </head>
-
 <body>
 
-<!-- SIDEBAR -->
 <div class="sidebar">
     <h2>School ERP</h2>
     <a href="dashboard.html">Dashboard</a>
@@ -126,12 +122,9 @@ button:hover {
     <a href="get_exam_paper.html">Uploaded Exam Papers</a>
 </div>
 
-<!-- CONTENT -->
 <div class="content">
 <header>Upload / Download Exam Papers</header>
-
 <main>
-
     <label>Session</label>
     <select id="sessionSelect"></select>
 
@@ -148,82 +141,101 @@ button:hover {
     <input type="file" id="paperFile" accept="application/pdf">
 
     <button style="background:#1e8f3d;" onclick="downloadWord()">Download Paper Structure</button>
-
-
     <button onclick="uploadPaper()">Upload Paper</button>
 
     <div id="viewLink"></div>
-
-    
 </main>
-
 </div>
 
 <script>
-const FEE_API = "https://fee-backend-ntas.onrender.com";
 const EXAM_API = "https://exam-backend-ko0t.onrender.com";
+const STUDENT_API = "https://students-backend-8mup.onrender.com"; // your working student API
+
 
 let EXAMS = [];
-let EXAM_DETAILS = {};  // 🔥 store total marks + time
+let EXAM_DETAILS = {};
 
-/* -------------------------
-    LOAD SESSION
---------------------------*/
+// -------------------------
+// LOAD SESSIONS
+// -------------------------
 async function loadSessions() {
-    const res = await fetch(`${FEE_API}/session/list`);
+    const res = await fetch(`${EXAM_API}/session/list`);
     const data = await res.json();
     sessionSelect.innerHTML = data.sessions.map(s => `<option>${s}</option>`).join("");
-    loadClasses();
-}
-loadSessions();
-
-sessionSelect.addEventListener("change", loadClasses);
-
-/* -------------------------
-    LOAD CLASSES
---------------------------*/
-async function loadClasses() {
-    const res = await fetch(`${FEE_API}/students`, {
-        headers: { "X-Session": sessionSelect.value }
-    });
-    const data = await res.json();
-
-    const classes = [...new Set(data.students.map(s => s.class_name))].filter(c=>c).sort();
-
-    classSelect.innerHTML = `<option value="">Select</option>` + 
-        classes.map(c => `<option>${c}</option>`).join("");
-
-    if (classes.length > 0) {
-        classSelect.value = classes[0];
-        loadSubjects();
+    
+    if (data.sessions.length > 0) {
+        sessionSelect.value = data.sessions[0];
+        loadClasses();
     }
 }
+loadSessions();
+sessionSelect.addEventListener("change", loadClasses);
 
+// -------------------------
+// LOAD CLASSES FROM STUDENT API
+// -------------------------
+/* -------------------------
+    LOAD CLASSES FROM STUDENT API
+--------------------------*/
+
+async function loadClasses() {
+    const session = sessionSelect.value;
+    if(!session) return;
+
+    try {
+        const res = await fetch(`${STUDENT_API}/students?session=${session}`);
+        const students = await res.json();
+
+        // Extract unique class names
+        const classes = [...new Set(students.map(s => s.class_name).filter(Boolean))];
+
+        // Sort numerically and by stream
+        classes.sort((a,b)=>{
+            const regex = /^(\d+)(?:\s*(.*))?$/;
+            const ma = a.match(regex), mb = b.match(regex);
+            if(!ma || !mb) return 0;
+            const numA = parseInt(ma[1]), numB = parseInt(mb[1]);
+            if(numA !== numB) return numA - numB;
+            const streamA = ma[2]||"", streamB = mb[2]||"";
+            return streamA.localeCompare(streamB);
+        });
+
+        classSelect.innerHTML = `<option value="">Select Class</option>` +
+            classes.map(c=>`<option value="${c}">${c}</option>`).join("");
+
+        // Auto-select first class if exists
+        if(classes.length>0){
+            classSelect.value = classes[0];
+            loadSubjects();
+        }
+
+    } catch(e) {
+        console.error("Error loading classes:", e);
+        classSelect.innerHTML = `<option value="">No classes found</option>`;
+    }
+}
 classSelect.addEventListener("change", loadSubjects);
 
-/* -------------------------
-    LOAD EXAMS
---------------------------*/
+// -------------------------
+// LOAD EXAMS
+// -------------------------
 async function loadExams() {
     const res = await fetch(`${EXAM_API}/exam/list-all`);
     const data = await res.json();
     EXAMS = data.exams || [];
 
-    examSelect.innerHTML = `<option value="">Select</option>` + 
+    examSelect.innerHTML = `<option value="">Select</option>` +
         EXAMS.map(e => `<option value="${e.exam_id}">${e.exam_name}</option>`).join("");
 }
 loadExams();
 
-/* -------------------------
-    LOAD EXAM DETAILS (TIME + MARKS)
---------------------------*/
+// -------------------------
+// LOAD EXAM DETAILS
+// -------------------------
 async function loadExamDetails(examName, session) {
     const res = await fetch(`${EXAM_API}/exam/get/${session}/${examName}`);
     const data = await res.json();
-
-    if (data.success) {
-        EXAM_DETAILS = data.exam;
-    }
+    if (data.success) EXAM_DETAILS = data.exam;
 }
 
 examSelect.addEventListener("change", async function() {
@@ -234,9 +246,9 @@ examSelect.addEventListener("change", async function() {
     loadSubjects();
 });
 
-/* -------------------------
-    LOAD SUBJECTS
---------------------------*/
+// -------------------------
+// LOAD SUBJECTS
+// -------------------------
 async function loadSubjects() {
     const session = sessionSelect.value;
     const cls = classSelect.value;
@@ -252,22 +264,20 @@ async function loadSubjects() {
     checkExistingPaper();
 }
 
-/* -------------------------
-    CHECK EXISTING PAPER
---------------------------*/
+// -------------------------
+// CHECK EXISTING PAPER
+// -------------------------
 async function checkExistingPaper() {
     const session = sessionSelect.value;
     const exam = examSelect.value;
     const cls = classSelect.value;
     const sub = subjectSelect.value;
-
     if (!session || !exam || !cls || !sub) return;
 
     const examData = EXAMS.find(e => e.exam_id == exam);
     if (!examData) return;
 
     const url = `${EXAM_API}/exam/get-paper?session=${session}&class_name=${cls}&exam_name=${examData.exam_name}&subject=${sub}`;
-
     const res = await fetch(url);
     const div = document.getElementById("viewLink");
 
@@ -278,9 +288,9 @@ async function checkExistingPaper() {
     }
 }
 
-/* -------------------------
-    UPLOAD PDF
---------------------------*/
+// -------------------------
+// UPLOAD PDF
+// -------------------------
 async function uploadPaper() {
     const session = sessionSelect.value;
     const examId = examSelect.value;
@@ -289,13 +299,11 @@ async function uploadPaper() {
     const file = document.getElementById("paperFile").files[0];
 
     if (!file) return alert("Select PDF first!");
-
     const examData = EXAMS.find(e => e.exam_id == examId);
     if (!examData) return alert("Exam not found!");
 
     const checkUrl = `${EXAM_API}/exam/get-paper?session=${session}&class_name=${cls}&exam_name=${examData.exam_name}&subject=${sub}`;
     const checkRes = await fetch(checkUrl);
-
     if (checkRes.status === 200) return alert("❌ Paper already uploaded!");
 
     let fd = new FormData();
@@ -316,11 +324,10 @@ async function uploadPaper() {
     }
 }
 
-/* -----------------------------------
-    WORD FILE GENERATOR (FIXED)
-------------------------------------*/
+// -------------------------
+// DOWNLOAD WORD
+// -------------------------
 async function downloadWord() {
-
     const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ImageRun } = docx;
 
     const session = sessionSelect.value;
@@ -329,13 +336,12 @@ async function downloadWord() {
 
     const examId = examSelect.value;
     const examData = EXAMS.find(e => e.exam_id == examId);
+    if (!examData) return alert("Select Exam!");
     const examName = examData.exam_name;
 
-    // 🔥 LOAD TOTAL MARKS + TIME FROM BACKEND
     const totalMarks = EXAM_DETAILS.total_marks || "";
     const examTime = EXAM_DETAILS.exam_time || "";
 
-    // Load logo
     const logoPath = "images/logo1.png";
     const imgBlob = await fetch(logoPath).then(r => r.blob());
     const imgArray = await imgBlob.arrayBuffer();
@@ -343,8 +349,6 @@ async function downloadWord() {
     const doc = new Document({
         sections: [{
             children: [
-
-                // SCHOOL LOGO
                 new Paragraph({
                     alignment: AlignmentType.CENTER,
                     children: [
@@ -354,26 +358,14 @@ async function downloadWord() {
                         })
                     ]
                 }),
-
-                new Paragraph({
-                    text: "P.S. PUBLIC SCHOOL",
-                    heading: HeadingLevel.HEADING_1,
-                    alignment: AlignmentType.CENTER
-                }),
-
+                new Paragraph({ text: "P.S. PUBLIC SCHOOL", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER }),
                 new Paragraph({ text:`Session: ${session}`, alignment: AlignmentType.CENTER }),
                 new Paragraph({ text:`Exam: ${examName}`, alignment: AlignmentType.CENTER }),
                 new Paragraph({ text:`Class: ${className}`, alignment: AlignmentType.CENTER }),
                 new Paragraph({ text:`Subject: ${subject}`, alignment: AlignmentType.CENTER }),
-
                 new Paragraph({ text:`Total Marks: ${totalMarks}                                                                                            Time: ${examTime}`, alignment: AlignmentType.CENTER }),
-
-                new Paragraph({ text:" ", }),
-                new Paragraph({
-                    text:"QUESTION PAPER",
-                    heading: HeadingLevel.HEADING_2
-                }),
-
+                new Paragraph({ text:" " }),
+                new Paragraph({ text:"QUESTION PAPER", heading: HeadingLevel.HEADING_2 }),
                 new Paragraph({ text:" " })
             ]
         }]
@@ -382,8 +374,6 @@ async function downloadWord() {
     const blob = await Packer.toBlob(doc);
     saveAs(blob, `${subject}_${className}_${examName}.docx`);
 }
-
 </script>
-
 </body>
 </html>

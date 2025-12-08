@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Teacher Attendance – School ERP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{margin:0;font-family:Poppins,sans-serif;background:#f2f4f7;display:flex;}
+.sidebar{width:240px;background:#233465;color:white;height:100vh;position:fixed;left:0;top:0;padding-top:20px;}
+.sidebar h2{text-align:center;font-size:22px;margin-bottom:25px;}
+.sidebar a{display:block;padding:12px 20px;color:white;text-decoration:none;font-size:16px;}
+.sidebar a:hover{background:rgba(255,255,255,0.25);}
+.sidebar a.active{background:rgba(255,255,255,0.35);}
+.content{margin-left:240px;width:calc(100% - 240px);padding:20px;}
+header{background:#233465;color:#fff;padding:1rem;text-align:center;font-size:1.5rem;border-radius:8px;}
+main{max-width:700px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.1);}
+label{display:block;font-weight:600;margin-top:15px;}
+select,input{width:100%;padding:10px;margin-top:5px;border:1px solid #ccc;border-radius:6px;}
+button{margin-top:20px;width:100%;padding:12px;background:#4f46e5;color:white;border:none;font-size:16px;border-radius:6px;cursor:pointer;}
+button:hover{background:#3730a3;}
+table{width:100%;border-collapse:collapse;margin-top:20px;}
+th,td{border:1px solid #ccc;padding:8px;text-align:center;}
+th{background:#233465;color:white;}
+.attendance-select{width:120px;}
+</style>
+</head>
+
+<body>
+<div class="sidebar">
+<h2>School ERP</h2>
+<a href="teacher_dashboard.html">Dashboard</a>
+<a href="view_notices.html">Notices and Circular</a>
+    <a href="teacher_my_classes.html">My Time Table</a>
+    <a href="teacher_attendance.html" style="background: rgba(255,255,255,0.25);">Upload Attendance</a>
+    <a href="teacher_view_datesheet.html">View Datesheet</a>
+    <a href="teacher_papers.html">Question Papers</a>
+    <a href="teacher_marks_upload.html">Upload Marks</a>
+</div>
+
+<div class="content">
+<header>Upload Attendance</header>
+<main>
+<label>Session</label>
+<select id="sessionSelect"></select>
+
+<label>Class</label>
+<select id="classSelect"></select>
+
+<label>Date</label>
+<input type="date" id="attendanceDate">
+
+<button onclick="loadStudents()">Load Students</button>
+
+<div id="tableContainer"></div>
+
+<button onclick="uploadAttendance()" style="background:#1e8f3d;">Save Attendance</button>
+</main>
+</div>
+
+<script>
+const EXAM_API = "https://exam-backend-ko0t.onrender.com";
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
+
+// teacher info (from login)
+const TEACHER_ID = localStorage.getItem("teacher_id");
+let TEACHER_CLASSES = {}; // { className: Set(subjects) }
+
+// ------------------------
+// LOAD SESSIONS
+// ------------------------
+async function loadSessions() {
+    try{
+        const res = await fetch(`${EXAM_API}/session/list`);
+        const data = await res.json();
+        sessionSelect.innerHTML = `<option value="">Select Session</option>` + data.sessions.map(s=>`<option>${s}</option>`).join("");
+        if(data.sessions.length>0){
+            sessionSelect.value = data.sessions[0];
+            await loadTeacherClasses();
+        }
+    }catch(err){
+        console.error("Failed to load sessions:",err);
+    }
+}
+loadSessions();
+sessionSelect.addEventListener("change", loadTeacherClasses);
+
+// ------------------------
+// LOAD TEACHER CLASSES (remove subjects entirely)
+// ------------------------
+async function loadTeacherClasses(){
+    const session = sessionSelect.value;
+    if(!session || !TEACHER_ID) return;
+
+    try{
+        const res = await fetch(`${EXAM_API}/timetable/get?session=${encodeURIComponent(session)}&teacher_id=${encodeURIComponent(TEACHER_ID)}`);
+        const data = await res.json();
+        TEACHER_CLASSES = {};
+        if(data.success && Array.isArray(data.timetable)){
+            const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+            data.timetable.forEach(row=>{
+                const cls = row.class;
+                if(!cls) return;
+                TEACHER_CLASSES[cls] = true; // just store class names
+            });
+        }
+
+        // populate classSelect with only teacher's classes
+        const classes = Object.keys(TEACHER_CLASSES).sort();
+        classSelect.innerHTML = `<option value="">Select Class</option>` + classes.map(c=>`<option value="${c}">${c}</option>`).join("");
+        if(classes.length>0) classSelect.value = classes[0];
+
+    }catch(err){
+        console.error("Error loading teacher classes:",err);
+    }
+}
+
+// ------------------------
+// LOAD STUDENTS & PREFILL ATTENDANCE
+// ------------------------
+async function loadStudents(){
+    const session = sessionSelect.value;
+    const cls = classSelect.value;
+    const date = document.getElementById("attendanceDate").value;
+    if(!session || !cls || !date) return alert("Select session, class, and date");
+
+    try{
+        const res = await fetch(`${STUDENT_API}/students?session=${session}`);
+        const students = await res.json();
+        const classStudents = students.filter(s => s.class_name === cls);
+        if(!classStudents.length) return alert("No students found");
+
+        // Load existing attendance
+        let existingAttendance = {};
+        try{
+            const attRes = await fetch(`${EXAM_API}/attendance/list?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&date=${encodeURIComponent(date)}`);
+            const attData = await attRes.json();
+            if(attData.success && attData.attendance){
+                attData.attendance.forEach(a => existingAttendance[a.student_id] = a.status);
+            }
+        } catch(err){ 
+            console.error("Error fetching attendance:", err); 
+        }
+
+        // Build table with prefilled attendance
+        let html = `<table><tr><th>Roll No</th><th>Name</th><th>Attendance</th></tr>`;
+        classStudents.forEach(s => {
+            const status = existingAttendance[s.id] || "present"; // default present
+            html += `<tr>
+                <td>${s.rollno}</td>
+                <td>${s.student_name}</td>
+                <td>
+                    <select class="attendance-select" data-student-id="${s.id}">
+                        <option value="present" ${status==="present"?"selected":""}>Present</option>
+                        <option value="absent" ${status==="absent"?"selected":""}>Absent</option>
+                        <option value="leave" ${status==="leave"?"selected":""}>Leave</option>
+                    </select>
+                </td>
+            </tr>`;
+        });
+        html += `</table>`;
+        document.getElementById("tableContainer").innerHTML = html;
+
+    } catch(err){
+        console.error(err);
+        alert("Failed to load students");
+    }
+}
+
+// ------------------------
+// UPLOAD ATTENDANCE
+// ------------------------
+async function uploadAttendance(){
+    const session = sessionSelect.value;
+    const class_name = classSelect.value;
+    const date = document.getElementById("attendanceDate").value;
+    if(!session || !class_name || !date) return alert("Select session, class, and date");
+
+    const selects = document.querySelectorAll(".attendance-select");
+    const attendance = Array.from(selects).map(s => ({
+        student_id: s.dataset.studentId,
+        status: s.value
+    }));
+
+    try{
+        const res = await fetch(`${EXAM_API}/attendance/save`, {
+            method:"POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({session, class_name, date, attendance})
+        });
+        const data = await res.json();
+        if(data.success) alert("✅ Attendance saved!");
+        else alert("❌ " + data.message);
+    } catch(err){
+        console.error(err);
+        alert("Error saving attendance");
+    }
+}
+</script>
+</body>
+</html>

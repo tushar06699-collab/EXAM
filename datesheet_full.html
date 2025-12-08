@@ -4,16 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Full Datesheet – School ERP</title>
-
 <style>
 body {
     margin: 0;
     font-family: Poppins, sans-serif;
     background: #f2f4f7;
-    display: flex;
 }
 
-/* ===== LEFT SIDEBAR ===== */
+/* ===== SIDEBAR ===== */
 .sidebar {
     width: 240px;
     background: #233465;
@@ -25,116 +23,75 @@ body {
     padding-top: 20px;
     box-shadow: 2px 0 10px rgba(0,0,0,0.1);
 }
-
-.sidebar h2 {
-    text-align: center;
-    font-size: 22px;
-    margin-bottom: 30px;
-}
-
+.sidebar h2 { text-align:center; font-size:22px; margin-bottom:30px; }
 .sidebar a {
-    display: block;
-    padding: 12px 20px;
-    color: white;
-    text-decoration: none;
-    font-size: 16px;
+    display:block; padding:12px 20px; color:white; text-decoration:none;
 }
+.sidebar a:hover { background:rgba(255,255,255,0.2); }
+.sidebar a.active { background:rgba(255,255,255,0.3); }
 
-.sidebar a:hover {
-    background: rgba(255,255,255,0.2);
-}
-
-.sidebar a.active {
-    background: rgba(255,255,255,0.25);
-}
-
-/* ===== PAGE CONTENT ===== */
+/* ===== CONTENT ===== */
 .content {
     margin-left: 240px;
-    width: calc(100% - 240px);
     padding: 20px;
 }
-
 header {
-    background:#233465;
-    color:#fff;
-    padding:1rem;
-    text-align:center;
-    font-size:1.5rem;
-    border-radius:8px;
+    background:#233465; color:#fff; padding:1rem; text-align:center;
+    font-size:1.5rem; border-radius:8px;
 }
-
 main {
-    max-width:1200px;
-    margin:2rem auto;
-    background:#fff;
-    padding:2rem;
-    border-radius:12px;
+    max-width:1200px; margin:20px auto; background:#fff;
+    padding:20px; border-radius:12px;
     box-shadow:0 2px 12px rgba(0,0,0,0.1);
 }
+label { font-weight:600; display:block; margin-top:1rem; }
+select { padding:10px; width:100%; border-radius:6px; border:1px solid #ccc; }
 
-label {
-    font-weight:600;
-    display:block;
-    margin-top:1rem;
-}
-select {
-    padding:10px;
-    width:100%;
+.sessionBox {
+    background:#233465;
+    color:white;
+    padding:10px 16px;
+    width:max-content;
     border-radius:6px;
-    border:1px solid #ccc;
+    font-weight:600;
+    margin-bottom:10px;
 }
-
-.head-title { text-align:center; font-size:20px; font-weight:700; margin-top:15px; }
-.school-sub { text-align:center; font-size:14px; margin-bottom:20px; }
 
 table {
-    width:100%;
-    border-collapse:collapse;
-    margin-top:20px;
+    width:100%; border-collapse:collapse; margin-top:20px;
     font-size:14px;
 }
-th, td {
-    border:1px solid #ccc;
-    padding:8px;
-    text-align:center;
-}
+th, td { border:1px solid #ccc; padding:8px; text-align:center; }
 th { background:#f0f0f0; }
-
 </style>
 </head>
+
 <body>
 
-<!-- ========== SIDEBAR ========== -->
+<!-- SIDEBAR -->
 <div class="sidebar">
     <h2>School ERP</h2>
     <a href="dashboard.html">Dashboard</a>
     <a href="exam_create.html">Exam Create</a>
     <a href="datesheet.html">Make Datesheet</a>
-    <a href="datesheet_full.html"style="background: rgba(255,255,255,0.2);">See Datesheet</a>
+    <a class="active" href="datesheet_full.html">See Datesheet</a>
 </div>
 
-<!-- ========== CONTENT AREA ========== -->
+<!-- CONTENT -->
 <div class="content">
 
 <header>Full Datesheet</header>
 
 <main>
 
-    <div class="head-title">P.S. PUBLIC SCHOOL</div>
-    <div class="school-sub">Near Ganaur Road Bhurri (Sonipat)</div>
-
-    <label>Select Session</label>
-    <select id="sessionSelect"></select>
+    <div class="sessionBox" id="currentSession">Loading session...</div>
 
     <label>Select Exam</label>
     <select id="examSelect"></select>
 
     <table id="fullTable">
         <thead>
-            <tr id="tableHeadRow">
-                <th>Date</th>
-            </tr>
+            <tr id="tableHeadRow"><th>Date</th></tr>
         </thead>
         <tbody id="tableBody"></tbody>
     </table>
@@ -144,87 +101,108 @@ th { background:#f0f0f0; }
 </div>
 
 <script>
-const FEE_API = "https://fee-backend-ntas.onrender.com";
 const EXAM_API = "https://exam-backend-ko0t.onrender.com";
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
 
-let EXAMS = [];
+let CURRENT_SESSION = "";
 let CLASSES = [];
+let EXAMS = [];
 
-// Load Sessions
-async function loadSessions() {
-    const res = await fetch(`${FEE_API}/session/list`);
-    const data = await res.json();
-    sessionSelect.innerHTML = data.sessions.map(s => `<option value="${s}">${s}</option>`).join("");
+const examSelect = document.getElementById("examSelect");
+const tableHeadRow = document.getElementById("tableHeadRow");
+const tableBody = document.getElementById("tableBody");
+const currentSessionBox = document.getElementById("currentSession");
+
+/* ================================
+   LOAD ONLY CURRENT SESSION
+   ================================ */
+async function loadCurrentSession() {
+    let res = await fetch(`${EXAM_API}/session/list`);
+    let data = await res.json();
+
+    if (!data.sessions.length) {
+        CURRENT_SESSION = "";
+        currentSessionBox.innerText = "No Session Found!";
+        return;
+    }
+
+    // latest added session = LAST INDEX
+    CURRENT_SESSION = data.sessions[data.sessions.length - 1];
+
+    currentSessionBox.innerText = "Current Session: " + CURRENT_SESSION;
+
+    await loadClasses();
+    await loadExams();
 }
-loadSessions();
 
-// Load Classes
+/* ================================
+   LOAD CLASSES OF CURRENT SESSION
+   ================================ */
 async function loadClasses() {
-    const res = await fetch(`${FEE_API}/students`, {
-        headers: { "X-Session": sessionSelect.value }
+    let res = await fetch(`${STUDENT_API}/students?session=${CURRENT_SESSION}`);
+    let data = await res.json();
+
+    if (!Array.isArray(data)) data = data.students || [];
+
+    CLASSES = [...new Set(data.map(s => s.class_name).filter(Boolean))];
+
+    CLASSES.sort((a,b)=>{
+        let n1 = parseInt(a), n2 = parseInt(b);
+        if(!isNaN(n1) && !isNaN(n2)) return n1 - n2;
+        return a.localeCompare(b);
     });
-    const data = await res.json();
-    CLASSES = [...new Set(data.students.map(s => s.class_name))].sort();
 }
-sessionSelect.addEventListener("change", loadClasses);
-loadClasses();
 
-// Load Exams
+/* ================================
+   LOAD EXAMS FOR THIS SESSION
+   ================================ */
 async function loadExams() {
-    const res = await fetch(`${EXAM_API}/exam/list-all`);
-    const data = await res.json();
-    EXAMS = data.exams || [];
+    let res = await fetch(`${EXAM_API}/exam/list-all`);
+    let data = await res.json();
 
-    examSelect.innerHTML = `<option value="">Select Exam</option>` +
-        EXAMS.map(ex => `<option value="${ex.exam_id}">${ex.exam_name}</option>`).join("");
+    EXAMS = (data.exams || []).filter(e => e.session === CURRENT_SESSION);
+
+    examSelect.innerHTML =
+        `<option value="">Select Exam</option>` +
+        EXAMS.map(e => `<option value="${e.exam_name}">${e.exam_name}</option>`).join("");
 }
-loadExams();
 
-// Load Full Datesheet
 examSelect.addEventListener("change", loadFullDatesheet);
 
+/* ================================
+   LOAD FULL DATE SHEET
+   ================================ */
 async function loadFullDatesheet() {
-    const session = sessionSelect.value;
-    const examId = examSelect.value;
-    if (!session || !examId) return;
+    const examName = examSelect.value;
+    if (!examName) return;
 
-    const exam = EXAMS.find(e => e.exam_id == examId);
+    tableHeadRow.innerHTML = "<th>Date</th>" + CLASSES.map(c => `<th>${c}</th>`).join("");
 
-    // Header Row
-    const headRow = document.getElementById("tableHeadRow");
-    headRow.innerHTML = "<th>Date</th>" + CLASSES.map(c => `<th>${c}</th>`).join("");
-
-    // Fetch all class sheets
-    let allRows = {};
+    let result = {};
 
     for (let cls of CLASSES) {
-        const res = await fetch(
-            `${EXAM_API}/exam/get-datesheet?class_name=${cls}&session=${session}&exam_name=${exam.exam_name}`
-        );
-        const data = await res.json();
-        const sheet = data.datesheet || [];
+        let res = await fetch(`${EXAM_API}/exam/get-datesheet?class_name=${cls}&session=${CURRENT_SESSION}&exam_name=${examName}`);
+        let data = await res.json();
 
-        sheet.forEach(item => {
-            if (!allRows[item.date]) allRows[item.date] = {};
-            allRows[item.date][cls] = item.subject;
+        (data.datesheet || []).forEach(item => {
+            if (!result[item.date]) result[item.date] = {};
+            if (!result[item.date][cls]) result[item.date][cls] = [];
+            result[item.date][cls].push(item.subject);
         });
     }
 
-    // Render table
-    const body = document.getElementById("tableBody");
-    body.innerHTML = "";
-
-    const sortedDates = Object.keys(allRows).sort();
-
-    sortedDates.forEach(date => {
-        let row = `<tr><td>${date}</td>`;
+    tableBody.innerHTML = "";
+    Object.keys(result).sort().forEach(date => {
+        let tr = `<tr><td>${date}</td>`;
         CLASSES.forEach(cls => {
-            row += `<td>${allRows[date][cls] || ""}</td>`;
+            tr += `<td>${result[date][cls] ? result[date][cls].join(", ") : ""}</td>`;
         });
-        row += "</tr>";
-        body.innerHTML += row;
+        tr += "</tr>";
+        tableBody.innerHTML += tr;
     });
 }
+
+window.onload = loadCurrentSession;
 </script>
 
 </body>

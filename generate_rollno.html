@@ -32,7 +32,6 @@ body { font-family:Poppins,sans-serif; background:#f2f4f7; margin:0; padding:0; 
     box-shadow:0 4px 12px rgba(0,0,0,0.08);
 }
 header { text-align:center; font-size:1.8rem; margin-bottom:10px; }
-
 .info { text-align:center; margin-bottom:15px; font-size:1rem; }
 
 table { width:100%; border-collapse:collapse; margin-top:10px; }
@@ -44,22 +43,28 @@ button { margin-top:15px; padding:10px 15px; background:#4f46e5; color:#fff; bor
 button:hover { background:#3730a3; }
 
 .roll-slips { display:none; }
-.roll-slip { width:210mm; height:297mm; page-break-after:always; padding:20px; box-sizing:border-box; }
-.roll-slip .row { display:flex; flex-wrap:wrap; gap:10px; }
+.roll-slip { width:210mm; height:297mm; page-break-after:always; padding:20px; box-sizing:border-box; display:flex; flex-wrap:wrap; justify-content:space-between; }
 .roll-slip .card { 
-    flex: 1 1 calc(25% - 10px); 
+    width:32%; 
+    height:53mm; /* Adjust to fit 4 rows per page */
     background:#f7f7f7; 
     padding:10px; 
     border-radius:6px; 
-    margin-bottom:10px; 
     box-sizing:border-box; 
     text-align:center; 
-    font-size:14px; 
+    font-size:13px; 
     border:2px solid #000; 
+    margin-bottom:10px; 
     position:relative;
 }
-.roll-slip .card h4 { margin:0 0 5px 0; font-size:16px; }
+.roll-slip .card h4 { margin:0 0 4px 0; font-size:15px; }
 .roll-slip .card img.logo { width:60px; height:auto; position:absolute; top:10px; right:10px; }
+
+@media print {
+    body { display:block; }
+    .sidebar, button, select, label { display:none; }
+    .roll-slip { page-break-after:always; }
+}
 </style>
 </head>
 
@@ -76,8 +81,7 @@ button:hover { background:#3730a3; }
 <header>Exam Roll No List</header>
 
 <div class="info">
-    <span id="schoolName">School: P.S. Public School</span> | 
-    <span id="inchargeName">Class Incharge: N/A</span>
+    <span id="schoolName">School: P.S. Public School</span>
 </div>
 
 <div>
@@ -103,9 +107,8 @@ button:hover { background:#3730a3; }
 <th>Roll No</th>
 <th>Student Name</th>
 <th>Father Name</th>
+<th>Mother Name</th>
 <th>Exam Name</th>
-<th>Total Due</th>
-<th>Class Incharge</th>
 </tr>
 </thead>
 <tbody id="tbody"></tbody>
@@ -116,93 +119,101 @@ button:hover { background:#3730a3; }
 </div>
 
 <script>
-const FEE_API = "https://fee-backend-ntas.onrender.com";
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
 const EXAM_API = "https://exam-backend-ko0t.onrender.com";
 
 let STUDENTS = [];
 let EXAMS = [];
-let INCHARGE = {}; // cache for incharge
 
 async function loadSessions() {
-    const res = await fetch(`${FEE_API}/session/list`);
-    const data = await res.json();
     const sessionSelect = document.getElementById("sessionSelect");
-    sessionSelect.innerHTML = data.sessions.map(s => `<option value="${s}">${s}</option>`).join("");
-    if(data.sessions.length > 0) sessionSelect.value = data.sessions[0];
-    loadClasses();
+    sessionSelect.innerHTML = "<option>Loading sessions...</option>";
+
+    try {
+        const res = await fetch(`${EXAM_API}/session/list`);
+        const data = await res.json();
+
+        if(!data.success || !data.sessions || data.sessions.length === 0){
+            sessionSelect.innerHTML = "<option>No sessions found</option>";
+            return;
+        }
+
+        const sessions = data.sessions;
+        let currentSession = localStorage.getItem("session") || sessions[0];
+
+        sessionSelect.innerHTML = sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
+        sessionSelect.value = currentSession;
+
+        // Save selection in localStorage
+        sessionSelect.onchange = () => {
+            currentSession = sessionSelect.value;
+            localStorage.setItem("session", currentSession);
+            loadStudents();
+        };
+
+        await loadStudents();
+
+    } catch(e) {
+        console.error("Error fetching sessions:", e);
+        sessionSelect.innerHTML = "<option>Error loading sessions</option>";
+    }
 }
 
-async function loadClasses() {
+async function loadStudents() {
     const session = document.getElementById("sessionSelect").value;
-    const res = await fetch(`${FEE_API}/students`, { headers: { "X-Session": session }});
-    const data = await res.json();
-    STUDENTS = data.students || [];
+    try {
+        const res = await fetch(`${STUDENT_API}/students?session=${session}`);
+        const data = await res.json();
+        const studentsList = data.students || data || [];
+        STUDENTS = studentsList;
+        populateClasses();
+        await loadExams();
+    } catch(e) {
+        console.error("Error fetching students:", e);
+    }
+}
 
-    STUDENTS = STUDENTS.map(s => {
-        try { s.months = typeof s.months === "string" ? JSON.parse(s.months) : s.months; } 
-        catch(e){ s.months = {}; } 
-        return s; 
-    });
-
-    const classes = [...new Set(STUDENTS.map(s=>s.class_name).filter(c=>c))].sort();
+function populateClasses() {
+    const classes = [...new Set(STUDENTS.map(s => s.class_name).filter(Boolean))].sort();
     const classSelect = document.getElementById("classSelect");
     classSelect.innerHTML = `<option value="">Select</option>` + classes.map(c=>`<option value="${c}">${c}</option>`).join("");
     if(classes.length>0) classSelect.value = classes[0];
-    await loadExams();
-    await loadIncharge(); // fetch incharge for session
 }
 
 async function loadExams() {
-    const res = await fetch(`${EXAM_API}/exam/list-all`);
-    const data = await res.json();
-    EXAMS = data.exams || [];
-    const examSelect = document.getElementById("examSelect");
-    examSelect.innerHTML = `<option value="">Select</option>` + EXAMS.map(e=>`<option value="${e.exam_name}">${e.exam_name}</option>`).join("");
-}
-
-async function loadIncharge() {
     const session = document.getElementById("sessionSelect").value;
-    const res = await fetch(`${EXAM_API}/incharge/get?session=${session}`);
-    const data = await res.json();
-    INCHARGE = data.success ? data.incharge : {};
-    updateInchargeDisplay();
+    try {
+        const res = await fetch(`${EXAM_API}/exam/list-all?session=${session}`);
+        const data = await res.json();
+        EXAMS = data.exams || [];
+        const examSelect = document.getElementById("examSelect");
+        examSelect.innerHTML = `<option value="">Select</option>` + EXAMS.map(e=>`<option value="${e.exam_name}">${e.exam_name}</option>`).join("");
+    } catch(e) {
+        console.error("Error fetching exams:", e);
+    }
 }
 
-function updateInchargeDisplay() {
-    const cls = document.getElementById("classSelect").value;
-    const inchargeSpan = document.getElementById("inchargeName");
-    inchargeSpan.textContent = "Class Incharge: " + (INCHARGE[cls] || "N/A");
-}
-
-async function generateList() {
+function generateList() {
     const cls = document.getElementById("classSelect").value;
     const exam = document.getElementById("examSelect").value;
     const tbody = document.getElementById("tbody");
     tbody.innerHTML = "";
 
-    if(!cls || !exam) return alert("Select class and exam");
+    if (!cls || !exam) return alert("Select class and exam");
 
     const filtered = STUDENTS.filter(s => s.class_name === cls);
-
     if(filtered.length === 0) return alert("No students found for this class");
 
     filtered.forEach(s => {
-        let prevDue = 0;
-        if(s.months){
-            const monthsObj = typeof s.months === "string" ? JSON.parse(s.months) : s.months;
-            prevDue = monthsObj.previousDue ? Number(monthsObj.previousDue.due || 0) : Number(s.previous_due || 0);
-        } else prevDue = Number(s.previous_due || 0);
-
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td>P.S. Public School</td>
             <td>${s.class_name || ""}</td>
-            <td>${s.roll || "N/A"}</td>
-            <td>${s.name || "N/A"}</td>
-            <td>${s.father || "N/A"}</td>
+            <td>${s.rollno || "N/A"}</td>
+            <td>${s.student_name || "N/A"}</td>
+            <td>${s.father_name || "N/A"}</td>
+            <td>${s.mother_name || "N/A"}</td>
             <td>${exam}</td>
-            <td>${prevDue}</td>
-            <td>${INCHARGE[cls] || "N/A"}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -213,32 +224,29 @@ async function generateList() {
 function generateSlips(students, examName){
     const container = document.getElementById("rollSlipsContainer");
     container.innerHTML = "";
-    const perSheet = 16;
+    const perSheet = 12;
 
     for(let i=0; i<students.length; i+=perSheet){
-        const slice = students.slice(i, i+perSheet);
+        const slice = students.slice(i,i+perSheet);
         const div = document.createElement("div");
         div.classList.add("roll-slip");
-        const rowDiv = document.createElement("div");
-        rowDiv.classList.add("row");
 
         slice.forEach(s=>{
             const card = document.createElement("div");
             card.classList.add("card");
             card.innerHTML = `
-                <img    class="logo" src="images/logo1.png" alt="Logo" />
-                <h4>${s.name || "N/A"}</h4>
+                <img class="logo" src="images/logo1.png" alt="Logo" />
+                <h4>${s.student_name || "N/A"}</h4>
                 <p>P.S. Public School</p>
                 <p>Class: ${s.class_name || ""}</p>
-                <p>Roll No: ${s.roll || "N/A"}</p>
-                <p>Father: ${s.father || "N/A"}</p>
+                <p>Roll No: ${s.rollno || "N/A"}</p>
+                <p>Father: ${s.father_name || "N/A"}</p>
+                <p>Mother: ${s.mother_name || "N/A"}</p>
                 <p>Exam: ${examName}</p>
-                <p>Class Incharge: ${INCHARGE[s.class_name] || "N/A"}</p>
             `;
-            rowDiv.appendChild(card);
+            div.appendChild(card);
         });
 
-        div.appendChild(rowDiv);
         container.appendChild(div);
     }
 
@@ -254,10 +262,10 @@ function printSlips(){
     window.location.reload();
 }
 
-document.getElementById("sessionSelect").addEventListener("change", loadClasses);
-document.getElementById("classSelect").addEventListener("change", updateInchargeDisplay);
-document.getElementById("classSelect").addEventListener("change", loadExams);
+// Reload students & exams when session changes
+document.getElementById("sessionSelect").addEventListener("change", loadStudents);
 
+// Load sessions on page load
 loadSessions();
 </script>
 </body>

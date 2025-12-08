@@ -137,19 +137,27 @@ button:hover {
 </main>
 
 </div>
-
 <script>
-const FEE_API = "https://fee-backend-ntas.onrender.com";
 const EXAM_API = "https://exam-backend-ko0t.onrender.com";
 
-/* LOAD SESSION */
-async function loadSessions() {
-  const res = await fetch(`${FEE_API}/session/list`);
-  const data = await res.json();
-  document.getElementById("sessionSelect").innerHTML =
-    data.sessions.map(s => `<option>${s}</option>`).join("");
+/* LOAD CURRENT SESSION ONLY */
+async function loadCurrentSession() {
+  try {
+    const res = await fetch("https://exam-backend-ko0t.onrender.com/session/list");
+    const data = await res.json();
+
+    // Assuming current session is last in the list, or pick with some property
+    const currentSession = data.current || data.sessions[data.sessions.length - 1];
+
+    const select = document.getElementById("sessionSelect");
+    select.innerHTML = `<option>${currentSession}</option>`;
+  } catch (err) {
+    console.error(err);
+    alert("Failed to load current session");
+  }
 }
-loadSessions();
+
+loadCurrentSession();
 
 /* CREATE EXAM */
 async function createExam() {
@@ -181,6 +189,7 @@ async function createExam() {
   }
 }
 </script>
+
 
 </body>
 </html>

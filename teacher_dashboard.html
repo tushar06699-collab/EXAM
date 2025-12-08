@@ -95,6 +95,21 @@ body{
     font-size:16px;
 }
 
+/* SCHOOL IMAGE */
+.school-image {
+    width:100%;
+    max-height:600px;
+    overflow:hidden;
+    margin-top:30px;
+    border-radius:12px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+.school-image img{
+    width:100%;
+    height:auto;
+    object-fit:cover;
+}
+
 /* CURTAIN BACKDROP */
 .backdrop {
     position:fixed;
@@ -128,7 +143,9 @@ body{
     <h2>TEACHER ERP</h2>
 
     <a href="teacher_dashboard.html" class="active">Dashboard</a>
+    <a href="view_notices.html">Notices and Circular</a>
     <a href="teacher_my_classes.html">My Time Table</a>
+        <a href="teacher_attendance.html">Upload Attendance</a>
     <a href="teacher_view_datesheet.html">View Datesheet</a>
     <a href="teacher_papers.html">Question Papers</a>
     <a href="teacher_marks_upload.html">Upload Marks</a>
@@ -145,6 +162,10 @@ body{
         </div>
     </div>
 
+    <!-- School Image -->
+    <div class="school-image">
+        <img src="images/event3.png" alt="School Image">
+    </div>
 
 </div>
 
@@ -164,7 +185,7 @@ let teacherSession = localStorage.getItem("session");
 
 if(!teacherName){
     alert("Login expired! Please login again.");
-    window.location.href = "login.html";
+    window.location.href = "index.html";
 }
 
 document.getElementById("teacherName").textContent = teacherName;
@@ -173,7 +194,7 @@ document.getElementById("session").textContent = teacherSession;
 /* LOGOUT */
 function logout(){
     localStorage.clear();
-    window.location.href = "login.html";
+    window.location.href = "index.html";
 }
 </script>
 

@@ -80,7 +80,8 @@ tr:nth-child(even){
     <h2>EXAM ERP</h2>
     <a href="dashboard.html">Dashboard</a>
     <a href="class_list.html">Classes</a>
-     <a  class="active" href="incharge.html">Add Incharge</a></div>
+    <a class="active" href="incharge.html">Add Incharge</a>
+</div>
 
 <div class="main">
     <h1>Assign Class Incharge</h1>
@@ -107,14 +108,14 @@ tr:nth-child(even){
 </div>
 
 <script>
-const FEE_API = "https://fee-backend-ntas.onrender.com";
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
 const EXAM_API = "https://exam-backend-ko0t.onrender.com";
 
 /* --------------------------
    LOAD SESSIONS
 --------------------------- */
 async function loadSessions() {
-    let res = await fetch(`${FEE_API}/session/list`);
+    let res = await fetch(`${EXAM_API}/session/list`);
     let data = await res.json();
 
     let sel = document.getElementById("sessionSelect");
@@ -144,44 +145,52 @@ async function loadPage() {
     tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">Loading...</td></tr>`;
 
     try {
-        // Load classes
-        let resStudents = await fetch(`${FEE_API}/students`, {
-            headers: { "X-Session": session }
+        // Fetch students for session
+        let resStudents = await fetch(`${STUDENT_API}/students?session=${session}`);
+        let students = await resStudents.json();
+
+        if(!Array.isArray(students)) students = students.students || students || [];
+
+        // Extract unique classes
+        const classes = [...new Set(students.map(s => s.class_name ?? s.class).filter(c => c))];
+        classes.sort((a,b) => {
+            let numA = parseInt(a.match(/\d+/)?.[0] ?? 0);
+            let numB = parseInt(b.match(/\d+/)?.[0] ?? 0);
+            return numA - numB;
         });
-        let dataStudents = await resStudents.json();
 
-        let students = dataStudents.students || [];
-        let classes = [...new Set(students.map(s => s.class_name))];
-
-        // Load incharge
+        // Fetch current incharge
         let resInc = await fetch(`${EXAM_API}/incharge/get?session=${session}`);
-        let inchargeData = await resInc.json();
-        let inchargeMap = inchargeData.incharge || {};
+        let incData = await resInc.json();
+        let inchargeMap = incData.incharge || {};
 
         tbody.innerHTML = "";
 
-        classes.forEach(cls => {
-            let savedName = inchargeMap[cls] || "Not Assigned";
+        if(classes.length === 0){
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">No classes found</td></tr>`;
+            return;
+        }
 
-            let tr = document.createElement("tr");
+        classes.forEach(cls => {
+            let safeCls = cls.replace(/\s+/g, "_");
+            let savedName = inchargeMap[cls] || "";
+
+            const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td>${cls}</td>
-                <td>${savedName}</td>
+                <td>${savedName || "Not Assigned"}</td>
                 <td>
-                    <input type="text" id="t_${cls}" placeholder="Enter name"
-                           class="selectTeacher"
-                           value="${savedName !== 'Not Assigned' ? savedName : ''}">
+                    <input type="text" id="t_${safeCls}" placeholder="Enter name" class="selectTeacher" value="${savedName}">
                 </td>
                 <td>
                     <button class="btn" onclick="saveIncharge('${cls}')">Save</button>
                 </td>
             `;
-
             tbody.appendChild(tr);
         });
 
-    } catch (err) {
-        console.log(err);
+    } catch(err){
+        console.error("Error loading page:", err);
         tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:red;">Error loading</td></tr>`;
     }
 }
@@ -189,29 +198,33 @@ async function loadPage() {
 /* --------------------------
    SAVE INCHARGE
 --------------------------- */
-async function saveIncharge(cls) {
+async function saveIncharge(cls){
     let session = document.getElementById("sessionSelect").value;
-    let teacher = document.getElementById("t_" + cls).value.trim();
+    let safeCls = cls.replace(/\s+/g, "_");
+    let teacher = document.getElementById("t_" + safeCls).value.trim();
 
-    if (teacher.length < 3) {
+    if(teacher.length < 3){
         alert("Enter valid teacher name");
         return;
     }
 
-    let res = await fetch(`${EXAM_API}/incharge/set`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            session: session,
-            class_name: cls,
-            incharge: teacher
-        })
-    });
-
-    let data = await res.json();
-    alert(data.message || "Saved");
-
-    loadPage();
+    try{
+        let res = await fetch(`${EXAM_API}/incharge/set`, {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({
+                session: session,
+                class_name: cls,
+                incharge: teacher
+            })
+        });
+        let data = await res.json();
+        alert(data.message || "Saved");
+        loadPage();
+    } catch(err){
+        console.error("Error saving incharge:", err);
+        alert("Failed to save incharge");
+    }
 }
 
 window.onload = loadSessions;

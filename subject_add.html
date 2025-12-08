@@ -6,7 +6,6 @@
 <title>Add Subjects – School ERP</title>
 
 <style>
-/* ======= Global ======= */
 body {
   margin: 0;
   font-family: Poppins, sans-serif;
@@ -14,7 +13,7 @@ body {
   display: flex;
 }
 
-/* ====== Sidebar (Dashboard Style) ====== */
+/* ---------------- SIDEBAR ---------------- */
 .sidebar {
   width: 240px;
   background: #233465;
@@ -24,32 +23,40 @@ body {
   position: fixed;
   left: 0;
   top: 0;
-  box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+  overflow-y: auto;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.15);
 }
 
 .sidebar h2 {
   text-align: center;
-  margin-bottom: 30px;
   font-size: 22px;
+  margin-bottom: 25px;
+  font-weight: 600;
 }
 
 .sidebar a {
   display: block;
-  padding: 12px 20px;
+  padding: 12px 22px;
+  font-size: 16px;
   color: white;
   text-decoration: none;
-  font-size: 16px;
+  transition: 0.2s;
 }
 
 .sidebar a:hover {
-  background: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.15);
+  padding-left: 30px;
 }
 
-/* ===== Content Area ===== */
+.sidebar .active {
+  background: rgba(255,255,255,0.25);
+}
+
+/* ---------------- CONTENT ---------------- */
 .content {
   margin-left: 260px;
-  width: calc(100% - 260px);
   padding: 25px;
+  width: calc(100% - 260px);
 }
 
 header {
@@ -69,159 +76,173 @@ main {
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-label { display: block; margin-top: 1rem; font-weight: 600; }
-select, input {
+/* ---------------- TABLE ---------------- */
+table {
   width: 100%;
-  padding: .6rem;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  margin-top: .3rem;
+  border-collapse: collapse;
+  margin-top: 20px;
 }
 
-table { width: 100%; margin-top: 1rem; border-collapse: collapse; }
 th, td {
-  padding: 8px 10px;
   border: 1px solid #ccc;
-  text-align: left;
+  padding: 8px;
+}
+
+input {
+  width: 90%;
+  padding: 6px;
 }
 
 button {
-  margin-top: 1rem;
-  padding: 0.7rem 1.5rem;
+  padding: 6px 12px;
   background: #302c7d;
   color: white;
   border: none;
   border-radius: 6px;
   cursor: pointer;
 }
-
 button:hover { background: #3730a3; }
 
 </style>
 </head>
+
 <body>
 
-<!-- ============ SIDEBAR ============ -->
+<!-- ---------------- SIDEBAR ---------------- -->
 <div class="sidebar">
     <h2>School ERP</h2>
+
     <a href="dashboard.html">Dashboard</a>
-    <a href="subject_add.html" style="background: rgba(255,255,255,0.2);">Add Subjects</a>
+    <a href="subject_add_all.html" class="active">Add Subjects</a>
     <a href="teachers.html">Teacher Management</a>
     <a href="Timetable.html">Add Timetable</a>
-    <a href="get_classes_timetable.html">View Class Wise Timetable</a>
-    <a href="get_teacher_timetable.html" class="active">View Teacher Timetable</a>
+    <a href="get_classes_timetable.html">View Class Timetable</a>
+    <a href="get_teacher_timetable.html">View Teacher Timetable</a>
 </div>
 
-<!-- ============ PAGE CONTENT ============ -->
+<!-- ---------------- CONTENT ---------------- -->
 <div class="content">
-
-<header>Add Subjects to Class</header>
+<header>Add Subjects (All Classes)</header>
 
 <main>
-    <label for="sessionSelect">Session</label>
-    <select id="sessionSelect"></select>
 
-    <label for="classSelect">Class</label>
-    <select id="classSelect"></select>
+    <label>Session:</label>
+    <select id="sessionSelect"></select>
 
     <table>
         <thead>
             <tr>
-                <th>#</th>
-                <th>Subject Name</th>
+                <th>Class</th>
+                <th>Subject 1</th>
+                <th>Subject 2</th>
+                <th>Subject 3</th>
+                <th>Subject 4</th>
+                <th>Subject 5</th>
+                <th>Subject 6</th>
+                <th>Subject 7</th>
+                <th>Action</th>
             </tr>
         </thead>
-        <tbody id="subjectTable"></tbody>
+        <tbody id="classSubjectTable"></tbody>
     </table>
 
-    <button id="saveBtn">Save Subjects</button>
 </main>
-
 </div>
 
-
+<!-- ---------------- SCRIPT ---------------- -->
 <script>
-const FEE_API = "https://fee-backend-ntas.onrender.com";
 const EXAM_API = "https://exam-backend-ko0t.onrender.com";
-
-let currentSession = localStorage.getItem("session") || "";
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
 
 const sessionSelect = document.getElementById("sessionSelect");
-const classSelect = document.getElementById("classSelect");
-const subjectTable = document.getElementById("subjectTable");
+const classSubjectTable = document.getElementById("classSubjectTable");
+let currentSession = localStorage.getItem("session") || "";
 
-
-/* ---------------- LOAD SESSIONS ---------------- */
+/* ---------- Load Sessions ---------- */
 async function loadSessions() {
-    const res = await fetch(`${FEE_API}/session/list`);
+    const res = await fetch(`${EXAM_API}/session/list`);
     const data = await res.json();
 
     sessionSelect.innerHTML = data.sessions.map(s => `<option>${s}</option>`).join("");
-
     sessionSelect.value = currentSession || data.sessions[0];
     currentSession = sessionSelect.value;
-    localStorage.setItem("session", currentSession);
 
     sessionSelect.onchange = () => {
         currentSession = sessionSelect.value;
         localStorage.setItem("session", currentSession);
-        loadClasses();
+        loadAllClasses();
     };
 
-    loadClasses();
+    loadAllClasses();
 }
 
+/* ---------- Load All Classes ---------- */
+async function loadAllClasses() {
 
-/* ---------------- LOAD CLASSES ---------------- */
-async function loadClasses() {
-    const res = await fetch(`${FEE_API}/students`, {
-        headers: { "X-Session": currentSession }
+    classSubjectTable.innerHTML = `<tr><td colspan="9">Loading...</td></tr>`;
+
+    const res = await fetch(`${STUDENT_API}/students`);
+    const students = await res.json();
+
+    let classList = [...new Set(students.map(s => s.class_name).filter(Boolean))];
+
+    classList.sort((a,b)=>{
+        let A = parseInt(a);
+        let B = parseInt(b);
+        return A - B;
     });
 
-    const data = await res.json();
+    classSubjectTable.innerHTML = "";
+    classList.forEach(cls => createClassRow(cls));
 
-    const classes = [...new Set(data.students.map(s => s.class_name))].sort();
-
-    classSelect.innerHTML = `<option value="">Select Class</option>` +
-        classes.map(c => `<option value="${c}">${c}</option>`);
-
-    classSelect.onchange = () => {
-        if (classSelect.value) loadSubjects(classSelect.value);
-        else subjectTable.innerHTML = "";
-    };
 }
 
+/* ---------- Create Class Row ---------- */
+async function createClassRow(className) {
 
-/* ---------------- LOAD SUBJECTS ---------------- */
+    const row = document.createElement("tr");
+    row.innerHTML = `
+        <td>${className}</td>
+        <td><input id="${className}-1"></td>
+        <td><input id="${className}-2"></td>
+        <td><input id="${className}-3"></td>
+        <td><input id="${className}-4"></td>
+        <td><input id="${className}-5"></td>
+        <td><input id="${className}-6"></td>
+        <td><input id="${className}-7"></td>
+        <td><button onclick="saveSubjects('${className}')">Save</button></td>
+    `;
+    classSubjectTable.appendChild(row);
+
+    loadSubjects(className);
+}
+
+/* ---------- Load Existing Subjects ---------- */
 async function loadSubjects(className) {
-    subjectTable.innerHTML = "";
-
     const res = await fetch(`${EXAM_API}/exam/subjects/get?session=${currentSession}&class_name=${className}`);
     const data = await res.json();
 
     const subjects = data.subjects || [];
 
-    for (let i = 0; i < Math.max(7, subjects.length); i++) {
-        const value = subjects[i] || "";
-        subjectTable.innerHTML += `
-            <tr>
-                <td>${i + 1}</td>
-                <td><input type="text" value="${value}" placeholder="Subject ${i + 1}"></td>
-            </tr>`;
-    }
+    subjects.forEach((sub, i) => {
+        const input = document.getElementById(`${className}-${i+1}`);
+        if (input) input.value = sub;
+    });
 }
 
+/* ---------- Save Subjects ---------- */
+async function saveSubjects(className) {
 
-/* ---------------- SAVE SUBJECTS ---------------- */
-document.getElementById("saveBtn").onclick = async () => {
-    const className = classSelect.value;
-    if (!className) return alert("Select class");
+    let subjects = [];
+    for (let i = 1; i <= 7; i++) {
+        let value = document.getElementById(`${className}-${i}`).value.trim();
+        if (value) subjects.push(value);
+    }
 
-    const subjects = [...document.querySelectorAll("#subjectTable input")]
-        .map(i => i.value.trim())
-        .filter(v => v);
-
-    if (!subjects.length) return alert("Enter at least one subject");
+    if (subjects.length === 0) {
+        alert("Enter at least one subject");
+        return;
+    }
 
     const res = await fetch(`${EXAM_API}/exam/subjects/add`, {
         method: "POST",
@@ -233,10 +254,9 @@ document.getElementById("saveBtn").onclick = async () => {
         })
     });
 
-    const data = await res.json();
-    alert(data.success ? "Subjects saved!" : data.message);
-};
-
+    const result = await res.json();
+    alert(result.success ? "Subjects saved!" : result.message);
+}
 
 window.onload = loadSessions;
 </script>

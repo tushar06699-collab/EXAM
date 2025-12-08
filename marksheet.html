@@ -11,36 +11,26 @@
   --accent:#4f46e5;
   --muted:#f2f4f7;
   --fail-bg:#ef4444;
-  --stamp-color:#1e40af; /* blue for stamp */
+  --stamp-color:#1e40af;
 }
 
 html,body{margin:0;font-family:Poppins,Segoe UI,Roboto,Helvetica,Arial;background:var(--muted);}
 
-/* Sidebar */
-.sidebar{
-  width:240px; background:var(--brand); color:#fff;
-  height:100vh; position:fixed; left:0; top:0; padding-top:20px;
-}
+.sidebar{ width:240px; background:var(--brand); color:#fff; height:100vh; position:fixed; left:0; top:0; padding-top:20px;}
 .sidebar h2{ text-align:center; margin:0 8px 18px; font-size:20px; }
-.sidebar a{
-  display:block; padding:12px 18px; color:#fff; text-decoration:none; font-size:15px;
-}
+.sidebar a{ display:block; padding:12px 18px; color:#fff; text-decoration:none; font-size:15px;}
 .sidebar a:hover{ background: rgba(255,255,255,0.08); }
 .sidebar a.active{ background: rgba(255,255,255,0.15); }
 
-/* Main content */
 .content{ margin-left:240px; padding:20px; }
 
-/* Controls */
 .controls{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
 .controls > *{ flex:1; min-width:130px; }
 select,button{ padding:8px 10px; border-radius:6px; border:1px solid #d1d5db; }
 button.btn{ background:var(--accent); color:#fff; border:none; cursor:pointer; }
 
-/* Marksheet container */
 .marksheet-container{ display:none; }
 
-/* MARKSHEET A4 */
 .marksheet{
   width:210mm;
   min-height:297mm;
@@ -54,110 +44,33 @@ button.btn{ background:var(--accent); color:#fff; border:none; cursor:pointer; }
   page-break-after:always;
 }
 
-/* Watermark */
-.marksheet::before{
-  content:"";
-  position:absolute;
-  top:50%; left:50%;
-  width:200px; height:200px;
-  background:url('/mnt/data/3a6a4ba5-d8a0-449e-9c01-23f0b78c8319.png') no-repeat center/contain;
-  opacity:0.06;
-  transform:translate(-50%,-50%);
-}
-
-/* Header */
-.marksheet header{
-  text-align:center; margin-bottom:20px; position:relative;
-}
-.marksheet header img.logo{ position:absolute; top:0; left:0; height:70px; }
+.marksheet header{ text-align:center; margin-bottom:20px; position:relative;}
 .marksheet header h1{ margin:0; font-size:32px; color:#233465; }
 .marksheet header h3{ margin:5px 0; font-size:18px; color:#4f46e5; }
 
-/* Info rows */
-.student-info, .summary{
-  display:flex; justify-content:space-between; flex-wrap:wrap;
-  margin-bottom:15px;
-}
-.student-info div, .summary div{
-  width:48%; margin-bottom:6px; font-size:15px;
-}
+.student-info, .summary{ display:flex; justify-content:space-between; flex-wrap:wrap; margin-bottom:15px;}
+.student-info div, .summary div{ width:48%; margin-bottom:6px; font-size:15px;}
 
-/* Table */
 table{ width:100%; border-collapse:collapse; margin-bottom:20px; }
 th,td{ border:1px solid #ddd; padding:8px; text-align:center; font-size:14px; }
 th{ background:#4f46e5; color:#fff; }
 td.fail{ background:var(--fail-bg); color:#fff; }
 
-/* Holistic Section */
-.holistic-box{
-  border:1px solid #999;
-  padding:12px;
-  border-radius:6px;
-  margin-bottom:18px;
-}
-.holistic-box h3{
-  margin-top:0; margin-bottom:10px;
-  color:#233465; font-size:17px;
-}
-.holistic-row{
-  display:flex; justify-content:space-between; flex-wrap:wrap;
-}
-.holistic-row div{
-  width:48%; font-size:14px; margin-bottom:8px;
-}
+.holistic-box{ border:1px solid #999; padding:12px; border-radius:6px; margin-bottom:18px; }
+.holistic-box h3{ margin-top:0; margin-bottom:10px; color:#233465; font-size:17px; }
+.holistic-row{ display:flex; justify-content:space-between; flex-wrap:wrap; }
+.holistic-row div{ width:48%; font-size:14px; margin-bottom:8px; }
 
-/* Signature Section */
-.sign-block{
-  width:100%; margin-top:30px;
-  display:flex; justify-content:space-between;
-}
-.sign-box{
-  width:40%; text-align:center; font-size:16px;
-  border-top:2px solid #333; padding-top:6px;
-}
+.sign-block{ width:100%; margin-top:40px; display:flex; justify-content:space-between;}
+.sign-box{ width:40%; text-align:center; font-size:16px; border-top:2px solid #333; padding-top:6px; }
 
-/* School Stamp */
-.school-stamp{
-  text-align:center;
-  color:var(--stamp-color);
-  font-weight:bold;
-  margin-top:20px;
-  border:2px solid var(--stamp-color);
-  padding:10px;
-  border-radius:8px;
-  width:220px;
-}
+.school-stamp{ text-align:center; color:var(--stamp-color); font-weight:bold; margin-top:20px; border:2px solid var(--stamp-color); padding:10px; border-radius:8px; width:220px; }
 
-/* Exam Dates Section */
-.exam-dates{
-  margin-top:15px;
-  font-size:14px;
-  font-weight:500;
-}
-
-.school-title {
-    font-size: 43rem;        /* Makes it really big */
-    font-weight: 6700;       /* Extra bold */
-    color: #030408;         /* Dark blue color */
-    text-align: center;     /* Centered on page */
-    margin: 40px 0;         /* Space above and below */
-    letter-spacing: 2px;    /* Adds spacing between letters */
-    text-transform: uppercase; /* Optional: all caps */
-}
-
-/* PRINT SETTINGS */
-@media print {
+@media print{
   body{ background:#fff !important; }
   .sidebar, .controls{ display:none !important; }
   .content{ margin:0 !important; padding:0 !important; }
-  .marksheet{
-    width:88% !important;
-    min-height:80vh !important;
-    margin:0 !important;
-    box-shadow:none !important;
-    border-radius:0 !important;
-    page-break-after:always;
-  }
+  .marksheet{ width:88% !important; min-height:80vh !important; margin:0 !important; box-shadow:none !important; border-radius:0 !important; page-break-after:always;}
 }
 </style>
 </head>
@@ -168,6 +81,7 @@ td.fail{ background:var(--fail-bg); color:#fff; }
   <h2>School ERP</h2>
   <a href="dashboard.html">Dashboard</a>
   <a href="result_upload.html">Mark Upload</a>
+  <a href="uploaded_marks.html">Uploaded Marks</a>
   <a href="marksheet.html" style="background: rgba(255,255,255,0.08);">Marksheet</a>
 </div>
 
@@ -197,158 +111,155 @@ td.fail{ background:var(--fail-bg); color:#fff; }
 </div>
 
 <script>
-const FEE_API = "https://fee-backend-ntas.onrender.com";
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
 const EXAM_API = "https://exam-backend-ko0t.onrender.com";
 
-let STUDENTS=[], EXAMS=[], INCHARGE={}, DATESHEET=[];
+let STUDENTS=[], EXAMS=[], INCHARGE={};
 
 async function loadSessions(){
-  const r = await fetch(`${FEE_API}/session/list`);
-  const d = await r.json();
-  sessionSelect.innerHTML = d.sessions.map(s=>`<option>${s}</option>`).join("");
-  loadClasses();
+    const r = await fetch(`${EXAM_API}/session/list`);
+    const d = await r.json();
+    sessionSelect.innerHTML = d.sessions.map(s=>`<option>${s}</option>`).join("");
+    if(d.sessions.length>0){
+        sessionSelect.value = d.sessions[0];
+        loadClasses();
+    }
 }
+loadSessions();
+sessionSelect.addEventListener("change", loadClasses);
 
 async function loadClasses(){
-  const session = sessionSelect.value;
-  const r = await fetch(`${FEE_API}/students`, {headers:{"X-Session":session}});
-  const d = await r.json();
-  STUDENTS = d.students;
-
-  const classes = [...new Set(STUDENTS.map(s=>s.class_name))].sort();
-  classSelect.innerHTML = `<option value="">Select</option>` + classes.map(c=>`<option>${c}</option>`).join("");
-  loadExams(); loadIncharge();
+    const session = sessionSelect.value;
+    if(!session) return;
+    const res = await fetch(`${STUDENT_API}/students?session=${session}`);
+    STUDENTS = await res.json();
+    const classes = [...new Set(STUDENTS.map(s=>s.class_name))].sort();
+    classSelect.innerHTML = `<option value="">Select</option>` + classes.map(c=>`<option>${c}</option>`).join("");
+    if(classes.length>0) classSelect.value = classes[0];
+    loadExams();
+    loadIncharge();
 }
+classSelect.addEventListener("change", ()=>{ loadExams(); loadIncharge(); });
 
 async function loadExams(){
-  const r = await fetch(`${EXAM_API}/exam/list-all`);
-  const d = await r.json();
-  EXAMS = d.exams;
-  examSelect.innerHTML = `<option value="">Select</option>` + EXAMS.map(e=>`<option>${e.exam_name}</option>`).join("");
+    const res = await fetch(`${EXAM_API}/exam/list-all`);
+    const data = await res.json();
+    EXAMS = data.exams;
+    examSelect.innerHTML = `<option value="">Select</option>` + EXAMS.map(e=>`<option value="${e.exam_name}">${e.exam_name}</option>`).join("");
 }
 
 async function loadIncharge(){
-  try{
-    const r = await fetch(`${EXAM_API}/incharge/get?session=${sessionSelect.value}`);
-    const d = await r.json();
-    INCHARGE = d.success ? d.incharge : {};
-  }catch{ INCHARGE = {}; }
+    try{
+        const res = await fetch(`${EXAM_API}/incharge/get?session=${sessionSelect.value}`);
+        const d = await res.json();
+        INCHARGE = d.success ? d.incharge : {};
+    }catch{ INCHARGE = {}; }
 }
 
-async function generateMarksheets(){
-  const cls = classSelect.value;
-  const exam = examSelect.value;
-  if(!cls || !exam) return alert("Select class and exam");
+async function generateMarksheets() {
+    const cls = classSelect.value;
+    const examName = examSelect.value;
+    if (!cls || !examName) return alert("Select class and exam");
 
-  const container = document.getElementById("marksheetContainer");
-  container.innerHTML = "";
+    const container = document.getElementById("marksheetContainer");
+    container.innerHTML = "";
 
-  // Load exam dates
-  const rDate = await fetch(`${EXAM_API}/exam/get-datesheet?class_name=${cls}&session=${encodeURIComponent(sessionSelect.value)}&exam_name=${encodeURIComponent(exam)}`);
-  const dDate = await rDate.json();
-  DATESHEET = dDate.datesheet || [];
+    // Fetch exam info for total_marks
+    const resExam = await fetch(`${EXAM_API}/exam/list-all`);
+    const dataExam = await resExam.json();
+    const examInfo = dataExam.exams.find(e => e.exam_name === examName && e.session === sessionSelect.value);
+    if (!examInfo) return alert("Exam info not found");
+    const totalMarksExam = examInfo.total_marks || 0;
 
-  const classStudents = STUDENTS.filter(s=>s.class_name===cls);
+    // Fetch marks
+    const resMarks = await fetch(`${EXAM_API}/exam/get-marks?session=${sessionSelect.value}&class_name=${cls}&exam_name=${encodeURIComponent(examName)}`);
+    const markData = await resMarks.json();
+    if (!markData.success) return alert("No marks found");
 
-  for(const student of classStudents){
+    const marksMap = {};
+    markData.marks.forEach(m => {
+        if (!marksMap[m.roll]) marksMap[m.roll] = {};
+        marksMap[m.roll][m.subject] = m.marks;
+    });
 
-    let subjects=[];
-    if(DATESHEET.length){
-      subjects = DATESHEET.map(s=>({
-        name:s.subject,
-        max:s.max_marks || 100,
-        marks: student.marks?.[s.subject] ?? 0
-      }));
+    const classStudents = STUDENTS.filter(s => s.class_name === cls);
+
+    for (const student of classStudents) {
+        // Get the list of subjects from the marks themselves
+        const subjectsNames = Object.keys(marksMap[student.rollno] || {});
+        if (subjectsNames.length === 0) continue;
+
+        const subjects = subjectsNames.map(sub => {
+            const marks = marksMap[student.rollno][sub] || 0;
+            return { name: sub, marks, max: (totalMarksExam / subjectsNames.length).toFixed(2) };
+        });
+
+        const total = subjects.reduce((a, b) => a + b.marks, 0);
+        const percent = totalMarksExam ? ((total / totalMarksExam) * 100).toFixed(2) : 0;
+        const grade = percent >= 90 ? 'A+' :
+                      percent >= 80 ? 'A' :
+                      percent >= 70 ? 'B+' :
+                      percent >= 60 ? 'B' :
+                      percent >= 50 ? 'C' : 'F';
+
+        const div = document.createElement("div");
+        div.className = "marksheet";
+
+        div.innerHTML = `
+        <header>
+          <h1>P.S. Public School</h1>
+          <h3>Marksheet – ${examName}</h3>
+        </header>
+
+        <div class="student-info">
+          <div><b>Student:</b> ${student.student_name}</div>
+          <div><b>Roll:</b> ${student.rollno}</div>
+          <div><b>Class:</b> ${cls}</div>
+          <div><b>Father:</b> ${student.father_name || ''}</div>
+          <div><b>Session:</b> ${sessionSelect.value}</div>
+          <div><b>Class Incharge:</b> ${INCHARGE[cls] || 'N/A'}</div>
+        </div>
+
+        <table>
+          <thead><tr><th>Subject</th><th>Marks</th><th>Max</th></tr></thead>
+          <tbody>
+            ${subjects.map(s => `<tr class="${s.marks < (s.max / 3) ? 'fail' : ''}"><td>${s.name}</td><td>${s.marks}</td><td>${s.max}</td></tr>`).join('')}
+          </tbody>
+        </table>
+
+        <div class="summary">
+          <div><b>Total:</b> ${total} / ${totalMarksExam}</div>
+          <div><b>Percentage:</b> ${percent}%</div>
+          <div><b>Grade:</b> ${grade}</div>
+        </div>
+
+        <div class="holistic-box">
+          <h3>Holistic Development & Behaviour</h3>
+          <div class="holistic-row">
+            <div><b>Attendance:</b> ${student.attendance || 'A'}</div>
+            <div><b>Discipline:</b> ${student.discipline || 'A'}</div>
+            <div><b>Sports Skill:</b> ${student.sports || 'A'}</div>
+            <div><b>Co-Curricular Activities:</b> ${student.activities || 'A'}</div>
+            <div><b>Health & Cleanliness:</b> ${student.health || 'A'}</div>
+            <div><b>Teacher’s Remarks:</b> ${student.remark || 'Shows good performance.'}</div>
+          </div>
+        </div>
+
+        <div class="sign-block">
+          <div class="sign-box">Class Incharge Signature</div>
+          <div class="sign-box">Principal Signature</div>
+        </div>
+
+        <div class="school-stamp">Exam Department<br>P.S. Public School</div>
+        `;
+
+        container.appendChild(div);
     }
 
-    const total = subjects.reduce((a,b)=>a+b.marks,0);
-    const maxTotal = subjects.reduce((a,b)=>a+b.max,0);
-    const percent = ((total/maxTotal)*100).toFixed(2);
-    const grade = percent>=90?'A+':percent>=80?'A':percent>=70?'B+':percent>=60?'B':percent>=50?'C':'F';
-
-    const div = document.createElement("div");
-    div.className = "marksheet";
-
-    div.innerHTML = `
-      <header>
-        <img src="images/logo1.png" class="logo">
-        <h1 class="school-title">P.S. Public School</h1>
-
-        <h3>Marksheet – ${exam}</h3>
-      </header>
-
-      <div class="student-info">
-        <div><b>Student:</b> ${student.name}</div>
-        <div><b>Roll:</b> ${student.roll}</div>
-        <div><b>Class:</b> ${cls}</div>
-        <div><b>Father:</b> ${student.father}</div>
-        <div><b>Session:</b> ${sessionSelect.value}</div>
-        <div><b>Class Incharge:</b> ${INCHARGE[cls] || "N/A"}</div>
-      </div>
-
-      <table>
-        <thead>
-          <tr><th>Subject</th><th>Marks</th><th>Max</th></tr>
-        </thead>
-        <tbody>
-          ${subjects.map(s=>`
-            <tr class="${s.marks < s.max/3 ? 'fail':''}">
-              <td>${s.name}</td>
-              <td>${s.marks}</td>
-              <td>${s.max}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-
-      <div class="summary">
-        <div><b>Total:</b> ${total} / ${maxTotal}</div>
-        <div><b>Percentage:</b> ${percent}%</div>
-        <div><b>Grade:</b> ${grade}</div>
-      </div>
-
-
-      <div class="holistic-box">
-
-        <h3>Holistic Development & Behaviour</h3>
-        <div class="holistic-row">
-
-          <div><b>Attendance:</b> ${student.attendance || "A / A"}</div>
-          <div><b>Discipline:</b> ${student.discipline || "A"}</div>
-          <div><b>Sports Skill:</b> ${student.sports || "A"}</div>
-          <div><b>Co-Curricular Activities:</b> ${student.activities || "A"}</div>
-          <div><b>Health & Cleanliness:</b> ${student.health || "A"}</div>
-          <div><b>Teacher’s Remarks:</b> ${student.remark || "Shows good performance."}</div>
-        </div>
-      </div>
-
-      
-      <div class="sign-block">
-        <div class="sign-box">Class Incharge Signature</div>
-        <div class="sign-box">Principal Signature</div>
-      </div>
-
-      <div class="school-stamp">
-        Exam Department<br>
-        P.S. Public School<br>
-        Affiliation No - 531470
-      </div>
-    `;
-
-    container.appendChild(div);
-  }
-
-  container.style.display = "block";
+    container.style.display = "block";
 }
 
-function printMarksheets(){
-  window.print();
-}
-
-sessionSelect.addEventListener("change", loadClasses);
-classSelect.addEventListener("change", ()=>{ loadExams(); loadIncharge(); });
-
-loadSessions();
+function printMarksheets(){ window.print(); }
 </script>
 
 </body>
