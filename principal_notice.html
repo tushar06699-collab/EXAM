@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin – Notice & Circular Upload</title>
+<meta name="viewport" content="width=device-width">
+
+<style>
+body {
+    margin:0;
+    font-family:Poppins, sans-serif;
+    background:#eef1f6;
+    display:flex;
+}
+
+/* Sidebar */
+.sidebar {
+    width:240px;
+    background:#233465;
+    color:white;
+    height:100vh;
+    position:fixed;
+    left:0;
+    top:0;
+    padding-top:20px;
+}
+
+.sidebar h2{
+    text-align:center;
+    margin-bottom:20px;
+}
+
+.sidebar a{
+    display:block;
+    padding:12px 20px;
+    color:white;
+    text-decoration:none;
+    border-radius:6px;
+}
+
+.sidebar a:hover,
+.sidebar a.active{
+    background:rgba(255,255,255,0.25);
+}
+
+/* Page Content */
+.content {
+    margin-left:240px;
+    width:calc(100% - 240px);
+    padding:20px;
+}
+
+.card {
+    background:white;
+    padding:20px;
+    border-radius:10px;
+    box-shadow:0 3px 10px rgba(0,0,0,0.1);
+    margin-bottom:20px;
+}
+
+label {
+    font-weight:600;
+    margin-top:10px;
+    display:block;
+}
+
+input, select, textarea {
+    width:100%;
+    padding:10px;
+    margin-top:5px;
+    border-radius:6px;
+    border:1px solid #ccc;
+}
+
+button {
+    padding:12px;
+    background:#233465;
+    color:white;
+    border:none;
+    width:100%;
+    margin-top:15px;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+button:hover {
+    background:#1b2854;
+}
+
+.notice-item {
+    background:white;
+    padding:15px;
+    border-radius:8px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom:12px;
+}
+
+.notice-item span {
+    display:block;
+    font-size:15px;
+}
+
+.delete-btn {
+    background:#d62828;
+    margin-top:8px;
+}
+
+.view-btn {
+    background:#0077b6;
+    margin-top:8px;
+}
+</style>
+
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+    <h2>ADMIN ERP</h2>
+    <a href="principal_dashboard.html">Dashboard</a>
+    <a href="principal_notice.html" class="active">Notices</a>
+</div>
+
+<!-- Content -->
+<div class="content">
+
+    <h2>📢 Upload Notice / Circular</h2>
+
+    <div class="card">
+
+        <label>Session</label>
+        <select id="sessionSelect"></select>
+
+        <label>Notice Title</label>
+        <input type="text" id="titleInput" placeholder="Enter notice title">
+         
+        <label>Description</label>
+<textarea id="descInput" placeholder="Write details"></textarea>
+
+<label>Date</label>
+<input type="date" id="dateInput">
+
+        <label>Upload PDF</label>
+        <input type="file" id="pdfInput" accept="application/pdf">
+
+        <button onclick="uploadNotice()">Upload Notice</button>
+    </div>
+
+    <h2>📄 All Notices</h2>
+    <div id="noticeList"></div>
+
+</div>
+<script>
+const API = "https://exam-backend-ko0t.onrender.com";
+
+/* Load sessions (optional UI only) */
+async function loadSessions() {
+    try {
+        const res = await fetch(`${API}/session/list`);
+        const data = await res.json();
+
+        sessionSelect.innerHTML = data.sessions.map(s => 
+            `<option value="${s}">${s}</option>`
+        ).join("");
+    } catch (err) {}
+}
+loadSessions();
+
+/* Upload Notice */
+async function uploadNotice() {
+    const title = document.getElementById("titleInput").value.trim();
+    const description = document.getElementById("descInput").value.trim();
+    const date = document.getElementById("dateInput").value;
+    const pdf = document.getElementById("pdfInput").files[0];
+
+    if (!title || !date) { // PDF is now optional
+        alert("⚠ Title and Date are required!");
+        return;
+    }
+
+    let fd = new FormData();
+    fd.append("title", title);
+    fd.append("description", description);
+    fd.append("date", date);   // still required
+    if (pdf) fd.append("pdf", pdf); // only append if file exists
+
+    try {
+        const res = await fetch(`${API}/notice/upload`, {
+            method: "POST",
+            body: fd
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            alert("✅ Notice uploaded!");
+            titleInput.value = "";
+            descInput.value = "";
+            dateInput.value = "";
+            pdfInput.value = "";
+            loadNotices();
+        } else {
+            alert("❌ Error: " + data.message);
+        }
+    } catch (err) {
+        alert("Upload failed!");
+        console.error(err);
+    }
+}
+
+
+/* Load all notices */
+async function loadNotices() {
+    try {
+        const res = await fetch(`${API}/notice/list`);
+        const data = await res.json();
+
+        if (!data.success) {
+            noticeList.innerHTML = "<p>No notices found.</p>";
+            return;
+        }
+
+        noticeList.innerHTML = "";
+
+        data.notices.forEach(n => {
+            noticeList.innerHTML += `
+                <div class="notice-item">
+                    <span><b>📌 ${n.title}</b></span>
+                    <span>${n.description || ""}</span>
+                    <span>Date: ${n.date}</span>
+
+                    <button class="view-btn" onclick="viewNotice('${n.file}')">View PDF</button>
+                    <button class="delete-btn" onclick="deleteNotice('${n.id}')">Delete</button>
+                </div>
+            `;
+        });
+
+    } catch (err) {
+        console.error("Load error:", err);
+        noticeList.innerHTML = "<p>Error loading notices.</p>";
+    }
+}
+loadNotices();
+
+
+/* View Notice */
+function viewNotice(filename) {
+    window.open(`${API}/notice/get-file/${filename}`, "_blank");
+}
+
+/* Delete Notice */
+async function deleteNotice(id) {
+    if (!confirm("Delete this notice?")) return;
+
+    try {
+        const res = await fetch(`${API}/notice/delete/${id}`, {
+            method: "DELETE"
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            alert("🗑 Deleted successfully");
+            loadNotices();
+        } else {
+            alert("❌ Error deleting: " + data.message);
+        }
+
+    } catch (err) {
+        console.error(err);
+    }
+}
+</script>
+
+
+</body>
+</html>

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Principal Dashboard – School ERP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{margin:0;font-family:Poppins,sans-serif;background:#eef1f6;display:flex;}
+.sidebar{width:240px;height:100vh;background:#233465;color:white;position:fixed;left:0;top:0;padding-top:20px;}
+.sidebar h2{text-align:center;margin-bottom:20px;font-size:20px;}
+.sidebar a{display:block;padding:14px 20px;color:white;text-decoration:none;font-size:15px;border-bottom:1px solid rgba(255,255,255,0.1);} 
+.sidebar a:hover{background:#1a2750;}
+.sidebar a.active, .sidebar a:hover { background:#1a2648; }
+
+.main{margin-left:240px;padding:20px;width:calc(100% - 240px);} 
+.topbar{background:white;padding:15px 20px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.1);display:flex;justify-content:space-between;align-items:center;} 
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px;margin-top:20px;} 
+.card{background:white;padding:20px;border-radius:10px;box-shadow:0 3px 10px rgba(0,0,0,0.1);} 
+.card h3{margin:0 0 10px;} 
+.section{margin-top:30px;} 
+.table{width:100%;border-collapse:collapse;margin-top:10px;} 
+.table th,.table td{padding:10px;background:white;border-bottom:1px solid #ddd;text-align:left;} 
+.table th{background:#233465;color:white;} 
+.badge{padding:5px 10px;border-radius:8px;font-size:12px;} 
+.approved{background:#16a34a;color:white;} 
+.pending{background:#f59e0b;color:white;} 
+.rejected{background:#dc2626;color:white;} 
+</style>
+</head>
+<body>
+<div class="sidebar">
+  <h2>Principal Panel</h2>
+  <a href="principal_dashboard.html"class="active">Dashboard</a>
+  <a href="principal_notice.html">Notices and Circular</a>
+  <a href="principal_leave.html">Teachers Leave</a>
+  <a href="principal_attendence.html">Student Attendance</a>
+  <a href="principal_marks.html">Uploaded Marks</a>
+  <a href="index.html">Logout</a>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <h2>Dashboard Overview</h2>
+    <div>
+      Session: <select id="sessionSelect" style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;"></select>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><h3>Total Students</h3><p id="totalStudents" style="font-size:26px;font-weight:bold;">0</p></div>
+    <div class="card"><h3>Total Teachers</h3><p id="totalTeachers" style="font-size:26px;font-weight:bold;">0</p></div>
+    <div class="card"><h3>Total Classes</h3><p id="totalClasses" style="font-size:26px;font-weight:bold;">0</p></div>
+    <div class="card"><h3>Active Exams</h3><p id="totalExams" style="font-size:26px;font-weight:bold;">0</p></div>
+  </div>
+
+  <div class="section">
+    <h2>Recent Exams</h2>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Exam Name</th>
+          <th>Session</th>
+          <th>Total Marks</th>
+        </tr>
+      </thead>
+      <tbody id="examTable"></tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Teacher Leave Requests</h2>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Teacher</th>
+          <th>Date</th>
+          <th>Reason</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="leaveTable"></tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Class Strength Overview</h2>
+    <table class="table">
+      <thead>
+        <tr><th>Class</th><th>Section</th><th>Students</th></tr>
+      </thead>
+      <tbody id="classStrength"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
+const EXAM_API = "https://exam-backend-ko0t.onrender.com";
+const LEAVE_API = EXAM_API;
+
+let currentSession = localStorage.getItem("session") || "";
+
+async function loadSessions(){
+ try{
+    const r = await fetch(`${EXAM_API}/session/list`);
+    const d = await r.json();
+    const sel = document.getElementById("sessionSelect");
+    sel.innerHTML="";
+
+    if(!d.sessions || d.sessions.length===0){ sel.innerHTML='<option>No Sessions</option>'; return; }
+
+    d.sessions.forEach(s=>{
+       let op=document.createElement("option");
+       op.value=s; op.textContent=s;
+       sel.appendChild(op);
+    });
+
+    if(!d.sessions.includes(currentSession)) currentSession=d.sessions[0];
+    sel.value=currentSession;
+    localStorage.setItem("session", currentSession);
+
+    sel.onchange = ()=>{
+        currentSession = sel.value;
+        localStorage.setItem("session", currentSession);
+        loadStats();
+    }
+
+    loadStats();
+ }catch(e){ console.error(e); }
+}
+
+function loadStats(){ 
+    loadStudentCount(); 
+    loadTeacherCount();
+    loadClassCount(); 
+    loadExamCount(); 
+    loadRecentExams(); 
+    loadLeaveRequests(); 
+    loadClassStrength(); 
+}
+
+async function loadStudentCount(){
+ try{
+    const r = await fetch(`${STUDENT_API}/students`);
+    const d = await r.json();
+    document.getElementById("totalStudents").textContent = d.length;
+ }catch(e){ document.getElementById("totalStudents").textContent=0; }
+}
+async function loadTeacherCount() {
+    try {
+        const r = await fetch(`${EXAM_API}/teacher/list?session=${currentSession}`);
+        const d = await r.json();
+
+        if (d.success && d.teachers) {
+            document.getElementById("totalTeachers").textContent = d.teachers.length;
+        } else {
+            document.getElementById("totalTeachers").textContent = 0;
+        }
+    } catch (e) {
+        console.error("Teacher Load Error", e);
+        document.getElementById("totalTeachers").textContent = 0;
+    }
+}
+
+
+async function loadClassCount(){
+ try{
+    const r = await fetch(`${STUDENT_API}/students`);
+    const d = await r.json();
+    const set = new Set();
+    d.forEach(s=>{ if(s.class_name) set.add(s.class_name.trim()); });
+    document.getElementById("totalClasses").textContent = set.size;
+ }catch(e){ document.getElementById("totalClasses").textContent=0; }
+}
+
+async function loadExamCount(){
+ try{
+    const r = await fetch(`${EXAM_API}/exam/list-all`);
+    const d = await r.json();
+    const filtered = d.exams.filter(ex=>ex.session===currentSession);
+    document.getElementById("totalExams").textContent = filtered.length;
+ }catch(e){ document.getElementById("totalExams").textContent=0; }
+}
+
+async function loadRecentExams(){
+ try{
+    const r = await fetch(`${EXAM_API}/exam/list-all`);
+    const d = await r.json();
+    let html="";
+    d.exams.slice(0,3).forEach(ex=>{
+       html += `<tr><td>${ex.exam_name}</td><td>${ex.session}</td><td>${ex.total_marks}</td></tr>`;
+    });
+    document.getElementById("examTable").innerHTML = html;
+ }catch(e){ console.error(e); }
+}
+
+async function loadLeaveRequests(){
+ try{
+    const r = await fetch(`${LEAVE_API}/leave/list`);
+    const d = await r.json();
+    let html="";
+    d.leaves.slice(0,5).forEach(l=>{
+        html += `<tr>
+            <td>${l.teacher_name}</td>
+            <td>${l.start_date} → ${l.end_date}</td>
+            <td>${l.reason}</td>
+            <td><span>${l.status}</span></td>
+        </tr>`;
+    });
+    document.getElementById("leaveTable").innerHTML = html;
+ }catch(e){ console.error(e); }
+}
+
+async function loadClassStrength() {
+    try {
+        const r = await fetch(`${STUDENT_API}/students`);
+        const d = await r.json();
+
+        let map = {};
+
+        // Group students by class + section
+        d.forEach(s => {
+            const cls = s.class_name || "Unknown";
+            const sec = s.section || "A";
+            const key = `${cls}-${sec}`;
+
+            if (!map[key]) map[key] = { class_name: cls, section: sec, count: 0 };
+            map[key].count++;
+        });
+
+        // Build table rows
+        let html = "";
+        Object.values(map).forEach(row => {
+            html += `
+                <tr>
+                  <td>${row.class_name}</td>
+                  <td>${row.section}</td>
+                  <td>${row.count}</td>
+                </tr>
+            `;
+        });
+
+        document.getElementById("classStrength").innerHTML = html;
+
+    } catch (e) {
+        console.error("Class Strength Load Error", e);
+        document.getElementById("classStrength").innerHTML =
+          `<tr><td colspan="3">Failed to load</td></tr>`;
+    }
+}
+window.onload = loadSessions;
+</script>
+</body>
+</html>

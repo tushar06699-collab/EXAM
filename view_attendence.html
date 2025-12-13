@@ -11,7 +11,6 @@ body{margin:0;font-family:Poppins,sans-serif;background:#f2f4f7;display:flex;}
 .sidebar h2{text-align:center;font-size:22px;margin-bottom:25px;}
 .sidebar a{display:block;padding:12px 20px;color:white;text-decoration:none;font-size:16px;}
 .sidebar a:hover{background:rgba(255,255,255,0.25);}
-.sidebar a.active{background:rgba(255,255,255,0.35);}
 .content{margin-left:240px;width:calc(100% - 240px);padding:20px;}
 header{background:#233465;color:#fff;padding:1rem;text-align:center;font-size:1.5rem;border-radius:8px;}
 main{max-width:900px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.1);}
@@ -27,15 +26,17 @@ th{background:#233465;color:white;}
 </head>
 
 <body>
+
 <div class="sidebar">
 <h2>School ERP</h2>
 <a href="dashboard.html">Dashboard</a>
 <a href="admin_attendence.html">Attendance Upload</a>
-<a href="view_attendence.html" style="background: rgba(255,255,255,0.08);">Monthly Attendance</a>
+<a href="view_attendence.html" style="background:rgba(255,255,255,0.25);">Monthly Attendance</a>
 </div>
 
 <div class="content">
 <header>Monthly Attendance</header>
+
 <main>
 <label>Session</label>
 <select id="sessionSelect"></select>
@@ -57,111 +58,133 @@ th{background:#233465;color:white;}
 const STUDENT_API = "https://students-backend-8mup.onrender.com";
 const ATTENDANCE_API = "https://exam-backend-ko0t.onrender.com";
 
-// ------------------ Load Sessions ------------------
+const sessionSelect = document.getElementById("sessionSelect");
+const classSelect = document.getElementById("classSelect");
+const monthSelect = document.getElementById("monthSelect");
+
+/* --------------------------------
+   AUTO LOAD CURRENT MONTH
+-------------------------------- */
+window.addEventListener("DOMContentLoaded", () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+
+    const currentMonth = `${yyyy}-${mm}`;
+    monthSelect.value = currentMonth;
+    monthSelect.max = currentMonth; // block future months
+});
+
+/* ------------------ Load Sessions ------------------ */
 async function loadSessions() {
     const res = await fetch(`${ATTENDANCE_API}/session/list`);
     const data = await res.json();
     if(data.sessions){
-        sessionSelect.innerHTML = `<option value="">Select Session</option>` + 
+        sessionSelect.innerHTML =
+            `<option value="">Select Session</option>` +
             data.sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
-        if(data.sessions.length) sessionSelect.value = data.sessions[0];
-        loadClasses();
+        if(data.sessions.length){
+            sessionSelect.value = data.sessions[0];
+            loadClasses();
+        }
     }
 }
 loadSessions();
 sessionSelect.addEventListener("change", loadClasses);
 
-// ------------------ Load Classes ------------------
+/* ------------------ Load Classes ------------------ */
 async function loadClasses(){
     const session = sessionSelect.value;
     if(!session) return;
+
     const res = await fetch(`${STUDENT_API}/students?session=${session}`);
     const students = await res.json();
     const classes = [...new Set(students.map(s=>s.class_name).filter(Boolean))];
-    classSelect.innerHTML = `<option value="">Select Class</option>` + classes.map(c=>`<option value="${c}">${c}</option>`).join("");
+
+    classSelect.innerHTML =
+        `<option value="">Select Class</option>` +
+        classes.map(c=>`<option value="${c}">${c}</option>`).join("");
 }
 
-// ------------------ Load Attendance ------------------
+/* ------------------ Load Attendance ------------------ */
 async function loadAttendance(){
     const session = sessionSelect.value;
     const cls = classSelect.value;
     const month = monthSelect.value;
 
-    if(!session||!cls||!month) return alert("Select session, class, and month");
+    if(!session || !cls || !month){
+        alert("Select session, class, and month");
+        return;
+    }
 
     const [year, mon] = month.split("-");
     const daysInMonth = new Date(year, mon, 0).getDate();
 
-    // Load students
     const res = await fetch(`${STUDENT_API}/students?session=${session}`);
     const students = await res.json();
     const classStudents = students.filter(s=>s.class_name===cls);
     if(!classStudents.length) return alert("No students found");
 
-    // Prepare attendance object
     let attendanceMap = {};
-    classStudents.forEach(s => {
-        attendanceMap[s.id] = {name: s.student_name};
+    classStudents.forEach(s=>{
+        attendanceMap[s.id] = {name:s.student_name};
         for(let d=1; d<=daysInMonth; d++){
-            const day = d.toString().padStart(2,'0');
-            attendanceMap[s.id][`${year}-${mon}-${day}`] = "-"; // default
+            attendanceMap[s.id][`${year}-${mon}-${String(d).padStart(2,"0")}`] = "-";
         }
     });
 
-    // Fetch attendance day by day
     for(let d=1; d<=daysInMonth; d++){
-        const day = d.toString().padStart(2,'0');
+        const day = String(d).padStart(2,"0");
         const dateStr = `${year}-${mon}-${day}`;
         try{
-            const attRes = await fetch(`${ATTENDANCE_API}/attendance/list?session=${session}&class_name=${encodeURIComponent(cls)}&date=${dateStr}`);
-            const attData = await attRes.json();
-            if(attData.success && attData.attendance){
-                attData.attendance.forEach(a => {
-                    if(attendanceMap[a.student_id]) attendanceMap[a.student_id][dateStr] = a.status;
+            const ar = await fetch(
+                `${ATTENDANCE_API}/attendance/list?session=${session}&class_name=${encodeURIComponent(cls)}&date=${dateStr}`
+            );
+            const ad = await ar.json();
+            if(ad.success){
+                ad.attendance.forEach(a=>{
+                    if(attendanceMap[a.student_id]){
+                        attendanceMap[a.student_id][dateStr] = a.status;
+                    }
                 });
             }
-        }catch(err){console.error("Error fetching attendance for", dateStr, err);}
+        }catch(e){}
     }
 
-    // Build table
     let html = `<table><tr><th>Roll No</th><th>Student Name</th>`;
-    for(let d=1; d<=daysInMonth; d++){
-        html += `<th>${d}</th>`;
-    }
+    for(let d=1; d<=daysInMonth; d++) html += `<th>${d}</th>`;
     html += `<th>Present</th><th>Absent</th><th>Leave</th></tr>`;
 
     let roll=1;
-    for(const [id, info] of Object.entries(attendanceMap)){
-        let present=0, absent=0, leave=0;
+    for(const info of Object.values(attendanceMap)){
+        let p=0,a=0,l=0;
         html += `<tr><td>${roll++}</td><td>${info.name}</td>`;
         for(let d=1; d<=daysInMonth; d++){
-            const day = d.toString().padStart(2,'0');
-            const status = info[`${year}-${mon}-${day}`];
+            const status = info[`${year}-${mon}-${String(d).padStart(2,"0")}`];
             html += `<td>${status}</td>`;
-            if(status==="present") present++;
-            else if(status==="absent") absent++;
-            else if(status==="leave") leave++;
+            if(status==="present") p++;
+            else if(status==="absent") a++;
+            else if(status==="leave") l++;
         }
-        html += `<td>${present}</td><td>${absent}</td><td>${leave}</td></tr>`;
+        html += `<td>${p}</td><td>${a}</td><td>${l}</td></tr>`;
     }
 
     html += `</table>`;
     document.getElementById("tableContainer").innerHTML = html;
 }
 
-// ------------------ Export CSV ------------------
+/* ------------------ Export CSV ------------------ */
 function exportCSV(){
     const table = document.querySelector("#tableContainer table");
     if(!table) return alert("No data to export!");
+
     let csv = [];
-    const rows = table.querySelectorAll("tr");
-    rows.forEach(tr=>{
-        const row = [];
-        tr.querySelectorAll("th,td").forEach(td=>{
-            row.push(td.textContent.trim());
-        });
-        csv.push(row.join(","));
+    table.querySelectorAll("tr").forEach(tr=>{
+        csv.push(
+            [...tr.children].map(td=>td.innerText).join(",")
+        );
     });
+
     const blob = new Blob([csv.join("\n")],{type:"text/csv"});
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -171,5 +194,6 @@ function exportCSV(){
     URL.revokeObjectURL(url);
 }
 </script>
+
 </body>
 </html>

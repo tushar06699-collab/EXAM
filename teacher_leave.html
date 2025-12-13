@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Teacher Leave Application – School ERP</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap">
+<style>
+  :root{
+    --accent:#233465;
+    --accent-2:#4f46e5;
+    --muted:#6b7280;
+    --card:#ffffff;
+    --bg:#f3f6fb;
+    --success:#1e8f3d;
+    --danger:#d62828;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Poppins,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;background:var(--bg);color:#111}
+  .sidebar{
+    width:220px; background:var(--accent); color:#fff; height:100vh; position:fixed; left:0; top:0; padding:24px 16px;
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .sidebar h2{margin:0;font-size:20px;text-align:center;letter-spacing:0.2px}
+  .sidebar a{color:#fff;text-decoration:none;padding:10px;border-radius:8px;display:block}
+  .sidebar a.active{background:rgba(255,255,255,0.08)}
+  .container{margin-left:220px;padding:28px;}
+  header.main-header{
+    background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#fff;padding:18px;border-radius:10px;margin-bottom:20px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  header.main-header h1{margin:0;font-size:20px}
+  header.main-header small{opacity:0.9;color:rgba(255,255,255,0.9)}
+  .grid{
+    display:grid;grid-template-columns:1fr 420px;gap:20px;align-items:start;
+  }
+  .card{background:var(--card);border-radius:10px;padding:18px;box-shadow:0 6px 18px rgba(16,24,40,0.06)}
+  label{display:block;font-weight:600;margin-bottom:6px;font-size:14px;color:#0f172a}
+  .input, select, textarea{
+    width:100%;padding:10px;border-radius:8px;border:1px solid #e6e9ef;background:#fff;font-size:14px;
+  }
+  textarea{min-height:110px;resize:vertical}
+  .row{display:flex;gap:12px}
+  .row .col{flex:1}
+  .muted{color:var(--muted);font-size:13px}
+  .btn{
+    display:inline-block;padding:10px 14px;border-radius:8px;background:var(--accent-2);color:#fff;border:none;cursor:pointer;font-weight:600;
+  }
+  .btn.secondary{background:#eef2ff;color:var(--accent-2);border:1px solid rgba(79,70,229,0.08)}
+  .btn.ghost{background:transparent;border:1px solid #e6e9ef;color:var(--muted)}
+  .file-row{display:flex;align-items:center;gap:12px}
+  .small-muted{font-size:13px;color:var(--muted)}
+  .list {margin-top:12px;display:flex;flex-direction:column;gap:10px;max-height:420px;overflow:auto;padding-right:6px}
+  .leave-item{display:flex;justify-content:space-between;gap:12px;padding:12px;border-radius:8px;border:1px solid #eef2f6;background:#fff;align-items:center}
+  .leave-left{display:flex;gap:12px;align-items:center}
+  .status {padding:6px 10px;border-radius:999px;font-weight:700;font-size:13px}
+  .status.pending{background:#fff7e6;color:#a16207;border:1px solid rgba(161,98,7,0.07)}
+  .status.approved{background:rgba(16,185,129,0.12);color:var(--success)}
+  .status.rejected{background:rgba(214,40,40,0.08);color:var(--danger)}
+  .meta{font-size:13px;color:var(--muted)}
+  .file-link{color:var(--accent-2);text-decoration:none;font-weight:600}
+  .center{display:flex;align-items:center;justify-content:center}
+  @media(max-width:980px){.grid{grid-template-columns:1fr;}.container{padding:16px;margin-left:0}}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h2>School ERP</h2>
+  <a href="teacher_dashboard.html">Dashboard</a>
+    <a href="view_notices.html">Notices and Circular</a>
+    <a href="teacher_my_classes.html">My Time Table</a>
+    <a href="teacher_attendance.html">Upload Attendance</a>
+    <a href="teacher_view_datesheet.html">View Datesheet</a>
+    <a href="teacher_papers.html">Question Papers</a>
+    <a href="teacher_marks_upload.html">Upload Marks</a>
+    <a href="teacher_leave.html" class="active">Leave Permission</a>
+</div>
+
+<div class="container">
+  <header class="main-header">
+    <div>
+      <h1>Leave Application</h1>
+      <small class="muted">Submit your leave request — documents optional</small>
+    </div>
+    <div id="teacherBadge" class="small-muted">Teacher: —</div>
+  </header>
+
+  <div class="grid">
+    <!-- Left: Form -->
+    <section class="card">
+      <form id="leaveForm">
+        <input type="hidden" id="teacherId" name="teacher_id" />
+        <label>Session</label>
+        <select id="session" class="input" required></select>
+
+        <div style="display:flex;gap:12px;margin-top:12px;">
+          <div style="flex:1">
+            <label>Start Date</label>
+            <input id="startDate" name="start_date" type="date" class="input" required />
+          </div>
+          <div style="flex:1">
+            <label>End Date</label>
+            <input id="endDate" name="end_date" type="date" class="input" required />
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <label>Purpose</label>
+          <select id="purpose" class="input" required>
+            <option value="">Select purpose</option>
+            <option value="Sick Leave">Sick Leave</option>
+            <option value="Casual Leave">Casual Leave</option>
+            <option value="Personal">Personal</option>
+            <option value="Official / Training">Official / Training</option>
+            <option value="Other">Other</option>
+          </select>
+          <div class="small-muted" style="margin-top:6px">Tip: choose the most appropriate purpose. If you selected "Other", explain below.</div>
+        </div>
+
+        <div style="margin-top:12px">
+          <label>Reason / Note</label>
+          <textarea id="reason" name="reason" placeholder="Write short reason (optional if purpose is self-explanatory)"></textarea>
+        </div>
+
+        <div style="margin-top:12px">
+          <label>Attach Document (optional)</label>
+          <div class="file-row">
+            <input id="document" name="document" type="file" accept=".pdf,.jpg,.jpeg,.png" />
+            <button type="button" id="clearFile" class="btn secondary">Clear</button>
+          </div>
+          <div class="small-muted" style="margin-top:6px">If you have a medical certificate or supporting document, attach here. Not compulsory.</div>
+        </div>
+
+        <div style="margin-top:16px;display:flex;gap:12px">
+          <button class="btn" id="submitBtn" type="submit">Submit Leave</button>
+          <button type="button" id="resetBtn" class="btn ghost">Reset</button>
+        </div>
+
+        <div id="formMsg" style="margin-top:12px;font-size:14px"></div>
+      </form>
+    </section>
+
+    <!-- Right: Previous Leaves -->
+    <aside class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-weight:700">Your Requests</div>
+          <div class="meta small-muted" id="requestsMeta">Recent leave requests</div>
+        </div>
+        <div class="center">
+          <button id="refreshBtn" class="btn secondary">Refresh</button>
+        </div>
+      </div>
+
+      <div id="leaveList" class="list" aria-live="polite"></div>
+
+      <div class="center" style="margin-top:12px">
+        <button id="viewAllBtn" class="btn ghost">View All Requests</button>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+/* ----------------------
+   Configuration
+   ---------------------- */
+const BACKEND = "https://exam-backend-ko0t.onrender.com";
+
+/* ----------------------
+   Helper: Teacher info
+   ---------------------- */
+function getTeacher() {
+  try {
+    const tObj = localStorage.getItem("teacher");
+    if (tObj) {
+      const t = JSON.parse(tObj);
+      return {
+        id: t.id || t.teacher_id || t._id || null,
+        name: t.name || t.teacher_name || t.username || (t.email || ""),
+        session: t.session || t?.session || ""
+      };
+    }
+    return {
+      id: localStorage.getItem("teacher_id") || null,
+      name: localStorage.getItem("teacher_name") || "Teacher",
+      session: localStorage.getItem("session") || ""
+    };
+  } catch (e) {
+    return { id: localStorage.getItem("teacher_id") || null, name: "Teacher", session: "" };
+  }
+}
+
+/* ----------------------
+   DOM refs
+   ---------------------- */
+const teacherBadge = document.getElementById("teacherBadge");
+const teacherIdInput = document.getElementById("teacherId");
+const sessionSelect = document.getElementById("session");
+const startDate = document.getElementById("startDate");
+const endDate = document.getElementById("endDate");
+const purpose = document.getElementById("purpose");
+const reason = document.getElementById("reason");
+const documentInput = document.getElementById("document");
+const clearFileBtn = document.getElementById("clearFile");
+const leaveForm = document.getElementById("leaveForm");
+const formMsg = document.getElementById("formMsg");
+const leaveList = document.getElementById("leaveList");
+const refreshBtn = document.getElementById("refreshBtn");
+const viewAllBtn = document.getElementById("viewAllBtn");
+const submitBtn = document.getElementById("submitBtn");
+const resetBtn = document.getElementById("resetBtn");
+
+/* ----------------------
+   Init
+   ---------------------- */
+const teacher = getTeacher();
+if (!teacher.id) {
+  teacherBadge.textContent = "Teacher: (not logged in)";
+} else {
+  teacherBadge.textContent = `Teacher: ${teacher.name}`;
+  teacherIdInput.value = teacher.id;
+}
+populateSessions();
+
+/* ----------------------
+   Populate sessions
+   ---------------------- */
+async function populateSessions(){
+  try {
+    const res = await fetch(`${BACKEND}/session/list`);
+    const data = await res.json();
+    if (data && data.sessions && Array.isArray(data.sessions)) {
+      sessionSelect.innerHTML = data.sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
+      if (teacher.session && data.sessions.includes(teacher.session)) sessionSelect.value = teacher.session;
+      else if (data.sessions.length) sessionSelect.selectedIndex = 0;
+    }
+  } catch (e) {
+    sessionSelect.innerHTML = `<option value="">--</option>`;
+    console.error("session load error", e);
+  }
+  if (teacher.id) loadLeaves();
+}
+
+/* ----------------------
+   Form helpers
+   ---------------------- */
+clearFileBtn.addEventListener("click", () => documentInput.value = "");
+resetBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  leaveForm.reset();
+  formMsg.textContent = "";
+  populateSessions();
+});
+
+/* ----------------------
+   Submit leave
+   ---------------------- */
+leaveForm.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  formMsg.textContent = "";
+  if (!teacher.id) return showMessage("You must be logged in to submit leave.", "error");
+
+  const s = sessionSelect.value;
+  const sd = startDate.value;
+  const ed = endDate.value;
+  const purp = purpose.value;
+  const note = reason.value.trim();
+
+  if (!s || !sd || !ed || !purp) return showMessage("Please fill session, start/end date and purpose.", "error");
+  if (new Date(sd) > new Date(ed)) return showMessage("Start Date cannot be after End Date.", "error");
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Submitting…";
+
+  try {
+    const fd = new FormData();
+    fd.append("teacher_id", teacher.id);
+    fd.append("session", s);
+    fd.append("start_date", sd);
+    fd.append("end_date", ed);
+fd.append("purpose", purp);
+fd.append("reason", note);
+    if (documentInput.files && documentInput.files.length > 0) {
+      fd.append("document", documentInput.files[0]);
+    }
+
+    const res = await fetch(`${BACKEND}/leave/submit`, { method: "POST", body: fd });
+    const json = await res.json().catch(()=>({success:false,message:"Invalid response"}));
+
+    if (json.success) {
+      showMessage("Leave submitted successfully.", "success");
+      leaveForm.reset();
+      populateSessions();
+      await loadLeaves();
+    } else {
+      showMessage(json.message || "Failed to submit leave", "error");
+    }
+  } catch (err) {
+    console.error("submit error", err);
+    showMessage("Network error. Try again.", "error");
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Submit Leave";
+  }
+});
+
+/* ----------------------
+   Load leaves (show admin reply)
+   ---------------------- */
+async function loadLeaves(limit=20){
+  leaveList.innerHTML = `<div class="center small-muted">Loading…</div>`;
+  try {
+    const res = await fetch(`${BACKEND}/leave/teacher/${encodeURIComponent(teacher.id)}`);
+    const data = await res.json();
+    if (!data.success || !Array.isArray(data.leaves) || data.leaves.length===0) {
+      leaveList.innerHTML = `<div class="small-muted">No requests found.</div>`;
+      return;
+    }
+
+    leaveList.innerHTML = "";
+    data.leaves.slice(0, limit).forEach(item => {
+      const st = item.start_date;
+      const en = item.end_date;
+      const sess = item.session;
+      const rsn = item.reason;
+      const doc = item.document;
+      const status = (item.status || "pending").toLowerCase();
+      const adminMsg = item.admin_message || "";
+
+      const statusClass = status==="approved" ? "approved" : status==="rejected" ? "rejected" : "pending";
+      const statusLabel = status==="approved" ? "Approved" : status==="rejected" ? "Rejected" : "Pending";
+
+      const left = document.createElement("div");
+      left.className = "leave-left";
+
+      let infoHtml = `<div style="font-weight:700">${sess} • ${st} → ${en}</div>
+                      <div class="meta small-muted">${escapeHtml(rsn)}</div>`;
+      if (adminMsg) {
+        infoHtml += `<div class="meta small-muted" style="color:var(--accent-2);margin-top:4px"><strong>Admin:</strong> ${escapeHtml(adminMsg)}</div>`;
+      }
+      left.innerHTML = infoHtml;
+
+      const right = document.createElement("div");
+      right.style.display = "flex";
+      right.style.flexDirection = "column";
+      right.style.alignItems = "flex-end";
+      right.style.gap = "8px";
+
+      const stBadge = document.createElement("div");
+      stBadge.className = `status ${statusClass}`;
+      stBadge.textContent = statusLabel;
+      right.appendChild(stBadge);
+
+      if (doc) {
+        const a = document.createElement("a");
+        a.href = `${BACKEND}/leave/get-document/${encodeURIComponent(doc)}`;
+        a.target = "_blank";
+        a.className = "file-link";
+        a.textContent = "View document";
+        right.appendChild(a);
+      }
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "leave-item";
+      wrapper.appendChild(left);
+      wrapper.appendChild(right);
+      leaveList.appendChild(wrapper);
+    });
+
+  } catch (err) {
+    console.error("load leaves error", err);
+    leaveList.innerHTML = `<div class="small-muted">Failed to load requests.</div>`;
+  }
+}
+
+/* ----------------------
+   Refresh & view all
+   ---------------------- */
+refreshBtn.addEventListener("click", ()=>loadLeaves());
+viewAllBtn.addEventListener("click", ()=>loadLeaves(1000));
+
+/* ----------------------
+   Utilities
+   ---------------------- */
+function showMessage(txt, type="info"){
+  formMsg.textContent = txt;
+  formMsg.style.color = type==="error" ? "var(--danger)" : (type==="success" ? "var(--success)" : "var(--muted)");
+  setTimeout(()=>{ if(formMsg.textContent===txt) formMsg.textContent=""; }, 6000);
+}
+function escapeHtml(str){
+  if(!str) return "";
+  return String(str).replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])});
+}
+</script>
+</body>
+</html>

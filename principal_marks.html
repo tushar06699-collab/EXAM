@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>View Uploaded Marks – School ERP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body{margin:0;font-family:Poppins,sans-serif;background:#f2f4f7;display:flex;}
+.sidebar{width:240px;background:#233465;color:white;height:100vh;position:fixed;left:0;top:0;padding-top:20px;}
+.sidebar h2{text-align:center;font-size:22px;margin-bottom:25px;}
+.sidebar a{display:block;padding:12px 20px;color:white;text-decoration:none;font-size:16px;}
+.sidebar a:hover{background:rgba(255,255,255,0.25);}
+.sidebar a.active{background:rgba(255,255,255,0.35);}
+.content{margin-left:240px;width:calc(100% - 240px);padding:20px;}
+header{background:#233465;color:#fff;padding:1rem;text-align:center;font-size:1.5rem;border-radius:8px;}
+main{max-width:900px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.1);}
+label{display:block;font-weight:600;margin-top:15px;}
+select,input{width:100%;padding:10px;margin-top:5px;border:1px solid #ccc;border-radius:6px;}
+button{margin-top:20px;width:100%;padding:12px;background:#4f46e5;color:white;border:none;font-size:16px;border-radius:6px;cursor:pointer;}
+button:hover{background:#3730a3;}
+table{width:100%;border-collapse:collapse;margin-top:20px;}
+th,td{border:1px solid #ccc;padding:8px;text-align:center;}
+th{background:#233465;color:white;}
+input.mark-input{width:60px;text-align:center;}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+<h2>School ERP</h2>
+<a href="principal_dashboard.html">Dashboard</a>
+  <a href="principal_marks.html" style="background: rgba(255,255,255,0.08);">Uploaded Marks</a>
+  <a href="principal_marksheet.html">Marksheet</a></div>
+
+<div class="content">
+<header>Uploaded Marks – Class Overview</header>
+<main>
+
+<label>Session</label>
+<select id="sessionSelect"></select>
+
+<label>Class</label>
+<select id="classSelect"></select>
+
+<label>Exam</label>
+<select id="examSelect"></select>
+
+<button onclick="loadMarks()">Load Marks</button>
+<button onclick="exportCSV()" style="background:#1e8f3d;">Export CSV</button>
+
+<div id="tableContainer"></div>
+
+</main>
+</div>
+
+<script>
+const EXAM_API = "https://exam-backend-ko0t.onrender.com";
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
+
+let EXAMS = [];
+let STUDENTS = [];
+let SUBJECTS = [];
+let TOTAL_MARKS = 100; // default
+
+// Load sessions
+async function loadSessions(){
+    const res = await fetch(`${EXAM_API}/session/list`);
+    const data = await res.json();
+    sessionSelect.innerHTML = data.sessions.map(s=>`<option>${s}</option>`).join("");
+    if(data.sessions.length>0){
+        sessionSelect.value = data.sessions[0];
+        loadClasses();
+    }
+}
+loadSessions();
+sessionSelect.addEventListener("change", loadClasses);
+
+// Load classes
+async function loadClasses(){
+    const session = sessionSelect.value;
+    if(!session) return;
+    const res = await fetch(`${STUDENT_API}/students?session=${session}`);
+    const students = await res.json();
+    const classes = [...new Set(students.map(s=>s.class_name).filter(Boolean))];
+    classes.sort();
+    classSelect.innerHTML = `<option value="">Select Class</option>` + classes.map(c=>`<option value="${c}">${c}</option>`).join("");
+    if(classes.length>0) classSelect.value = classes[0];
+    loadExams();
+}
+classSelect.addEventListener("change", loadExams);
+
+// Load exams
+async function loadExams(){
+    try{
+        const res = await fetch(`${EXAM_API}/exam/list-all`);
+        const data = await res.json();
+        if(!data.success) return alert("Exam load error");
+        EXAMS = data.exams;
+        examSelect.innerHTML = `<option value="">Select Exam</option>` + EXAMS.map(e=>`<option value="${e.exam_id}">${e.exam_name}</option>`).join("");
+    }catch(err){console.error(err);}
+}
+
+// Load marks table
+async function loadMarks(){
+    const session = sessionSelect.value;
+    const cls = classSelect.value;
+    const examId = examSelect.value;
+    if(!session || !cls || !examId) return alert("Select session, class, exam");
+
+    const examData = EXAMS.find(e=>e.exam_id==examId);
+    if(!examData) return;
+
+    TOTAL_MARKS = parseFloat(examData.total_marks) || 100;
+
+    // Load students
+    const resStu = await fetch(`${STUDENT_API}/students?session=${session}`);
+    STUDENTS = (await resStu.json()).filter(s=>s.class_name===cls);
+
+    // Load subjects
+    const resSub = await fetch(`${EXAM_API}/exam/subjects/get?session=${session}&class_name=${cls}`);
+    const subData = await resSub.json();
+    SUBJECTS = subData.subjects || [];
+
+    // Load marks
+    const resMarks = await fetch(`${EXAM_API}/exam/get-marks?session=${session}&class_name=${cls}&exam_name=${examData.exam_name}`);
+    const markData = await resMarks.json();
+    if(!markData.success) return alert("No marks found");
+
+    // Map marks: {roll: {subject: marks}}
+    const marksMap = {};
+    markData.marks.forEach(m=>{
+        if(!marksMap[m.roll]) marksMap[m.roll]={};
+        marksMap[m.roll][m.subject] = m.marks;
+    });
+
+    // Build table
+    let html = `<table><tr><th>Roll</th><th>Name</th>`;
+    SUBJECTS.forEach(s=>html+=`<th>${s}</th>`);
+    html+=`<th>Total</th><th>Percent</th></tr>`;
+
+    STUDENTS.forEach(st=>{
+        let total=0;
+        html+=`<tr><td>${st.rollno}</td><td>${st.student_name}</td>`;
+        SUBJECTS.forEach(sub=>{
+            const m = marksMap[st.rollno]?.[sub] || 0;
+            total+=parseFloat(m);
+            const color = m < (TOTAL_MARKS/3) ? 'style="background:#ffcccc"' : '';
+            html+=`<td ${color}>${m}</td>`;
+        });
+        const percent = ((total/(SUBJECTS.length*TOTAL_MARKS))*100).toFixed(2);
+        const rowColor = percent < 33 ? 'style="background:#ffcccc"' : '';
+        html+=`<td>${total}</td><td ${rowColor}>${percent}</td></tr>`;
+    });
+
+    html+=`</table>`;
+    document.getElementById("tableContainer").innerHTML = html;
+}
+
+// CSV export
+function exportCSV(){
+    const table = document.querySelector("#tableContainer table");
+    if(!table) return alert("No data");
+    let csv=[];
+    table.querySelectorAll("tr").forEach(tr=>{
+        let row=[];
+        tr.querySelectorAll("th,td").forEach(td=>{
+            row.push(td.textContent.trim());
+        });
+        csv.push(row.join(","));
+    });
+    const blob = new Blob([csv.join("\n")],{type:"text/csv"});
+    const url = URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;
+    a.download=`marks_${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>

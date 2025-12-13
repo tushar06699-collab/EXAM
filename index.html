@@ -87,7 +87,7 @@ function login(){
         localStorage.setItem("token", res.token);
         localStorage.setItem("role", res.role);
 
-        // ---------- Teacher Extra Details ----------
+        // ---------- Teacher ----------
         if(res.role === "teacher"){
             if(res.teacher){
                 localStorage.setItem("teacher_id", res.teacher.id);
@@ -102,6 +102,13 @@ function login(){
         // ---------- Admin ----------
         if(res.role === "admin"){
             window.location.href = "dashboard.html";
+            return;
+        }
+
+        // ---------- Principal ----------
+        if(res.role === "principal"){
+            localStorage.setItem("principal_name", res.principal?.name || "Principal");
+            window.location.href = "principal_dashboard.html";
             return;
         }
 

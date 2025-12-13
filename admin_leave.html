@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin – Leave Applications</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body{margin:0;font-family:Poppins,sans-serif;background:#eef1f5;}
+.sidebar{width:230px;height:100vh;background:#233465;color:white;position:fixed;left:0;top:0;padding:20px;}
+.sidebar h2{font-size:20px;margin-bottom:30px;}
+.sidebar a{display:block;text-decoration:none;color:white;padding:10px 0;margin:5px 0;}
+.sidebar a:hover{background:rgba(255,255,255,0.1);border-radius:5px;}
+.main{margin-left:260px;padding:20px;}
+.card{background:white;padding:20px;border-radius:10px;margin-bottom:20px;box-shadow:0 4px 10px rgba(0,0,0,0.1);}
+.leave-row{border:1px solid #ddd;padding:15px;border-radius:8px;margin-bottom:12px;}
+.leave-header{display:flex;justify-content:space-between;font-weight:600;margin-bottom:8px;}
+.status-badge{padding:4px 10px;border-radius:20px;font-size:12px;color:white;}
+.pending{ background:#f0ad4e; }
+.approved{ background:#28a745; }
+.rejected{ background:#dc3545; }
+button{padding:8px 16px;border:none;color:white;border-radius:6px;cursor:pointer;margin-right:10px;margin-top:10px;}
+.approve-btn{ background:#28a745; }
+.reject-btn{ background:#dc3545; }
+textarea{width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;resize:none;margin-top:10px;}
+.view-doc{color:#233465;text-decoration:none;font-weight:600;display:inline-block;margin-top:5px;}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+    <h2>Admin Panel</h2>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="admin_leave.html">Leave Applications</a>
+</div>
+
+<div class="main">
+    <h1>Teacher Leave Applications</h1>
+    <div id="leaveContainer"></div>
+</div>
+
+<script>
+const API = "https://exam-backend-ko0t.onrender.com";
+
+// Cache teacher names to avoid multiple requests
+const teacherCache = {};
+
+// Calculate total days between two dates
+function calculateDays(s, e) {
+    return ((new Date(e) - new Date(s)) / 86400000) + 1;
+}
+
+// Escape HTML to safely show admin messages
+function escapeHTML(text) {
+    if (!text) return "";
+    return text.replace(/&/g, "&amp;")
+               .replace(/</g, "&lt;")
+               .replace(/>/g, "&gt;")
+               .replace(/"/g, "&quot;")
+               .replace(/'/g, "&#039;");
+}
+
+// Get teacher name by ID
+async function getTeacherName(id) {
+    if (!id) return "Unknown";
+    if (teacherCache[id]) return teacherCache[id];
+
+    try {
+        let res = await fetch(`${API}/teacher/${id}`);
+        let data = await res.json();
+        if (data.success && data.teacher) {
+            teacherCache[id] = data.teacher.name;
+            return data.teacher.name;
+        }
+        return "Unknown";
+    } catch (err) {
+        console.error("Failed to get teacher name:", err);
+        return "Unknown";
+    }
+}
+
+// Load leaves from backend
+async function loadLeaves() {
+    try {
+        let res = await fetch(`${API}/leave/list`);
+        let data = await res.json();
+        let box = document.getElementById("leaveContainer");
+        box.innerHTML = "";
+
+        if (!data.success || data.leaves.length === 0) {
+            box.innerHTML = "<p>No leave applications found</p>";
+            return;
+        }
+
+        for (let lv of data.leaves) {
+            // Fetch teacher name dynamically if unknown
+            let teacherName = lv.teacher_name !== "Unknown" ? lv.teacher_name : await getTeacherName(lv.teacher_id);
+            let days = calculateDays(lv.start_date, lv.end_date);
+
+            let fileHTML = lv.document_url
+                ? `<a class="view-doc" href="${API}${lv.document_url}" target="_blank">View Document</a>`
+                : "No Document Uploaded";
+
+            let card = document.createElement("div");
+            card.className = "card leave-row";
+
+            card.innerHTML = `
+                <div class="leave-header">
+                    <span><b>${teacherName}</b></span>
+                    <span class="status-badge ${lv.status}">${lv.status.toUpperCase()}</span>
+                </div>
+                <p><b>Reason:</b> ${lv.reason || "No reason provided"}</p>
+                <p><b>Purpose:</b> ${lv.purpose || "No purpose provided"}</p>
+                <p><b>From:</b> ${lv.start_date} <b>To:</b> ${lv.end_date}</p>
+                <p><b>Total Days:</b> ${days}</p>
+                ${fileHTML}
+            `;
+
+            // Textarea for admin message
+            let textArea = document.createElement("textarea");
+            textArea.id = `message_${lv.id}`;
+            textArea.placeholder = "Admin message (optional)";
+            textArea.value = lv.admin_message || "";
+            card.appendChild(textArea);
+
+            // Approve button
+            let approveBtn = document.createElement("button");
+            approveBtn.className = "approve-btn";
+            approveBtn.textContent = "Approve";
+            approveBtn.onclick = () => updateLeave(lv.id, "approved");
+            card.appendChild(approveBtn);
+
+            // Reject button
+            let rejectBtn = document.createElement("button");
+            rejectBtn.className = "reject-btn";
+            rejectBtn.textContent = "Reject";
+            rejectBtn.onclick = () => updateLeave(lv.id, "rejected");
+            card.appendChild(rejectBtn);
+
+            box.appendChild(card);
+        }
+    } catch (err) {
+        console.error("Failed to load leaves:", err);
+        document.getElementById("leaveContainer").innerHTML = "<p>Error loading leave applications</p>";
+    }
+}
+
+// Update leave status
+async function updateLeave(id, status) {
+    let message = document.getElementById("message_" + id).value;
+
+    try {
+        let res = await fetch(`${API}/leave/update-status/${id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status, message })
+        });
+        let data = await res.json();
+        alert(data.message);
+        loadLeaves();
+    } catch (err) {
+        console.error("Failed to update leave:", err);
+        alert("Error updating leave status");
+    }
+}
+
+// Initial load
+loadLeaves();
+</script>
+
+</body>
+</html>
