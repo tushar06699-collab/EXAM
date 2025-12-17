@@ -115,7 +115,13 @@ async function loadMarks(){
 
     // Load students
     const resStu = await fetch(`${STUDENT_API}/students?session=${session}`);
-    STUDENTS = (await resStu.json()).filter(s=>s.class_name===cls);
+STUDENTS = (await resStu.json())
+  .filter(s => s.class_name === cls)
+  .sort((a, b) => {
+    const r1 = parseInt(a.rollno) || 0;
+    const r2 = parseInt(b.rollno) || 0;
+    return r1 - r2;
+  });
 
     // Load subjects
     const resSub = await fetch(`${EXAM_API}/exam/subjects/get?session=${session}&class_name=${cls}`);
