@@ -182,9 +182,7 @@ header {
      <a href="teacher_dashboard.html">Dashboard</a>
     <a href="view_notices.html" class="active">Notices and Circular</a>
     <a href="teacher_my_classes.html">My Time Table</a>
-    <a href="teacher_view_datesheet.html">View Datesheet</a>
-    <a href="teacher_papers.html">Question Papers</a>
-    <a href="teacher_marks_upload.html">Upload Marks</a>
+    
 </div>
 
 <!-- Page Content -->
@@ -210,7 +208,7 @@ document.getElementById('hamburger').addEventListener('click', () => {
 /* Load all notices */
 async function loadNotices() {
     try {
-        const res = await fetch(`${API}/notice/list`);
+const res = await fetch(`${API}/notice/list?role=teacher`);
         const data = await res.json();
 
         const container = document.getElementById("noticeList");

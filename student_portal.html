@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Dashboard</title>
+
+<style>
+:root{
+    --primary:#4e73df;
+    --bg:#f5f7fb;
+    --card:#ffffff;
+    --text:#333;
+}
+body{
+    margin:0;
+    font-family:"Poppins",system-ui,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+}
+
+/* HEADER */
+header{
+    background:var(--primary);
+    color:#fff;
+    padding:10px 20px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+.left{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+.menu-btn{
+    font-size:26px;
+    cursor:pointer;
+}
+.student-info{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+.student-info img{
+    width:38px;
+    height:38px;
+    border-radius:50%;
+    border:2px solid #fff;
+    object-fit:cover;
+}
+.logout{
+    background:rgba(255,255,255,.25);
+    border:none;
+    color:white;
+    padding:6px 12px;
+    border-radius:20px;
+    cursor:pointer;
+}
+
+/* SIDEBAR */
+.sidebar{
+    position:fixed;
+    top:0;
+    left:-280px;
+    width:260px;
+    height:100%;
+    background:#fff;
+    box-shadow:2px 0 15px rgba(0,0,0,.2);
+    padding:20px;
+    transition:.3s;
+    z-index:1001;
+}
+.sidebar h2{color:var(--primary);}
+.sidebar a{
+    display:block;
+    padding:12px 0;
+    color:#333;
+    text-decoration:none;
+    border-bottom:1px solid #eee;
+}
+.sidebar a:hover{color:var(--primary);}
+
+/* OVERLAY */
+.overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.4);
+    display:none;
+    z-index:1000;
+}
+
+/* MAIN */
+.container{
+    max-width:1000px;
+    margin:auto;
+    padding:20px;
+}
+
+/* PROFILE */
+.profile{
+    background:#fff;
+    border-radius:16px;
+    padding:20px;
+    display:flex;
+    gap:20px;
+    align-items:center;
+    box-shadow:0 8px 20px rgba(0,0,0,.06);
+    margin-bottom:25px;
+}
+.profile img{
+    width:110px;
+    height:110px;
+    border-radius:18%;
+    border:3px solid var(--primary);
+    object-fit:cover;
+}
+.profile-info p{margin:5px 0;color:#666;}
+
+/* GRID */
+.grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:18px;
+}
+.card{
+    background:#fff;
+    padding:20px;
+    border-radius:14px;
+    text-align:center;
+    box-shadow:0 6px 15px rgba(0,0,0,.05);
+    cursor:pointer;
+    transition:.2s;
+}
+.card:hover{transform:translateY(-5px);}
+.card span{font-size:30px;display:block}
+
+/* ===== LATEST NOTICES ===== */
+.latest-notices{
+    background:#fff;
+    border-radius:16px;
+    padding:20px;
+    box-shadow:0 8px 20px rgba(0,0,0,.06);
+    margin-bottom:25px;
+}
+
+.section-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:12px;
+}
+.section-header a{
+    text-decoration:none;
+    color:var(--primary);
+    font-weight:600;
+    font-size:14px;
+}
+
+.notice-mini{
+    padding:12px 14px;
+    border-radius:12px;
+    background:#f5f7fb;
+    margin-bottom:10px;
+}
+.notice-mini h4{
+    margin:0 0 4px;
+    font-size:15px;
+}
+.notice-mini p{
+    margin:0;
+    font-size:13px;
+    color:#555;
+}
+.notice-mini span{
+    font-size:11px;
+    color:#888;
+}
+
+/* MOBILE */
+@media(max-width:600px){
+    header{flex-direction:column;align-items:flex-start;}
+}
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay" onclick="closeMenu()"></div>
+
+<div class="sidebar" id="sidebar">
+    <h2>🎓 Student Menu</h2>
+    <a onclick="openPage('student_portal.html')">🏠 Dashboard</a>
+    <a onclick="openPage('student_results.html')">📊 Results</a>
+    <a onclick="openPage('student_timetable.html')">📅 Timetable</a>
+    <a onclick="openPage('student_exams.html')">📝 Exams</a>
+    <a onclick="openPage('student_attendance.html')">📌 Attendance</a>
+        <a onclick="openPage('student_notices.html')">📢 Notices</a>
+        <a onclick="openPage('student_academic_calendar.html')">📅 Academic Calendar</a>
+    <hr>
+    <a onclick="logout()">🚪 Logout</a>
+</div>
+
+<header>
+    <div class="left">
+        <span class="menu-btn" onclick="openMenu()">☰</span>
+        <h1>Student Portal</h1>
+    </div>
+    <div class="student-info">
+        <img id="headerPhoto" src="images/default.png">
+        <span id="headerName">Student</span>
+        <button class="logout" onclick="logout()">Logout</button>
+    </div>
+</header>
+
+<div class="container">
+
+    <!-- DASHBOARD PROFILE -->
+    <div class="profile">
+        <img id="dashPhoto" src="images/default.png">
+        <div class="profile-info">
+            <h2 id="dashName">Student Name</h2>
+            <p id="dashClass">Class - Section</p>
+            <p id="dashRoll">Roll No</p>
+        </div>
+    </div>
+     <!-- LATEST NOTICES -->
+<div class="latest-notices">
+  <div class="section-header">
+    <h3>📢 Latest Notices</h3>
+    <a href="student_notices.html">View All</a>
+  </div>
+
+  <div id="latestNoticeList"></div>
+</div>
+
+    
+
+</div>
+
+<script>
+/* AUTH CHECK */
+if(localStorage.getItem("role")!=="student"){
+    location.href="index.html";
+}
+
+const studentId = localStorage.getItem("student_id");
+if(!studentId){
+    location.href="index.html";
+}
+
+/* FETCH STUDENT FROM YOUR BACKEND */
+fetch(`https://exam-backend-ko0t.onrender.com/portal/student/${studentId}`)
+.then(res=>res.json())
+.then(data=>{
+    if(!data.success) throw "Invalid";
+
+    const s = data.student;
+    const photo = s.photo_url || "images/default.png";
+
+    headerPhoto.src = photo;
+    dashPhoto.src = photo;
+    headerName.innerText = s.name;
+    dashName.innerText = s.name;
+    dashClass.innerText = `${s.class_name} - ${s.section}`;
+    dashRoll.innerText = `Roll No: ${s.roll}`;
+
+    headerPhoto.onerror = dashPhoto.onerror = ()=>{
+        headerPhoto.src = dashPhoto.src = "images/default.png";
+    };
+})
+.catch(()=>{
+    alert("Session expired. Login again.");
+    logout();
+});
+
+/* LOAD LATEST 2 NOTICES */
+fetch("https://exam-backend-ko0t.onrender.com/notice/list?role=student")
+.then(res => res.json())
+.then(data => {
+    const box = document.getElementById("latestNoticeList");
+
+    if(!data.success || data.notices.length === 0){
+        box.innerHTML = "<p style='color:#888'>No notices available</p>";
+        return;
+    }
+
+    // Sort by latest date
+    const latestTwo = data.notices
+        .sort((a,b)=> new Date(b.date) - new Date(a.date))
+        .slice(0,2);
+
+    box.innerHTML = latestTwo.map(n => `
+        <div class="notice-mini">
+            <h4>${n.title}</h4>
+            <p>${(n.description || "").substring(0,80)}...</p>
+            <span>📅 ${new Date(n.date).toDateString()}</span>
+        </div>
+    `).join("");
+})
+.catch(()=>{
+    latestNoticeList.innerHTML =
+        "<p style='color:#888'>Failed to load notices</p>";
+});
+
+/* FUNCTIONS */
+function openMenu(){
+    sidebar.style.left="0";
+    overlay.style.display="block";
+}
+function closeMenu(){
+    sidebar.style.left="-280px";
+    overlay.style.display="none";
+}
+function openPage(p){location.href=p;}
+function logout(){
+    localStorage.clear();
+    location.href="index.html";
+}
+</script>
+
+</body>
+</html>

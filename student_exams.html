@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Exam Datesheet</title>
+
+<style>
+:root{
+    --primary:#4e73df;
+    --bg:#f5f7fb;
+    --text:#333;
+}
+body{
+    margin:0;
+    font-family:Poppins,system-ui,sans-serif;
+    background:var(--bg);
+}
+
+/* HEADER */
+header{
+    background:var(--primary);
+    color:#fff;
+    padding:10px 20px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+.menu-btn{font-size:26px;cursor:pointer;}
+.student-info{display:flex;align-items:center;gap:10px;}
+.student-info img{
+    width:38px;height:38px;border-radius:50%;
+    border:2px solid #fff;object-fit:cover;
+}
+.logout{
+    background:rgba(255,255,255,.25);
+    border:none;color:white;
+    padding:6px 12px;border-radius:20px;
+}
+
+/* SIDEBAR */
+.sidebar{
+    position:fixed;top:0;left:-280px;
+    width:260px;height:100%;
+    background:#fff;padding:20px;
+    box-shadow:2px 0 15px rgba(0,0,0,.2);
+    transition:.3s;z-index:1001;
+}
+.sidebar a{display:block;padding:12px 0;color:#333;text-decoration:none;}
+.sidebar a.active{font-weight:600;color:var(--primary);}
+
+.overlay{
+    position:fixed;inset:0;
+    background:rgba(0,0,0,.4);
+    display:none;z-index:1000;
+}
+
+/* MAIN */
+.container{max-width:900px;margin:auto;padding:20px;}
+.info{display:flex;justify-content:space-between;font-weight:600;margin-bottom:15px;}
+
+table{
+    width:100%;border-collapse:collapse;
+    background:#fff;border-radius:10px;
+    overflow:hidden;box-shadow:0 3px 10px rgba(0,0,0,.1);
+}
+th,td{border:1px solid #ddd;padding:10px;text-align:center;}
+th{background:var(--primary);color:#fff;}
+tr:nth-child(even){background:#f4f6fb;}
+</style>
+</head>
+
+<body>
+
+<div class="overlay" id="overlay" onclick="closeMenu()"></div>
+
+<div class="sidebar" id="sidebar">
+    <h2>🎓 Student Menu</h2>
+    <a onclick="openPage('student_portal.html')">🏠 Dashboard</a>
+    <a onclick="openPage('student_results.html')">📊 Results</a>
+    <a onclick="openPage('student_timetable.html')">📅 Timetable</a>
+    <a class="active">📝 Exams</a>
+    <a onclick="openPage('student_attendance.html')">📌 Attendance</a>
+    <a onclick="openPage('student_notices.html')">📢 Notices</a>
+    <a onclick="openPage('student_academic_calendar.html')">📅 Academic Calendar</a>
+
+    <hr>
+</div>
+
+<header>
+    <div>
+        <span class="menu-btn" onclick="openMenu()">☰</span>
+        <span style="font-size:20px;margin-left:10px;">Exam Datesheet</span>
+    </div>
+    <div class="student-info">
+        <img id="headerPhoto" src="images/default.png">
+        <span id="headerName">Student</span>
+        <button class="logout" onclick="logout()">Logout</button>
+    </div>
+</header>
+
+<div class="container">
+
+<div class="info">
+    <span id="classInfo"></span>
+    <span id="sessionInfo">Loading session...</span>
+</div>
+
+<label><b>Select Exam</b></label>
+<select id="examSelect" style="padding:10px;width:100%;margin-bottom:15px;border-radius:8px;"></select>
+
+<table>
+<thead>
+<tr>
+    <th>Date</th>
+    <th>Subject</th>
+</tr>
+</thead>
+<tbody id="datesheetBody"></tbody>
+</table>
+
+</div>
+
+<script>
+/* ========= AUTH ========= */
+if(localStorage.getItem("role") !== "student"){
+    location.href="index.html";
+}
+
+const studentId = localStorage.getItem("student_id");
+const studentClass = localStorage.getItem("class");
+
+if(!studentId || !studentClass){
+    location.href="index.html";
+}
+
+/* ========= GLOBAL ========= */
+const EXAM_API = "https://exam-backend-ko0t.onrender.com";
+let CURRENT_SESSION = "";
+
+const examSelect = document.getElementById("examSelect");
+const body = document.getElementById("datesheetBody");
+
+/* ========= LOAD STUDENT BASIC ========= */
+fetch(`${EXAM_API}/portal/student/${studentId}`)
+.then(r=>r.json())
+.then(d=>{
+    if(!d.success) throw "";
+    headerName.innerText = d.student.name;
+    headerPhoto.src = d.student.photo_url || "images/default.png";
+    document.getElementById("classInfo").innerText =
+        `Class: ${studentClass} - ${d.student.section}`;
+});
+
+/* ========= LOAD SESSION FROM BACKEND ========= */
+async function loadSession(){
+    const res = await fetch(`${EXAM_API}/session/list`);
+    const data = await res.json();
+
+    if(!data.sessions.length){
+        document.getElementById("sessionInfo").innerText = "Session not found";
+        return;
+    }
+
+    CURRENT_SESSION = data.sessions[data.sessions.length - 1];
+    document.getElementById("sessionInfo").innerText =
+        "Session: " + CURRENT_SESSION;
+
+    loadExams(); // ✅ after session ready
+}
+
+/* ========= LOAD EXAMS ========= */
+async function loadExams(){
+    const res = await fetch(`${EXAM_API}/exam/list-all`);
+    const data = await res.json();
+
+    const exams = (data.exams || []).filter(
+        e => e.session === CURRENT_SESSION
+    );
+
+    examSelect.innerHTML =
+        `<option value="">Select Exam</option>` +
+        exams.map(e =>
+            `<option value="${e.exam_name}">${e.exam_name}</option>`
+        ).join("");
+}
+
+examSelect.onchange = loadDatesheet;
+
+/* ========= LOAD DATE SHEET ========= */
+async function loadDatesheet(){
+    body.innerHTML = "";
+    const exam = examSelect.value;
+    if(!exam) return;
+
+    const res = await fetch(
+        `${EXAM_API}/exam/get-datesheet?class_name=${studentClass}&session=${CURRENT_SESSION}&exam_name=${exam}`
+    );
+    const data = await res.json();
+
+    if(!data.datesheet || !data.datesheet.length){
+        body.innerHTML =
+            `<tr><td colspan="2">No datesheet found</td></tr>`;
+        return;
+    }
+
+    data.datesheet.forEach(d=>{
+        body.innerHTML += `
+        <tr>
+            <td>${d.date}</td>
+            <td>${d.subject}</td>
+        </tr>`;
+    });
+}
+
+/* ========= UI ========= */
+function openMenu(){
+    sidebar.style.left="0";
+    overlay.style.display="block";
+}
+function closeMenu(){
+    sidebar.style.left="-280px";
+    overlay.style.display="none";
+}
+function openPage(p){location.href=p;}
+function logout(){
+    localStorage.clear();
+    location.href="index.html";
+}
+
+/* ========= INIT ========= */
+loadSession();
+</script>
+
+</body>
+</html>

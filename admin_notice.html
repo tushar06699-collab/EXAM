@@ -24,12 +24,7 @@ body {
     top:0;
     padding-top:20px;
 }
-
-.sidebar h2{
-    text-align:center;
-    margin-bottom:20px;
-}
-
+.sidebar h2{text-align:center;margin-bottom:20px;}
 .sidebar a{
     display:block;
     padding:12px 20px;
@@ -37,11 +32,8 @@ body {
     text-decoration:none;
     border-radius:6px;
 }
-
 .sidebar a:hover,
-.sidebar a.active{
-    background:rgba(255,255,255,0.25);
-}
+.sidebar a.active{background:rgba(255,255,255,0.25);}
 
 /* Page Content */
 .content {
@@ -60,7 +52,7 @@ body {
 
 label {
     font-weight:600;
-    margin-top:10px;
+    margin-top:12px;
     display:block;
 }
 
@@ -78,14 +70,11 @@ button {
     color:white;
     border:none;
     width:100%;
-    margin-top:15px;
+    margin-top:18px;
     border-radius:6px;
     cursor:pointer;
 }
-
-button:hover {
-    background:#1b2854;
-}
+button:hover {background:#1b2854;}
 
 .notice-item {
     background:white;
@@ -97,21 +86,33 @@ button:hover {
 
 .notice-item span {
     display:block;
-    font-size:15px;
+    font-size:14px;
+    margin-bottom:4px;
 }
+
+.badge{
+    display:inline-block;
+    padding:3px 10px;
+    border-radius:20px;
+    font-size:12px;
+    font-weight:600;
+    margin-bottom:6px;
+}
+.badge.student{background:#e0e7ff;color:#3730a3;}
+.badge.teacher{background:#dcfce7;color:#166534;}
+.badge.both{background:#fee2e2;color:#991b1b;}
 
 .delete-btn {
     background:#d62828;
     margin-top:8px;
 }
-
 .view-btn {
     background:#0077b6;
     margin-top:8px;
 }
 </style>
-
 </head>
+
 <body>
 
 <!-- Sidebar -->
@@ -119,159 +120,153 @@ button:hover {
     <h2>ADMIN ERP</h2>
     <a href="dashboard.html">Dashboard</a>
     <a href="admin_notice.html" class="active">Notices</a>
+    <a href="admin_holiday.html">Holidays</a>
 </div>
 
 <!-- Content -->
 <div class="content">
 
-    <h2>📢 Upload Notice / Circular</h2>
+<h2>📢 Upload Notice / Circular</h2>
 
-    <div class="card">
+<div class="card">
 
-        <label>Session</label>
-        <select id="sessionSelect"></select>
+    <label>Session</label>
+    <select id="sessionSelect"></select>
 
-        <label>Notice Title</label>
-        <input type="text" id="titleInput" placeholder="Enter notice title">
-         
-        <label>Description</label>
-<textarea id="descInput" placeholder="Write details"></textarea>
+    <label>Notice Title</label>
+    <input type="text" id="titleInput" placeholder="Enter notice title">
 
-<label>Date</label>
-<input type="date" id="dateInput">
+    <label>Description</label>
+    <textarea id="descInput" placeholder="Write details"></textarea>
 
-        <label>Upload PDF</label>
-        <input type="file" id="pdfInput" accept="application/pdf">
+    <!-- 🔽 TARGET SELECTOR -->
+    <label>Notice For</label>
+    <select id="targetSelect">
+        <option value="student">Student</option>
+        <option value="teacher">Teacher</option>
+        <option value="both">Both</option>
+    </select>
 
-        <button onclick="uploadNotice()">Upload Notice</button>
-    </div>
+    <label>Date</label>
+    <input type="date" id="dateInput">
 
-    <h2>📄 All Notices</h2>
-    <div id="noticeList"></div>
+    <label>Upload PDF (Optional)</label>
+    <input type="file" id="pdfInput" accept="application/pdf">
+
+    <button onclick="uploadNotice()">Upload Notice</button>
+</div>
+
+<h2>📄 All Notices</h2>
+<div id="noticeList"></div>
 
 </div>
+
 <script>
 const API = "https://exam-backend-ko0t.onrender.com";
 
-/* Load sessions (optional UI only) */
-async function loadSessions() {
-    try {
+/* Load Sessions */
+async function loadSessions(){
+    try{
         const res = await fetch(`${API}/session/list`);
         const data = await res.json();
-
-        sessionSelect.innerHTML = data.sessions.map(s => 
+        sessionSelect.innerHTML = data.sessions.map(s =>
             `<option value="${s}">${s}</option>`
         ).join("");
-    } catch (err) {}
+    }catch{}
 }
 loadSessions();
 
 /* Upload Notice */
-async function uploadNotice() {
-    const title = document.getElementById("titleInput").value.trim();
-    const description = document.getElementById("descInput").value.trim();
-    const date = document.getElementById("dateInput").value;
-    const pdf = document.getElementById("pdfInput").files[0];
+async function uploadNotice(){
+    const title = titleInput.value.trim();
+    const description = descInput.value.trim();
+    const date = dateInput.value;
+    const target = targetSelect.value;
+    const pdf = pdfInput.files[0];
 
-    if (!title || !date) { // PDF is now optional
-        alert("⚠ Title and Date are required!");
+    if(!title || !date){
+        alert("⚠ Title and Date are required");
         return;
     }
 
     let fd = new FormData();
     fd.append("title", title);
     fd.append("description", description);
-    fd.append("date", date);   // still required
-    if (pdf) fd.append("pdf", pdf); // only append if file exists
+    fd.append("date", date);
+    fd.append("target", target); // ✅ NEW FIELD
+    if(pdf) fd.append("pdf", pdf);
 
-    try {
+    try{
         const res = await fetch(`${API}/notice/upload`, {
-            method: "POST",
-            body: fd
+            method:"POST",
+            body:fd
         });
-
         const data = await res.json();
 
-        if (data.success) {
-            alert("✅ Notice uploaded!");
-            titleInput.value = "";
-            descInput.value = "";
-            dateInput.value = "";
-            pdfInput.value = "";
+        if(data.success){
+            alert("✅ Notice uploaded");
+            titleInput.value="";
+            descInput.value="";
+            dateInput.value="";
+            pdfInput.value="";
+            targetSelect.value="student";
             loadNotices();
-        } else {
-            alert("❌ Error: " + data.message);
+        }else{
+            alert("❌ "+data.message);
         }
-    } catch (err) {
-        alert("Upload failed!");
+    }catch(err){
+        alert("Upload failed");
         console.error(err);
     }
 }
 
-
-/* Load all notices */
-async function loadNotices() {
-    try {
+/* Load Notices */
+async function loadNotices(){
+    try{
         const res = await fetch(`${API}/notice/list`);
         const data = await res.json();
 
-        if (!data.success) {
-            noticeList.innerHTML = "<p>No notices found.</p>";
+        if(!data.success){
+            noticeList.innerHTML="<p>No notices found.</p>";
             return;
         }
 
-        noticeList.innerHTML = "";
-
-        data.notices.forEach(n => {
+        noticeList.innerHTML="";
+        data.notices.forEach(n=>{
             noticeList.innerHTML += `
-                <div class="notice-item">
-                    <span><b>📌 ${n.title}</b></span>
-                    <span>${n.description || ""}</span>
-                    <span>Date: ${n.date}</span>
-
-                    <button class="view-btn" onclick="viewNotice('${n.file}')">View PDF</button>
-                    <button class="delete-btn" onclick="deleteNotice('${n.id}')">Delete</button>
-                </div>
-            `;
+            <div class="notice-item">
+                <span class="badge ${n.target}">
+                    ${n.target.toUpperCase()}
+                </span>
+                <span><b>📌 ${n.title}</b></span>
+                <span>${n.description || ""}</span>
+                <span>Date: ${n.date}</span>
+                ${n.file ? `<button class="view-btn" onclick="viewNotice('${n.file}')">View PDF</button>` : ""}
+                <button class="delete-btn" onclick="deleteNotice('${n.id}')">Delete</button>
+            </div>`;
         });
-
-    } catch (err) {
-        console.error("Load error:", err);
-        noticeList.innerHTML = "<p>Error loading notices.</p>";
+    }catch(e){
+        noticeList.innerHTML="<p>Error loading notices</p>";
     }
 }
 loadNotices();
 
-
-/* View Notice */
-function viewNotice(filename) {
-    window.open(`${API}/notice/get-file/${filename}`, "_blank");
+/* View */
+function viewNotice(file){
+    window.open(`${API}/notice/get-file/${file}`,"_blank");
 }
 
-/* Delete Notice */
-async function deleteNotice(id) {
-    if (!confirm("Delete this notice?")) return;
-
-    try {
-        const res = await fetch(`${API}/notice/delete/${id}`, {
-            method: "DELETE"
-        });
-
-        const data = await res.json();
-
-        if (data.success) {
-            alert("🗑 Deleted successfully");
-            loadNotices();
-        } else {
-            alert("❌ Error deleting: " + data.message);
-        }
-
-    } catch (err) {
-        console.error(err);
+/* Delete */
+async function deleteNotice(id){
+    if(!confirm("Delete this notice?")) return;
+    const res = await fetch(`${API}/notice/delete/${id}`,{method:"DELETE"});
+    const d = await res.json();
+    if(d.success){
+        alert("🗑 Deleted");
+        loadNotices();
     }
 }
 </script>
-
 
 </body>
 </html>

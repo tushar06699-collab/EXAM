@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Notices</title>
+
+<style>
+:root{
+    --primary:#4e73df;
+    --bg:#f5f7fb;
+    --card:#ffffff;
+    --text:#333;
+    --muted:#777;
+}
+body{
+    margin:0;
+    font-family:Poppins,system-ui,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+}
+
+/* HEADER */
+header{
+    background:var(--primary);
+    color:#fff;
+    padding:10px 20px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+.left{display:flex;align-items:center;gap:10px;}
+.menu-btn{font-size:26px;cursor:pointer;}
+.student-info{display:flex;align-items:center;gap:10px;}
+.student-info img{
+    width:38px;height:38px;
+    border-radius:50%;
+    border:2px solid #fff;
+    object-fit:cover;
+}
+.logout{
+    background:rgba(255,255,255,.25);
+    border:none;color:white;
+    padding:6px 12px;
+    border-radius:20px;
+    cursor:pointer;
+}
+
+/* SIDEBAR */
+.sidebar{
+    position:fixed;
+    top:0;left:-280px;
+    width:260px;height:100%;
+    background:#fff;
+    box-shadow:2px 0 15px rgba(0,0,0,.2);
+    padding:20px;
+    transition:.3s;
+    z-index:1001;
+}
+.sidebar h2{color:var(--primary);}
+.sidebar a{
+    display:block;
+    padding:12px 0;
+    color:#333;
+    text-decoration:none;
+    border-bottom:1px solid #eee;
+}
+.sidebar a:hover{color:var(--primary);}
+
+/* OVERLAY */
+.overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.4);
+    display:none;
+    z-index:1000;
+}
+
+/* MAIN */
+.container{
+    max-width:1000px;
+    margin:auto;
+    padding:20px;
+}
+
+/* PAGE TITLE */
+.page-title{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:15px;
+}
+.page-title h2{margin:0;}
+
+/* NOTICE CARD */
+.notice{
+    background:#fff;
+    border-radius:14px;
+    padding:18px;
+    box-shadow:0 6px 15px rgba(0,0,0,.06);
+    margin-bottom:15px;
+    position:relative;
+}
+.notice h3{
+    margin:0 0 6px;
+    font-size:17px;
+}
+.notice p{
+    margin:0;
+    color:var(--muted);
+    line-height:1.6;
+    font-size:14px;
+}
+.notice .date{
+    margin-top:10px;
+    font-size:12px;
+    color:#999;
+}
+
+/* BADGES */
+.badge{
+    position:absolute;
+    top:15px;
+    right:15px;
+    padding:4px 10px;
+    border-radius:20px;
+    font-size:11px;
+    font-weight:600;
+}
+.badge.important{
+    background:#fee2e2;
+    color:#dc2626;
+}
+.badge.normal{
+    background:#e0e7ff;
+    color:#4338ca;
+}
+
+/* EMPTY */
+.empty{
+    text-align:center;
+    padding:40px;
+    color:#888;
+}
+
+@media(max-width:600px){
+    header{flex-direction:column;align-items:flex-start;}
+}
+</style>
+</head>
+
+<body>
+
+<div class="overlay" id="overlay" onclick="closeMenu()"></div>
+
+<div class="sidebar" id="sidebar">
+    <h2>🎓 Student Menu</h2>
+    <a onclick="openPage('student_portal.html')">🏠 Dashboard</a>
+    <a onclick="openPage('student_results.html')">📊 Results</a>
+    <a onclick="openPage('student_timetable.html')">📅 Timetable</a>
+    <a onclick="openPage('student_exams.html')">📝 Exams</a>
+    <a onclick="openPage('student_attendance.html')">📌 Attendance</a>
+    <a onclick="openPage('student_notices.html')">📢 Notices</a>
+        <a onclick="openPage('student_academic_calendar.html')">📅 Academic Calendar</a>
+    <hr>
+</div>
+
+<header>
+    <div class="left">
+        <span class="menu-btn" onclick="openMenu()">☰</span>
+        <h1>Notices</h1>
+    </div>
+    <div class="student-info">
+        <img id="headerPhoto" src="images/default.png">
+        <span id="headerName">Student</span>
+        <button class="logout" onclick="logout()">Logout</button>
+    </div>
+</header>
+
+<div class="container">
+
+<div class="page-title">
+    <h2>📢 School Notices</h2>
+</div>
+
+<div id="noticeList"></div>
+
+</div>
+<script>
+/* ---------- AUTH ---------- */
+if(localStorage.getItem("role") !== "student"){
+    location.href = "index.html";
+}
+
+const API = "https://exam-backend-ko0t.onrender.com";
+const studentId = localStorage.getItem("student_id");
+
+/* ---------- LOAD STUDENT ---------- */
+fetch(`${API}/portal/student/${studentId}`)
+.then(r => r.json())
+.then(d => {
+    if(!d.success) throw "Invalid";
+    const s = d.student;
+    headerName.innerText = s.name;
+    headerPhoto.src = s.photo_url || "images/default.png";
+    headerPhoto.onerror = () => headerPhoto.src = "images/default.png";
+})
+.catch(() => logout());
+
+/* ---------- LOAD STUDENT NOTICES ---------- */
+fetch(`${API}/notice/list?role=student`)
+.then(r => r.json())
+.then(d => {
+    const list = document.getElementById("noticeList");
+
+    if(!d.success || d.notices.length === 0){
+        list.innerHTML = `<div class="empty">No notices available</div>`;
+        return;
+    }
+
+    list.innerHTML = d.notices.map(n => `
+        <div class="notice">
+            <span class="badge normal">
+                ${n.target.toUpperCase()}
+            </span>
+
+            <h3>${n.title}</h3>
+
+            <p>${n.description || "No description provided."}</p>
+
+            <div class="date">
+                📅 ${new Date(n.date).toDateString()}
+            </div>
+
+            ${n.file ? `
+                <div style="margin-top:10px">
+                    <a href="${API}/notice/get-file/${n.file}" 
+                       target="_blank"
+                       style="color:#4e73df;font-weight:600;text-decoration:none">
+                        📄 View Attachment
+                    </a>
+                </div>
+            ` : ``}
+        </div>
+    `).join("");
+})
+.catch(err => {
+    console.error(err);
+    noticeList.innerHTML =
+        `<div class="empty">Failed to load notices</div>`;
+});
+
+/* ---------- MENU ---------- */
+function openMenu(){
+    sidebar.style.left = "0";
+    overlay.style.display = "block";
+}
+function closeMenu(){
+    sidebar.style.left = "-280px";
+    overlay.style.display = "none";
+}
+function openPage(p){ location.href = p; }
+function logout(){
+    localStorage.clear();
+    location.href = "index.html";
+}
+</script>
+
+
+</body>
+</html>

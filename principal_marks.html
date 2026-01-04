@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>View Uploaded Marks – School ERP</title>
+<title>Result Upload – School ERP</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <style>
 body{margin:0;font-family:Poppins,sans-serif;background:#f2f4f7;display:flex;}
 .sidebar{width:240px;background:#233465;color:white;height:100vh;position:fixed;left:0;top:0;padding-top:20px;}
@@ -13,7 +14,7 @@ body{margin:0;font-family:Poppins,sans-serif;background:#f2f4f7;display:flex;}
 .sidebar a.active{background:rgba(255,255,255,0.35);}
 .content{margin-left:240px;width:calc(100% - 240px);padding:20px;}
 header{background:#233465;color:#fff;padding:1rem;text-align:center;font-size:1.5rem;border-radius:8px;}
-main{max-width:900px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.1);}
+main{max-width:700px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.1);}
 label{display:block;font-weight:600;margin-top:15px;}
 select,input{width:100%;padding:10px;margin-top:5px;border:1px solid #ccc;border-radius:6px;}
 button{margin-top:20px;width:100%;padding:12px;background:#4f46e5;color:white;border:none;font-size:16px;border-radius:6px;cursor:pointer;}
@@ -21,9 +22,12 @@ button:hover{background:#3730a3;}
 table{width:100%;border-collapse:collapse;margin-top:20px;}
 th,td{border:1px solid #ccc;padding:8px;text-align:center;}
 th{background:#233465;color:white;}
-input.mark-input{width:60px;text-align:center;}
+.low-mark{background:#f87171;color:white;}
+.total-marks{margin-top:10px;font-weight:bold;font-size:1.1rem;}
+.export-btn{background:#f59e0b;margin-top:10px;}
 </style>
 </head>
+
 <body>
 
 <div class="sidebar">
@@ -33,22 +37,29 @@ input.mark-input{width:60px;text-align:center;}
   <a href="principal_marksheet.html">Marksheet</a></div>
 
 <div class="content">
-<header>Uploaded Marks – Class Overview</header>
+<header>Upload Student Marks</header>
 <main>
 
 <label>Session</label>
 <select id="sessionSelect"></select>
 
-<label>Class</label>
-<select id="classSelect"></select>
-
 <label>Exam</label>
 <select id="examSelect"></select>
 
-<button onclick="loadMarks()">Load Marks</button>
-<button onclick="exportCSV()" style="background:#1e8f3d;">Export CSV</button>
+<div class="total-marks" id="totalMarks"></div>
+
+<label>Class</label>
+<select id="classSelect"></select>
+
+<label>Subject</label>
+<select id="subjectSelect"></select>
+
+<button onclick="loadStudents()">Load Students</button>
 
 <div id="tableContainer"></div>
+
+<button onclick="uploadMarks()" style="background:#1e8f3d;">Upload Marks</button>
+<button onclick="exportCSV()" class="export-btn">Export CSV</button>
 
 </main>
 </div>
@@ -58,12 +69,12 @@ const EXAM_API = "https://exam-backend-ko0t.onrender.com";
 const STUDENT_API = "https://students-backend-8mup.onrender.com";
 
 let EXAMS = [];
-let STUDENTS = [];
-let SUBJECTS = [];
-let TOTAL_MARKS = 100; // default
+let TOTAL_MARKS = 0;
 
-// Load sessions
-async function loadSessions(){
+// ------------------------
+// LOAD SESSIONS
+// ------------------------
+async function loadSessions() {
     const res = await fetch(`${EXAM_API}/session/list`);
     const data = await res.json();
     sessionSelect.innerHTML = data.sessions.map(s=>`<option>${s}</option>`).join("");
@@ -75,107 +86,212 @@ async function loadSessions(){
 loadSessions();
 sessionSelect.addEventListener("change", loadClasses);
 
-// Load classes
-async function loadClasses(){
+// ------------------------
+// LOAD CLASSES
+// ------------------------
+async function loadClasses() {
     const session = sessionSelect.value;
     if(!session) return;
     const res = await fetch(`${STUDENT_API}/students?session=${session}`);
     const students = await res.json();
     const classes = [...new Set(students.map(s=>s.class_name).filter(Boolean))];
-    classes.sort();
     classSelect.innerHTML = `<option value="">Select Class</option>` + classes.map(c=>`<option value="${c}">${c}</option>`).join("");
-    if(classes.length>0) classSelect.value = classes[0];
-    loadExams();
+    if(classes.length>0){
+        classSelect.value = classes[0];
+        loadExams();
+        loadSubjects();
+    }
 }
-classSelect.addEventListener("change", loadExams);
+classSelect.addEventListener("change", loadSubjects);
 
-// Load exams
-async function loadExams(){
-    try{
-        const res = await fetch(`${EXAM_API}/exam/list-all`);
-        const data = await res.json();
-        if(!data.success) return alert("Exam load error");
-        EXAMS = data.exams;
-        examSelect.innerHTML = `<option value="">Select Exam</option>` + EXAMS.map(e=>`<option value="${e.exam_id}">${e.exam_name}</option>`).join("");
-    }catch(err){console.error(err);}
+// ------------------------
+// LOAD EXAMS
+// ------------------------
+async function loadExams() {
+    const res = await fetch(`${EXAM_API}/exam/list-all`);
+    const data = await res.json();
+    if(!data.success) return alert("Exam load error");
+    EXAMS = data.exams;
+    examSelect.innerHTML = `<option value="">Select Exam</option>` + EXAMS.map(e=>`<option value="${e.exam_id}" data-total="${e.total_marks}">${e.exam_name}</option>`).join("");
+}
+loadExams();
+
+examSelect.addEventListener("change", ()=>{
+    const selected = EXAMS.find(e=>e.exam_id==examSelect.value);
+    TOTAL_MARKS = selected ? selected.total_marks : 0;
+    totalMarks.textContent = selected ? `Total Marks: ${TOTAL_MARKS}` : "";
+    loadStudents();
+});
+
+// ------------------------
+// LOAD SUBJECTS
+// ------------------------
+async function loadSubjects() {
+    const cls = classSelect.value;
+    if(!cls) return;
+    const session = sessionSelect.value;
+    const res = await fetch(`${EXAM_API}/exam/subjects/get?session=${session}&class_name=${cls}`);
+    const data = await res.json();
+    if(data.success){
+        subjectSelect.innerHTML = data.subjects.map(s=>`<option>${s}</option>`).join("");
+    }
 }
 
-// Load marks table
-async function loadMarks(){
+// ------------------------
+// LOAD STUDENTS + MARKS
+// ------------------------
+async function loadStudents() {
     const session = sessionSelect.value;
     const cls = classSelect.value;
+    const sub = subjectSelect.value;
     const examId = examSelect.value;
-    if(!session || !cls || !examId) return alert("Select session, class, exam");
+    if(!cls||!sub||!examId) return;
+
+    const res = await fetch(`${STUDENT_API}/students?session=${session}`);
+    const students = await res.json();
+const classStudents = students
+  .filter(s => s.class_name === cls)
+  .sort((a, b) => {
+    const r1 = parseInt(a.rollno) || 0;
+    const r2 = parseInt(b.rollno) || 0;
+    return r1 - r2;
+  });
+
+    let html = `<table><tr><th>Roll No</th><th>Name</th><th>Marks</th><th>Percent</th></tr>`;
+    classStudents.forEach(s=>{
+        html += `<tr>
+            <td>${s.rollno}</td>
+            <td>${s.student_name}</td>
+            <td><input type="number" data-roll="${s.rollno}" min="0"></td>
+            <td class="percent-cell"></td>
+        </tr>`;
+    });
+    html += `</table>`;
+    document.getElementById("tableContainer").innerHTML = html;
+    await loadExistingMarks();
+    updatePercentColors();
+}
+
+// ------------------------
+// LOAD EXISTING MARKS
+// ------------------------
+async function loadExistingMarks() {
+    const session = sessionSelect.value;
+    const cls = classSelect.value;
+    const sub = subjectSelect.value;
+    const examId = examSelect.value;
+    if(!cls||!sub||!examId) return;
+    const examData = EXAMS.find(e=>e.exam_id==examId);
+    if(!examData) return;
+
+    try{
+        const res = await fetch(`${EXAM_API}/exam/get-marks?session=${session}&class_name=${cls}&exam_name=${examData.exam_name}`);
+        const data = await res.json();
+        if(!data.success) return;
+        data.marks.filter(m=>m.subject===sub).forEach(m=>{
+            const input = document.querySelector(`input[data-roll='${m.roll}']`);
+            if(input) input.value = m.marks;
+        });
+        updatePercentColors();
+    }catch(err){
+        console.error("Error loading marks:",err);
+    }
+}
+
+// ------------------------
+// UPDATE PERCENT & RED BOXES
+// ------------------------
+function updatePercentColors(){
+    const rows = document.querySelectorAll("#tableContainer table tr");
+    rows.forEach((tr,i)=>{
+        if(i===0) return; // skip header
+        const markInput = tr.querySelector("input[data-roll]");
+        const percentCell = tr.querySelector(".percent-cell");
+        if(markInput){
+            const marks = Number(markInput.value);
+            const percent = TOTAL_MARKS ? ((marks/TOTAL_MARKS)*100).toFixed(2) : 0;
+            percentCell.textContent = percent + "%";
+            if(marks < TOTAL_MARKS/3){
+                markInput.classList.add("low-mark");
+                percentCell.classList.add("low-mark");
+            }else{
+                markInput.classList.remove("low-mark");
+                percentCell.classList.remove("low-mark");
+            }
+            markInput.addEventListener("input", updatePercentColors);
+        }
+    });
+}
+
+// ------------------------
+// UPLOAD MARKS
+// ------------------------
+async function uploadMarks(){
+    const session = sessionSelect.value;
+    const examId = examSelect.value;
+    const cls = classSelect.value;
+    const sub = subjectSelect.value;
+    if(!examId||!cls||!sub) return alert("Select exam, class, and subject!");
 
     const examData = EXAMS.find(e=>e.exam_id==examId);
     if(!examData) return;
 
-    TOTAL_MARKS = parseFloat(examData.total_marks) || 100;
+    const rows = document.querySelectorAll("input[data-roll]");
+    const marksList = Array.from(rows).map(r=>({
+        roll: r.dataset.roll,
+        subject: sub,
+        marks: r.value || 0
+    }));
 
-    // Load students
-    const resStu = await fetch(`${STUDENT_API}/students?session=${session}`);
-    STUDENTS = (await resStu.json()).filter(s=>s.class_name===cls);
-
-    // Load subjects
-    const resSub = await fetch(`${EXAM_API}/exam/subjects/get?session=${session}&class_name=${cls}`);
-    const subData = await resSub.json();
-    SUBJECTS = subData.subjects || [];
-
-    // Load marks
-    const resMarks = await fetch(`${EXAM_API}/exam/get-marks?session=${session}&class_name=${cls}&exam_name=${examData.exam_name}`);
-    const markData = await resMarks.json();
-    if(!markData.success) return alert("No marks found");
-
-    // Map marks: {roll: {subject: marks}}
-    const marksMap = {};
-    markData.marks.forEach(m=>{
-        if(!marksMap[m.roll]) marksMap[m.roll]={};
-        marksMap[m.roll][m.subject] = m.marks;
-    });
-
-    // Build table
-    let html = `<table><tr><th>Roll</th><th>Name</th>`;
-    SUBJECTS.forEach(s=>html+=`<th>${s}</th>`);
-    html+=`<th>Total</th><th>Percent</th></tr>`;
-
-    STUDENTS.forEach(st=>{
-        let total=0;
-        html+=`<tr><td>${st.rollno}</td><td>${st.student_name}</td>`;
-        SUBJECTS.forEach(sub=>{
-            const m = marksMap[st.rollno]?.[sub] || 0;
-            total+=parseFloat(m);
-            const color = m < (TOTAL_MARKS/3) ? 'style="background:#ffcccc"' : '';
-            html+=`<td ${color}>${m}</td>`;
+    try{
+        const res = await fetch(`${EXAM_API}/exam/add-marks`,{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({
+                session,
+                class_name: cls,
+                exam_name: examData.exam_name,
+                marks: marksList
+            })
         });
-        const percent = ((total/(SUBJECTS.length*TOTAL_MARKS))*100).toFixed(2);
-        const rowColor = percent < 33 ? 'style="background:#ffcccc"' : '';
-        html+=`<td>${total}</td><td ${rowColor}>${percent}</td></tr>`;
-    });
-
-    html+=`</table>`;
-    document.getElementById("tableContainer").innerHTML = html;
+        const data = await res.json();
+        alert(data.message || "Marks uploaded!");
+    }catch(err){
+        console.error(err);
+        alert("Error uploading marks");
+    }
 }
 
-// CSV export
+// ------------------------
+// EXPORT CSV
+// ------------------------
 function exportCSV(){
     const table = document.querySelector("#tableContainer table");
-    if(!table) return alert("No data");
-    let csv=[];
-    table.querySelectorAll("tr").forEach(tr=>{
-        let row=[];
+    if(!table) return alert("No data to export!");
+    let csv = [];
+    const rows = table.querySelectorAll("tr");
+    rows.forEach(tr=>{
+        const row = [];
         tr.querySelectorAll("th,td").forEach(td=>{
-            row.push(td.textContent.trim());
+            const input = td.querySelector("input");
+            if(input){
+                row.push(input.value); // get value from input
+            } else {
+                row.push(td.textContent.trim());
+            }
         });
         csv.push(row.join(","));
     });
     const blob = new Blob([csv.join("\n")],{type:"text/csv"});
     const url = URL.createObjectURL(blob);
-    const a=document.createElement("a");
-    a.href=url;
-    a.download=`marks_${Date.now()}.csv`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `marks_${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
 }
+
 </script>
+
 </body>
 </html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Results</title>
+
+<style>
+:root{
+  --primary:#4e73df;
+  --bg:#f5f7fb;
+  --card:#ffffff;
+  --fail:#ef4444;
+}
+body{
+  margin:0;
+  font-family:Poppins,system-ui,sans-serif;
+  background:var(--bg);
+}
+
+/* HEADER */
+header{
+  background:var(--primary);
+  color:#fff;
+  padding:10px 20px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.left{display:flex;align-items:center;gap:10px;}
+.menu-btn{font-size:26px;cursor:pointer;}
+.student-info{display:flex;align-items:center;gap:10px;}
+.student-info img{
+  width:38px;height:38px;border-radius:50%;
+  border:2px solid #fff;object-fit:cover;
+}
+.logout{
+  background:rgba(255,255,255,.25);
+  border:none;color:#fff;
+  padding:6px 12px;border-radius:20px;
+  cursor:pointer;
+}
+
+/* SIDEBAR */
+.sidebar{
+  position:fixed;top:0;left:-280px;
+  width:260px;height:100%;
+  background:#fff;z-index:1001;
+  padding:20px;transition:.3s;
+  box-shadow:2px 0 15px rgba(0,0,0,.2);
+}
+.sidebar a{
+  display:block;padding:12px 0;
+  color:#333;text-decoration:none;
+  border-bottom:1px solid #eee;
+}
+.sidebar a:hover{color:var(--primary);}
+.overlay{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.4);
+  display:none;z-index:1000;
+}
+
+/* CONTENT */
+.container{padding:20px;max-width:1000px;margin:auto;}
+.marksheet{
+  background:#fff;
+  margin:20px auto;
+  padding:20px;
+  border-radius:12px;
+  box-shadow:0 8px 20px rgba(0,0,0,.1);
+}
+.marksheet h2{text-align:center;color:var(--primary);}
+.info{
+  display:flex;flex-wrap:wrap;
+  font-size:14px;margin-bottom:10px;
+}
+.info div{width:48%;margin-bottom:6px;}
+
+table{
+  width:100%;border-collapse:collapse;
+}
+th,td{
+  border:1px solid #000;
+  padding:6px;text-align:center;
+}
+tr.fail td{background:var(--fail);color:#fff;}
+.result{text-align:center;font-weight:bold;margin-top:10px;}
+.pass{color:green;}
+.fail{color:red;}
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay" onclick="closeMenu()"></div>
+
+<div class="sidebar" id="sidebar">
+   <h2>🎓 Student Menu</h2>
+    <a onclick="go('student_portal.html')">🏠 Dashboard</a>
+    <a onclick="go('student_results.html')">📊 Results</a>
+    <a onclick="go('student_timetable.html')">📅 Timetable</a>
+    <a onclick="go('student_exams.html')">📝 Exams</a>
+    <a onclick="go('student_attendance.html')">📌 Attendance</a>
+            <a onclick="openPage('student_notices.html')">📢 Notices</a>
+    <a onclick="openPage('student_academic_calendar.html')">📅 Academic Calendar</a>
+</div>
+
+<header>
+  <div class="left">
+    <span class="menu-btn" onclick="openMenu()">☰</span>
+    <h2>Results</h2>
+  </div>
+  <div class="student-info">
+    <img id="headerPhoto" src="images/default.png">
+    <span id="headerName">Student</span>
+    <button class="logout" onclick="logout()">Logout</button>
+  </div>
+</header>
+
+<div class="container" id="marksContainer"></div>
+
+<script>
+const STUDENT_API="https://students-backend-8mup.onrender.com";
+const EXAM_API="https://exam-backend-ko0t.onrender.com";
+
+/* AUTH */
+if(localStorage.getItem("role")!=="student"){
+  location.href="index.html";
+}
+
+const studentId = localStorage.getItem("student_id");
+if(!studentId) location.href="index.html";
+
+/* LOAD HEADER STUDENT */
+fetch(`${EXAM_API}/portal/student/${studentId}`)
+.then(r=>r.json())
+.then(d=>{
+  const s=d.student;
+  headerName.innerText=s.name;
+  headerPhoto.src=s.photo_url||"images/default.png";
+  headerPhoto.onerror=()=>headerPhoto.src="images/default.png";
+});
+
+/* LOAD RESULTS */
+async function loadMarks(){
+  let session=localStorage.getItem("session").replace("-","_");
+  const roll=localStorage.getItem("rollno")||localStorage.getItem("roll");
+
+  const students=await (await fetch(`${STUDENT_API}/students?session=${session}`)).json();
+  const student=students.find(s=>s.admission_no==roll||s.rollno==roll);
+  if(!student) return alert("Student not found");
+
+  const exams=(await (await fetch(`${EXAM_API}/exam/list-all`)).json()).exams;
+
+  for(const exam of exams){
+    const r=await fetch(
+      `${EXAM_API}/exam/get-marks?session=${session}&class_name=${student.class_name}&exam_name=${exam.exam_name}`
+    );
+    if(!r.ok) continue;
+    const d=await r.json();
+    if(!d.success) continue;
+
+    const map={};
+    d.marks.forEach(m=>{
+      if(!map[m.roll]) map[m.roll]={};
+      map[m.roll][m.subject]=m.marks;
+    });
+    const subs=map[roll];
+    if(!subs) continue;
+
+    let total=0,totalMax=0,fail=false;
+    const rows=Object.keys(subs).map(sub=>{
+      const m=subs[sub], pass=Math.ceil(exam.total_marks*0.33);
+      total+=m; totalMax+=exam.total_marks;
+      if(m<pass) fail=true;
+      return `<tr class="${m<pass?'fail':''}">
+        <td>${sub}</td><td>${m}</td><td>${exam.total_marks}</td>
+      </tr>`;
+    }).join("");
+
+    marksContainer.innerHTML+=`
+    <div class="marksheet">
+      <h2>${exam.exam_name}</h2>
+      <div class="info">
+        <div><b>Name:</b> ${student.student_name}</div>
+        <div><b>Roll No:</b> ${student.rollno||student.admission_no}</div>
+        <div><b>Class:</b> ${student.class_name} ${student.section}</div>
+        <div><b>Session:</b> ${student.session}</div>
+      </div>
+      <table>
+        <tr><th>Subject</th><th>Marks</th><th>Max</th></tr>
+        ${rows}
+      </table>
+      <div class="result ${fail?'fail':'pass'}">
+        RESULT: ${fail?'FAIL':'PASS'} | ${total}/${totalMax}
+      </div>
+    </div>`;
+  }
+}
+
+loadMarks();
+
+/* UI FUNCTIONS */
+function openMenu(){sidebar.style.left="0";overlay.style.display="block";}
+function closeMenu(){sidebar.style.left="-280px";overlay.style.display="none";}
+function go(p){location.href=p;}
+function logout(){localStorage.clear();location.href="index.html";}
+</script>
+
+</body>
+</html>

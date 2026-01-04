@@ -28,9 +28,11 @@ th{background:#233465;color:white;}
 <body>
 
 <div class="sidebar">
+<div class="sidebar">
 <h2>School ERP</h2>
 <a href="principal_dashboard.html">Dashboard</a>
 <a href="principal_attendence.html" style="background:rgba(255,255,255,0.2);">Students Attendance</a>
+</div>
 </div>
 
 <div class="content">
@@ -128,7 +130,13 @@ async function loadStudents(){
 
     const res = await fetch(`${STUDENT_API}/students?session=${session}`);
     const students = await res.json();
-    const classStudents = students.filter(s=>s.class_name===cls);
+const classStudents = students
+    .filter(s => s.class_name === cls)
+    .sort((a, b) => {
+        const ra = parseInt(a.rollno) || 0;
+        const rb = parseInt(b.rollno) || 0;
+        return ra - rb;
+    });
 
     if(!classStudents.length){
         alert("No students found");
@@ -152,13 +160,13 @@ async function loadStudents(){
         <tr><th>Roll No</th><th>Name</th><th>Attendance</th></tr>`;
 
     classStudents.forEach(s=>{
-        const status = existingAttendance[s.id] || "present";
+        const status = existingAttendance[s._id] || "present";
         html += `
         <tr>
             <td>${s.rollno}</td>
             <td>${s.student_name}</td>
             <td>
-                <select class="attendance-select" data-student-id="${s.id}">
+<select class="attendance-select" data-student-id="${s._id}">
                     <option value="present" ${status==="present"?"selected":""}>Present</option>
                     <option value="absent" ${status==="absent"?"selected":""}>Absent</option>
                     <option value="leave" ${status==="leave"?"selected":""}>Leave</option>

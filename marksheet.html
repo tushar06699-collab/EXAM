@@ -177,6 +177,24 @@ tr.fail td{
   width:220px;
   padding:8px;
 }
+.holistic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* 2 items per row */
+  gap: 5px 40px; /* row gap, column gap */
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  color: #333;
+}
+
+.holistic-grid div {
+  background: #f7f9fc;
+  padding: 8px 12px;
+  border-radius: 3px;
+}
+
+.holistic-grid b {
+  color: #233465;
+}
 
 /* ===== PRINT ===== */
 @media print{
@@ -356,6 +374,16 @@ async function generateMarksheets(){
       </div>
         <div></div>
         <div></div>
+       <div class="holistic-grid">
+  <div><b>Attendance:</b> A</div>
+  <div><b>Discipline:</b> A</div>
+
+  <div><b>Sports Skill:</b> A</div>
+  <div><b>Co-Curricular Activities:</b> A</div>
+
+  <div><b>Health & Cleanliness:</b> A</div>
+  <div><b>Teacher’s Remarks:</b> Shows good performance.</div>
+ </div>
 
       <div class="result-status ${result==='PASS'?'pass':'fail-text'}">
         RESULT: ${result}

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Academic Calendar</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+:root{
+    --primary:#4e73df;
+    --bg:#f5f7fb;
+    --card:#ffffff;
+    --text:#333;
+}
+body{
+    margin:0;
+    font-family:Poppins,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+}
+
+/* HEADER */
+header{
+    background:var(--primary);
+    color:#fff;
+    padding:10px 20px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+.left{display:flex;align-items:center;gap:10px;}
+.menu-btn{font-size:26px;cursor:pointer;}
+.student-info{display:flex;align-items:center;gap:10px;}
+.student-info img{
+    width:38px;height:38px;border-radius:50%;
+    border:2px solid #fff;object-fit:cover;
+}
+.logout{
+    background:rgba(255,255,255,.25);
+    border:none;color:white;padding:6px 12px;
+    border-radius:20px;cursor:pointer;
+}
+
+/* SIDEBAR */
+.sidebar{
+    position:fixed;top:0;left:-280px;width:260px;height:100%;
+    background:#fff;box-shadow:2px 0 15px rgba(0,0,0,.2);
+    padding:20px;transition:.3s;z-index:1001;
+}
+.sidebar h2{color:var(--primary);}
+.sidebar a{
+    display:block;padding:12px 0;color:#333;
+    text-decoration:none;border-bottom:1px solid #eee;
+}
+.sidebar a:hover{color:var(--primary);}
+
+/* OVERLAY */
+.overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.4);
+    display:none;z-index:1000;
+}
+
+/* CONTENT */
+.container{max-width:1100px;margin:auto;padding:20px;}
+
+/* CALENDAR */
+.month{
+    background:white;border-radius:12px;margin-bottom:25px;
+    box-shadow:0 4px 12px rgba(0,0,0,.08);
+}
+.month h2{text-align:center;padding:12px;background:#eef2ff;margin:0;}
+.grid{
+    display:grid;grid-template-columns:repeat(7,1fr);
+    gap:8px;padding:15px;
+}
+.day-name{text-align:center;font-weight:600;color:#555;}
+.day{
+    background:#f8fafc;padding:10px;border-radius:8px;
+    min-height:70px;font-size:14px;
+}
+.holiday{background:#fee2e2;border-left:5px solid #dc2626;}
+.sunday{background:#fde68a;border-left:5px solid #f59e0b;}
+.second-sat{background:#dbeafe;border-left:5px solid #2563eb;}
+.label{font-size:11px;margin-top:6px;display:block;}
+.legend{
+    display:flex;gap:15px;justify-content:center;
+    margin-bottom:20px;flex-wrap:wrap;
+}
+.box{width:14px;height:14px;border-radius:3px;display:inline-block;}
+
+@media(max-width:600px){
+    header{flex-direction:column;align-items:flex-start;}
+}
+</style>
+</head>
+
+<body>
+
+<div class="overlay" id="overlay" onclick="closeMenu()"></div>
+
+<div class="sidebar" id="sidebar">
+    <h2>🎓 Student Menu</h2>
+    <a onclick="openPage('student_portal.html')">🏠 Dashboard</a>
+    <a onclick="openPage('student_results.html')">📊 Results</a>
+    <a onclick="openPage('student_timetable.html')">📅 Timetable</a>
+        <a onclick="openPage('student_exams.html')">📝 Exams</a>
+    <a onclick="openPage('student_attendance.html')">📌 Attendance</a>
+    <a onclick="openPage('student_notices.html')">📢 Notices</a>
+    <a onclick="openPage('student_academic_calendar.html')">📅 Academic Calendar</a>
+    <hr>
+    <a onclick="logout()">🚪 Logout</a>
+</div>
+
+<header>
+    <div class="left">
+        <span class="menu-btn" onclick="openMenu()">☰</span>
+        <h1>Academic Calendar</h1>
+    </div>
+    <div class="student-info">
+        <img id="headerPhoto">
+        <span id="headerName">Student</span>
+        <button class="logout" onclick="logout()">Logout</button>
+    </div>
+</header>
+
+<div class="container">
+
+<!-- SHOW CURRENT SESSION ONLY -->
+<div style="text-align:center;margin-bottom:10px">
+    <b>Session:</b> <span id="sessionTitle"></span>
+</div>
+
+<div class="legend">
+    <div><span class="box" style="background:#fde68a"></span> Sunday</div>
+    <div><span class="box" style="background:#dbeafe"></span> Second Saturday</div>
+    <div><span class="box" style="background:#fee2e2"></span> Holiday</div>
+</div>
+
+<div id="calendar"></div>
+</div>
+
+<script>
+/* AUTH */
+if(localStorage.getItem("role")!=="student") location.href="index.html";
+const studentId = localStorage.getItem("student_id");
+if(!studentId) location.href="index.html";
+
+/* STUDENT INFO */
+fetch(`https://exam-backend-ko0t.onrender.com/portal/student/${studentId}`)
+.then(r=>r.json())
+.then(d=>{
+    if(!d.success) throw "";
+    headerPhoto.src = d.student.photo_url || "images/default.png";
+    headerName.innerText = d.student.name;
+})
+.catch(()=>logout());
+
+/* MENU */
+function openMenu(){sidebar.style.left="0";overlay.style.display="block";}
+function closeMenu(){sidebar.style.left="-280px";overlay.style.display="none";}
+function openPage(p){location.href=p;}
+function logout(){localStorage.clear();location.href="index.html";}
+
+/* CALENDAR LOGIC */
+const API="https://exam-backend-ko0t.onrender.com";
+const calendarEl=document.getElementById("calendar");
+const sessionTitle=document.getElementById("sessionTitle");
+const days=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+let CURRENT_SESSION="";
+
+/* Parse session safely */
+function parseSession(session){
+    if(session.includes("_")){
+        const [start,end]=session.split("_");
+        return {startYear:Number(start),endYear:Number("20"+end)};
+    }
+    if(session.includes("-")){
+        const [start,end]=session.split("-");
+        return {startYear:Number("20"+start),endYear:Number("20"+end)};
+    }
+    throw "Invalid session format";
+}
+
+/* LOAD CURRENT SESSION ONLY */
+async function loadCurrentSession(){
+    const res = await fetch(`${API}/session/list`);
+    const data = await res.json();
+    CURRENT_SESSION = data.sessions[0]; // first session is current
+    const {startYear,endYear} = parseSession(CURRENT_SESSION);
+    sessionTitle.innerText = `April ${startYear} – March ${endYear}`;
+    generateCalendar(startYear, endYear);
+}
+
+/* HOLIDAYS */
+async function loadHolidays(){
+    const res=await fetch(`${API}/holiday/list?session=${CURRENT_SESSION}`);
+    const data=await res.json();
+    return data.success?data.holidays:[];
+}
+
+/* GENERATE CALENDAR */
+async function generateCalendar(startYear,endYear){
+    const holidays=await loadHolidays();
+    const map={};
+    holidays.forEach(h=>map[h.date]=h.name);
+
+    const months=[
+        {m:3,y:startYear},{m:4,y:startYear},{m:5,y:startYear},{m:6,y:startYear},
+        {m:7,y:startYear},{m:8,y:startYear},{m:9,y:startYear},{m:10,y:startYear},
+        {m:11,y:startYear},{m:0,y:endYear},{m:1,y:endYear},{m:2,y:endYear}
+    ];
+
+    calendarEl.innerHTML=""; // clear
+
+    months.forEach(({m,y})=>{
+        const first=new Date(y,m,1);
+        const last=new Date(y,m+1,0).getDate();
+        const box=document.createElement("div");
+        box.className="month";
+        box.innerHTML=`<h2>${first.toLocaleString('default',{month:'long'})} ${y}</h2>`;
+        const grid=document.createElement("div");
+        grid.className="grid";
+
+        days.forEach(d=>grid.innerHTML+=`<div class="day-name">${d}</div>`);
+        for(let i=0;i<first.getDay();i++) grid.appendChild(document.createElement("div"));
+
+        let satCount=0;
+        for(let d=1;d<=last;d++){
+            const date=new Date(y,m,d);
+            const key=`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+            const div=document.createElement("div");
+            div.className="day";
+            div.innerHTML=`<b>${d}</b>`;
+            if(date.getDay()==0){div.classList.add("sunday");div.innerHTML+=`<span class="label">Sunday</span>`;}
+            if(date.getDay()==6){satCount++;if(satCount==2){div.classList.add("second-sat");div.innerHTML+=`<span class="label">Second Saturday</span>`;} }
+            if(map[key]){div.classList.add("holiday");div.innerHTML+=`<span class="label">${map[key]}</span>`;}
+            grid.appendChild(div);
+        }
+
+        box.appendChild(grid);
+        calendarEl.appendChild(box);
+    });
+}
+
+loadCurrentSession();
+</script>
+
+</body>
+</html>

@@ -19,7 +19,7 @@ select,input{width:100%;padding:10px;margin-top:5px;border:1px solid #ccc;border
 button{margin-top:20px;width:100%;padding:12px;background:#4f46e5;color:white;border:none;font-size:16px;border-radius:6px;cursor:pointer;}
 button:hover{background:#3730a3;}
 table{width:100%;border-collapse:collapse;margin-top:20px;}
-th,td{border:1px solid #ccc;padding:8px;text-align:center;}
+th,td{border:1px solid #ccc;padding:8px;text-align:center;font-size:13px;}
 th{background:#233465;color:white;}
 .export-btn{background:#f59e0b;margin-top:10px;}
 </style>
@@ -62,80 +62,91 @@ const sessionSelect = document.getElementById("sessionSelect");
 const classSelect = document.getElementById("classSelect");
 const monthSelect = document.getElementById("monthSelect");
 
-/* --------------------------------
-   AUTO LOAD CURRENT MONTH
--------------------------------- */
+/* ================= AUTO MONTH ================= */
 window.addEventListener("DOMContentLoaded", () => {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-
-    const currentMonth = `${yyyy}-${mm}`;
-    monthSelect.value = currentMonth;
-    monthSelect.max = currentMonth; // block future months
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    monthSelect.value = `${y}-${m}`;
+    monthSelect.max = `${y}-${m}`;
 });
 
-/* ------------------ Load Sessions ------------------ */
-async function loadSessions() {
+/* ================= LOAD SESSIONS ================= */
+async function loadSessions(){
     const res = await fetch(`${ATTENDANCE_API}/session/list`);
     const data = await res.json();
+
+    sessionSelect.innerHTML = `<option value="">Select Session</option>`;
     if(data.sessions){
-        sessionSelect.innerHTML =
-            `<option value="">Select Session</option>` +
-            data.sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
-        if(data.sessions.length){
-            sessionSelect.value = data.sessions[0];
-            loadClasses();
-        }
+        data.sessions.forEach(s=>{
+            sessionSelect.innerHTML += `<option value="${s}">${s}</option>`;
+        });
+        sessionSelect.value = data.sessions[0];
+        loadClasses();
     }
 }
 loadSessions();
 sessionSelect.addEventListener("change", loadClasses);
 
-/* ------------------ Load Classes ------------------ */
+/* ================= LOAD CLASSES ================= */
 async function loadClasses(){
     const session = sessionSelect.value;
     if(!session) return;
 
     const res = await fetch(`${STUDENT_API}/students?session=${session}`);
-    const students = await res.json();
-    const classes = [...new Set(students.map(s=>s.class_name).filter(Boolean))];
+    const raw = await res.json();
+    const students = Array.isArray(raw) ? raw : raw.students || [];
 
-    classSelect.innerHTML =
-        `<option value="">Select Class</option>` +
+    const classes = [...new Set(students.map(s=>s.class_name).filter(Boolean))];
+    classSelect.innerHTML = `<option value="">Select Class</option>` +
         classes.map(c=>`<option value="${c}">${c}</option>`).join("");
 }
 
-/* ------------------ Load Attendance ------------------ */
+/* ================= LOAD ATTENDANCE ================= */
 async function loadAttendance(){
     const session = sessionSelect.value;
     const cls = classSelect.value;
     const month = monthSelect.value;
 
     if(!session || !cls || !month){
-        alert("Select session, class, and month");
+        alert("Select session, class and month");
         return;
     }
 
     const [year, mon] = month.split("-");
     const daysInMonth = new Date(year, mon, 0).getDate();
 
-    const res = await fetch(`${STUDENT_API}/students?session=${session}`);
-    const students = await res.json();
-    const classStudents = students.filter(s=>s.class_name===cls);
-    if(!classStudents.length) return alert("No students found");
+    const sr = await fetch(`${STUDENT_API}/students?session=${session}`);
+    const rawStudents = await sr.json();
+    const students = Array.isArray(rawStudents) ? rawStudents : rawStudents.students || [];
+const classStudents = students
+    .filter(s => s.class_name === cls)
+    .sort((a, b) => {
+        const ra = parseInt(a.rollno) || 0;
+        const rb = parseInt(b.rollno) || 0;
+        return ra - rb;
+    });
+
+    if(!classStudents.length){
+        alert("No students found");
+        return;
+    }
 
     let attendanceMap = {};
+
     classStudents.forEach(s=>{
-        attendanceMap[s.id] = {name:s.student_name};
+const sid = s._id;
+        attendanceMap[sid] = {
+            name: s.student_name,
+            roll: s.rollno || "-"
+        };
         for(let d=1; d<=daysInMonth; d++){
-            attendanceMap[s.id][`${year}-${mon}-${String(d).padStart(2,"0")}`] = "-";
+            attendanceMap[sid][`${year}-${mon}-${String(d).padStart(2,"0")}`] = "-";
         }
     });
 
     for(let d=1; d<=daysInMonth; d++){
-        const day = String(d).padStart(2,"0");
-        const dateStr = `${year}-${mon}-${day}`;
+        const dateStr = `${year}-${mon}-${String(d).padStart(2,"0")}`;
         try{
             const ar = await fetch(
                 `${ATTENDANCE_API}/attendance/list?session=${session}&class_name=${encodeURIComponent(cls)}&date=${dateStr}`
@@ -151,47 +162,56 @@ async function loadAttendance(){
         }catch(e){}
     }
 
-    let html = `<table><tr><th>Roll No</th><th>Student Name</th>`;
+    let html = `<table><tr><th>Roll</th><th>Name</th>`;
     for(let d=1; d<=daysInMonth; d++) html += `<th>${d}</th>`;
-    html += `<th>Present</th><th>Absent</th><th>Leave</th></tr>`;
+    html += `<th>P</th><th>A</th><th>L</th></tr>`;
 
-    let roll=1;
-    for(const info of Object.values(attendanceMap)){
+    Object.values(attendanceMap).forEach(info=>{
         let p=0,a=0,l=0;
-        html += `<tr><td>${roll++}</td><td>${info.name}</td>`;
+        html += `<tr><td>${info.roll}</td><td>${info.name}</td>`;
         for(let d=1; d<=daysInMonth; d++){
-            const status = info[`${year}-${mon}-${String(d).padStart(2,"0")}`];
-            html += `<td>${status}</td>`;
-            if(status==="present") p++;
-            else if(status==="absent") a++;
-            else if(status==="leave") l++;
+            const st = info[`${year}-${mon}-${String(d).padStart(2,"0")}`];
+
+let display = "-";
+if(st === "present"){
+    display = "P";
+    p++;
+}
+else if(st === "absent"){
+    display = "A";
+    a++;
+}
+else if(st === "leave"){
+    display = "L";
+    l++;
+}
+
+html += `<td>${display}</td>`;
+
         }
         html += `<td>${p}</td><td>${a}</td><td>${l}</td></tr>`;
-    }
+    });
 
     html += `</table>`;
     document.getElementById("tableContainer").innerHTML = html;
 }
 
-/* ------------------ Export CSV ------------------ */
+/* ================= EXPORT CSV ================= */
 function exportCSV(){
     const table = document.querySelector("#tableContainer table");
-    if(!table) return alert("No data to export!");
+    if(!table) return alert("No data");
 
     let csv = [];
     table.querySelectorAll("tr").forEach(tr=>{
-        csv.push(
-            [...tr.children].map(td=>td.innerText).join(",")
-        );
+        csv.push([...tr.children].map(td=>td.innerText).join(","));
     });
 
     const blob = new Blob([csv.join("\n")],{type:"text/csv"});
-    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
+    a.href = URL.createObjectURL(blob);
     a.download = `attendance_${monthSelect.value}.csv`;
     a.click();
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(a.href);
 }
 </script>
 

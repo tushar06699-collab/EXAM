@@ -51,79 +51,115 @@ button{
     <h2 style="text-align:center;">Login</h2>
     
     <input id="user" placeholder="Username / Roll No">
-    <input id="pass" placeholder="Password / DOB" type="password">
+    <input id="pass" placeholder="Password / DOB (DDMMYYYY)" type="password">
     
     <button onclick="login()">Login</button>
     <div id="err" class="error"></div>
 </div>
 
 <script>
-const API = "https://exam-backend-ko0t.onrender.com"; 
+const API = "https://exam-backend-ko0t.onrender.com";
 
-function login(){
-    const username = document.getElementById("user").value.trim();
-    const password = document.getElementById("pass").value.trim();
-    const err = document.getElementById("err");
+// ---------- ELEMENT REFERENCES ----------
+const userInput = document.getElementById("user");
+const passInput = document.getElementById("pass");
+const errDiv = document.getElementById("err");
 
-    if(username === "" || password === ""){
-        err.innerText = "Please enter username & password";
+/* ---------- DOB NORMALIZER (STUDENT ONLY) ---------- */
+function normalizeDOB(input){
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    input = input.trim();
+
+    if (/^\d{8}$/.test(input)) {
+        const d = input.slice(0,2);
+        const m = input.slice(2,4);
+        const y = input.slice(4,8);
+        if (+m < 1 || +m > 12) return "";
+        return `${months[m-1]} ${d}, ${y}`;
+    }
+    return "";
+}
+
+/* ---------- LOGIN ---------- */
+async function login(){
+    const username = userInput.value.trim();
+    const rawPassword = passInput.value.trim();
+    errDiv.innerText = "";
+
+    if(!username || !rawPassword){
+        errDiv.innerText = "Enter username and password";
         return;
     }
 
-    fetch(API + "/login", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({username, password})
-    })
-    .then(r => r.json())
-    .then(res => {
-
-        if(!res.success){
-            err.innerText = res.message || "Login failed";
-            return;
-        }
-
-        // Save login token + role
-        localStorage.setItem("token", res.token);
-        localStorage.setItem("role", res.role);
-
-        // ---------- Teacher ----------
-        if(res.role === "teacher"){
-            if(res.teacher){
-                localStorage.setItem("teacher_id", res.teacher.id);
-                localStorage.setItem("teacher_name", res.teacher.name);
-                localStorage.setItem("teacher_username", res.teacher.username);
-                localStorage.setItem("session", res.teacher.session);
-            }
-            window.location.href = "teacher_dashboard.html";
-            return;
-        }
-
-        // ---------- Admin ----------
-        if(res.role === "admin"){
-            window.location.href = "dashboard.html";
-            return;
-        }
-
-        // ---------- Principal ----------
-        if(res.role === "principal"){
-            localStorage.setItem("principal_name", res.principal?.name || "Principal");
-            window.location.href = "principal_dashboard.html";
-            return;
-        }
-
-        // ---------- Student ----------
-        if(res.role === "student"){
-            localStorage.setItem("roll", username);
-            window.location.href = "student_portal.html";
-            return;
-        }
-
-    })
-    .catch(e => {
-        err.innerText = "Cannot reach server!";
-        console.log(e);
+    // STEP 1 — TRY NORMAL LOGIN (ADMIN / TEACHER / PRINCIPAL)
+    let response = await fetch(API + "/login", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ username, password: rawPassword })
     });
+
+    let res = await response.json();
+
+    // STEP 2 — IF FAILED, TRY STUDENT DOB LOGIN
+    if(!res.success){
+        const dob = normalizeDOB(rawPassword);
+        if(!dob){
+            errDiv.innerText = res.message || "Invalid credentials";
+            return;
+        }
+
+        response = await fetch(API + "/login", {
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({ username, password: dob })
+        });
+
+        res = await response.json();
+        if(!res.success){
+            errDiv.innerText = res.message || "Login failed";
+            return;
+        }
+    }
+
+    // ---------- SAVE COMMON DATA ----------
+    localStorage.setItem("token", res.token);
+    localStorage.setItem("role", res.role);
+
+    // ---------- ROLE ROUTING ----------
+    if(res.role === "admin"){
+        window.location.href = "dashboard.html";
+        return;
+    }
+
+    if(res.role === "principal"){
+        localStorage.setItem("principal_name", res.principal?.name || "Principal");
+        window.location.href = "principal_dashboard.html";
+        return;
+    }
+
+    if(res.role === "teacher"){
+        localStorage.setItem("teacher_id", res.teacher.id);
+        localStorage.setItem("teacher_name", res.teacher.name);
+        localStorage.setItem("teacher_username", res.teacher.username);
+        localStorage.setItem("session", res.teacher.session);
+        window.location.href = "teacher_dashboard.html";
+        return;
+    }
+
+    if(res.role === "student"){
+    localStorage.setItem("student_id", res.student.id);
+    localStorage.setItem("student_name", res.student.name);
+    localStorage.setItem("roll", res.student.admission_no);       // admission no
+    localStorage.setItem("rollno", res.student.rollno);           // actual roll number (used by marks API)
+    localStorage.setItem("class", res.student.class);         
+    localStorage.setItem("section", res.student.section);
+    localStorage.setItem("session", res.student.session);
+    localStorage.setItem("photo_url", res.student.photo || "");
+    window.location.href = "student_portal.html";
+    return;
+}
+
+    errDiv.innerText = "Unknown role!";
 }
 </script>
 
