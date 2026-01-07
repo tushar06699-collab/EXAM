@@ -6,14 +6,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body{margin:0;font-family:Poppins,sans-serif;background:#f2f4f7;display:flex;}
+body{margin:0;font-family:Poppins,sans-serif;background:#fff;display:flex;}
 .sidebar{width:240px;background:#233465;color:white;height:100vh;position:fixed;left:0;top:0;padding-top:20px;}
 .sidebar h2{text-align:center;font-size:22px;margin-bottom:25px;}
 .sidebar a{display:block;padding:12px 20px;color:white;text-decoration:none;font-size:16px;}
 .sidebar a:hover,.sidebar a.active{background:rgba(255,255,255,0.25);}
 .content{margin-left:240px;width:calc(100% - 240px);padding:20px;}
 header{background:#233465;color:#fff;padding:1rem;text-align:center;font-size:1.5rem;border-radius:8px;}
-main{max-width:750px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.1);}
+main{max-width:750px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:none;}
 label{display:block;font-weight:600;margin-top:15px;}
 select,input{width:100%;padding:10px;margin-top:5px;border:1px solid #ccc;border-radius:6px;}
 button{margin-top:20px;width:100%;padding:12px;background:#4f46e5;color:white;border:none;font-size:16px;border-radius:6px;cursor:pointer;}
@@ -30,11 +30,13 @@ th{background:#233465;color:white;}
 <div class="sidebar">
 <h2>Teacher ERP</h2>
 <a href="teacher_dashboard.html">Dashboard</a>
-<a href="view_notices.html">Notices</a>
-<a href="teacher_my_classes.html">My Time Table</a>
-<a class="active">Upload Attendance</a>
-<a href="teacher_view_datesheet.html">Datesheet</a>
-<a href="teacher_marks_upload.html">Upload Marks</a>
+    <a href="view_notices.html">Notices and Circular</a>
+    <a href="teacher_my_classes.html">My Time Table</a>
+    <a href="teacher_attendance.html" class="active">Upload Attendance</a>
+    <a href="teacher_view_datesheet.html">View Datesheet</a>
+    <a href="teacher_papers.html">Question Papers</a>
+    <a href="teacher_marks_upload.html">Upload Marks</a>
+    <a href="teacher_leave.html">Leave Permission</a>
 </div>
 
 <div class="content">

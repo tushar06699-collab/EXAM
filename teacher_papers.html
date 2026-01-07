@@ -24,9 +24,50 @@ select,input {width:100%;padding:10px;margin-top:5px;border:1px solid #ccc;borde
 button {margin-top:20px;width:100%;padding:12px;background:#4f46e5;color:white;border:none;font-size:16px;border-radius:6px;cursor:pointer;}
 button:hover {background:#3730a3;}
 #viewLink {margin-top:10px;text-align:center;}
+/* Hamburger button */
+#hamburger{
+    display:none;
+    position:fixed;
+    top:15px;
+    left:15px;
+    font-size:26px;
+    color:white;
+    background:#233465;
+    padding:6px 12px;
+    border-radius:6px;
+    cursor:pointer;
+    z-index:1001;
+}
+
+/* Sidebar animation */
+.sidebar{
+    transition: transform 0.3s ease;
+}
+
+/* Mobile behavior */
+@media screen and (max-width: 768px){
+    #hamburger{ display:block; }
+
+    .sidebar{
+        transform: translateX(-100%);
+        z-index:1000;
+    }
+
+    .sidebar.open{
+        transform: translateX(0);
+    }
+
+    .content{
+        margin-left:0;
+        width:100%;
+        padding-top:70px;
+    }
+}
+
 </style>
 </head>
 <body>
+<div id="hamburger" onclick="toggleSidebar()">☰</div>
 
 <div class="sidebar">
 <h2>School ERP</h2>
@@ -66,6 +107,11 @@ button:hover {background:#3730a3;}
 </div>
 
 <script>
+function toggleSidebar(){
+    document.querySelector(".sidebar").classList.toggle("open");
+}
+
+
 const EXAM_API = "https://exam-backend-ko0t.onrender.com";
 const STUDENT_API = "https://students-backend-8mup.onrender.com";
 
