@@ -4,50 +4,126 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Full Datesheet – School ERP</title>
+
 <style>
-body {
-    margin: 0;
-    font-family: Poppins, sans-serif;
-    background: #f2f4f7;
+body{
+    margin:0;
+    font-family:Poppins,sans-serif;
+    background:#f2f4f7;
+    overflow-x:hidden;
 }
 
-/* ===== SIDEBAR ===== */
-.sidebar {
-    width: 240px;
-    background: #233465;
-    color: white;
-    height: 100vh;
-    position: fixed;
-    top: 0;
-    left: 0;
-    padding-top: 20px;
-    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+/* ---------- TOP BAR ---------- */
+.topbar{
+    background:#233465;
+    color:white;
+    padding:14px 16px;
+    display:flex;
+    align-items:center;
+    gap:15px;
 }
-.sidebar h2 { text-align:center; font-size:22px; margin-bottom:30px; }
-.sidebar a {
-    display:block; padding:12px 20px; color:white; text-decoration:none;
-}
-.sidebar a:hover { background:rgba(255,255,255,0.2); }
-.sidebar a.active { background:rgba(255,255,255,0.3); }
 
-/* ===== CONTENT ===== */
-.content {
-    margin-left: 240px;
-    padding: 20px;
+/* Hamburger */
+.hamburger{
+    font-size:26px;
+    cursor:pointer;
+    display:block;
 }
-header {
-    background:#233465; color:#fff; padding:1rem; text-align:center;
-    font-size:1.5rem; border-radius:8px;
+
+/* ---------- SIDEBAR ---------- */
+.sidebar{
+    width:240px;
+    background:#233465;
+    color:white;
+    height:100vh;
+    position:fixed;
+    top:0;
+    left:-260px;
+    padding-top:20px;
+    transition:0.3s ease;
+    z-index:1000;
 }
-main {
-    max-width:1200px; margin:20px auto; background:#fff;
-    padding:20px; border-radius:12px;
+
+.sidebar.active{
+    left:0;
+}
+
+.sidebar h2{
+    text-align:center;
+    margin-bottom:25px;
+}
+
+.sidebar a{
+    display:block;
+    padding:12px 20px;
+    color:white;
+    text-decoration:none;
+}
+
+.sidebar a:hover,
+.sidebar a.active{
+    background:rgba(255,255,255,0.25);
+}
+
+/* Close button */
+.close-btn{
+    position:absolute;
+    right:15px;
+    top:10px;
+    font-size:28px;
+    cursor:pointer;
+}
+
+/* ---------- OVERLAY ---------- */
+.overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.45);
+    display:none;
+    z-index:999;
+}
+
+.overlay.active{
+    display:block;
+}
+
+/* ---------- CONTENT ---------- */
+.content{
+    padding:20px;
+}
+
+header{
+    background:#233465;
+    color:#fff;
+    padding:1rem;
+    text-align:center;
+    font-size:1.5rem;
+    border-radius:8px;
+}
+
+main{
+    max-width:1200px;
+    margin:20px auto;
+    background:#fff;
+    padding:20px;
+    border-radius:12px;
     box-shadow:0 2px 12px rgba(0,0,0,0.1);
 }
-label { font-weight:600; display:block; margin-top:1rem; }
-select { padding:10px; width:100%; border-radius:6px; border:1px solid #ccc; }
 
-.sessionBox {
+label{
+    font-weight:600;
+    display:block;
+    margin-top:1rem;
+}
+
+select{
+    padding:10px;
+    width:100%;
+    border-radius:6px;
+    border:1px solid #ccc;
+}
+
+.sessionBox{
     background:#233465;
     color:white;
     padding:10px 16px;
@@ -57,156 +133,187 @@ select { padding:10px; width:100%; border-radius:6px; border:1px solid #ccc; }
     margin-bottom:10px;
 }
 
-table {
-    width:100%; border-collapse:collapse; margin-top:20px;
-    font-size:14px;
+.table-wrap{
+    overflow-x:auto;
 }
-th, td { border:1px solid #ccc; padding:8px; text-align:center; }
-th { background:#f0f0f0; }
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:20px;
+    font-size:14px;
+    min-width:600px;
+}
+
+th,td{
+    border:1px solid #ccc;
+    padding:8px;
+    text-align:center;
+}
+
+th{
+    background:#f0f0f0;
+}
+
+/* ---------- DESKTOP ---------- */
+@media(min-width:769px){
+    
+    
+    .content{
+        margin-left:240px;
+    }
+}
 </style>
 </head>
 
 <body>
 
+<!-- OVERLAY -->
+<div class="overlay" id="overlay" onclick="closeMenu()"></div>
+
 <!-- SIDEBAR -->
-<div class="sidebar">
+<div class="sidebar" id="sidebar">
+    <span class="close-btn" onclick="closeMenu()">×</span>
     <h2>School ERP</h2>
     <a href="teacher_dashboard.html">Dashboard</a>
-        <a href="view_notices.html">Notices and Circular</a>
+    <a href="view_notices.html">Notices and Circular</a>
     <a href="teacher_my_classes.html">My Time Table</a>
-            <a href="teacher_attendance.html">Upload Attendance</a>
-    <a href="teacher_view_datesheet.html" style="background: rgba(255,255,255,0.25);">View Datesheet</a>
+    <a href="teacher_attendance.html">Upload Attendance</a>
+    <a class="active">View Datesheet</a>
     <a href="teacher_papers.html">Question Papers</a>
     <a href="teacher_marks_upload.html">Upload Marks</a>
     <a href="teacher_leave.html">Leave Permission</a>
 </div>
 
+<!-- TOP BAR -->
+<div class="topbar">
+    <span class="hamburger" onclick="openMenu()">☰</span>
+    <h1>Full Datesheet</h1>
+</div>
+
 <!-- CONTENT -->
 <div class="content">
 
-<header>Full Datesheet</header>
-
 <main>
 
-    <div class="sessionBox" id="currentSession">Loading session...</div>
+<div class="sessionBox" id="currentSession">Loading session...</div>
 
-    <label>Select Exam</label>
-    <select id="examSelect"></select>
+<label>Select Exam</label>
+<select id="examSelect"></select>
 
-    <table id="fullTable">
-        <thead>
-            <tr id="tableHeadRow"><th>Date</th></tr>
-        </thead>
-        <tbody id="tableBody"></tbody>
-    </table>
+<div class="table-wrap">
+<table>
+    <thead>
+        <tr id="tableHeadRow"><th>Date</th></tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+</table>
+</div>
 
 </main>
 
 </div>
 
 <script>
+/* ---------- SIDEBAR ---------- */
+const sidebar = document.getElementById("sidebar");
+const overlay = document.getElementById("overlay");
+
+function openMenu(){
+    sidebar.classList.add("active");
+    overlay.classList.add("active");
+    document.body.style.overflow="hidden";
+}
+
+function closeMenu(){
+    sidebar.classList.remove("active");
+    overlay.classList.remove("active");
+    document.body.style.overflow="auto";
+}
+
+/* ESC closes menu */
+document.addEventListener("keydown",(e)=>{
+    if(e.key==="Escape") closeMenu();
+});
+
+/* ---------- BACKEND LOGIC (UNCHANGED) ---------- */
 const EXAM_API = "https://exam-backend-ko0t.onrender.com";
 const STUDENT_API = "https://students-backend-8mup.onrender.com";
 
-let CURRENT_SESSION = "";
-let CLASSES = [];
-let EXAMS = [];
+let CURRENT_SESSION="";
+let CLASSES=[];
+let EXAMS=[];
 
-const examSelect = document.getElementById("examSelect");
-const tableHeadRow = document.getElementById("tableHeadRow");
-const tableBody = document.getElementById("tableBody");
-const currentSessionBox = document.getElementById("currentSession");
+const examSelect=document.getElementById("examSelect");
+const tableHeadRow=document.getElementById("tableHeadRow");
+const tableBody=document.getElementById("tableBody");
+const currentSessionBox=document.getElementById("currentSession");
 
-/* ================================
-   LOAD ONLY CURRENT SESSION
-   ================================ */
-async function loadCurrentSession() {
-    let res = await fetch(`${EXAM_API}/session/list`);
-    let data = await res.json();
+async function loadCurrentSession(){
+    const res=await fetch(`${EXAM_API}/session/list`);
+    const data=await res.json();
 
-    if (!data.sessions.length) {
-        CURRENT_SESSION = "";
-        currentSessionBox.innerText = "No Session Found!";
+    if(!data.sessions.length){
+        currentSessionBox.innerText="No Session Found!";
         return;
     }
 
-    // latest added session = LAST INDEX
-    CURRENT_SESSION = data.sessions[data.sessions.length - 1];
-
-    currentSessionBox.innerText = "Current Session: " + CURRENT_SESSION;
+    CURRENT_SESSION=data.sessions.at(-1);
+    currentSessionBox.innerText="Current Session: "+CURRENT_SESSION;
 
     await loadClasses();
     await loadExams();
 }
 
-/* ================================
-   LOAD CLASSES OF CURRENT SESSION
-   ================================ */
-async function loadClasses() {
-    let res = await fetch(`${STUDENT_API}/students?session=${CURRENT_SESSION}`);
-    let data = await res.json();
+async function loadClasses(){
+    const res=await fetch(`${STUDENT_API}/students?session=${CURRENT_SESSION}`);
+    let data=await res.json();
+    if(!Array.isArray(data)) data=data.students||[];
 
-    if (!Array.isArray(data)) data = data.students || [];
-
-    CLASSES = [...new Set(data.map(s => s.class_name).filter(Boolean))];
-
-    CLASSES.sort((a,b)=>{
-        let n1 = parseInt(a), n2 = parseInt(b);
-        if(!isNaN(n1) && !isNaN(n2)) return n1 - n2;
-        return a.localeCompare(b);
-    });
+    CLASSES=[...new Set(data.map(s=>s.class_name).filter(Boolean))].sort();
 }
 
-/* ================================
-   LOAD EXAMS FOR THIS SESSION
-   ================================ */
-async function loadExams() {
-    let res = await fetch(`${EXAM_API}/exam/list-all`);
-    let data = await res.json();
+async function loadExams(){
+    const res=await fetch(`${EXAM_API}/exam/list-all`);
+    const data=await res.json();
 
-    EXAMS = (data.exams || []).filter(e => e.session === CURRENT_SESSION);
-
-    examSelect.innerHTML =
-        `<option value="">Select Exam</option>` +
-        EXAMS.map(e => `<option value="${e.exam_name}">${e.exam_name}</option>`).join("");
+    EXAMS=(data.exams||[]).filter(e=>e.session===CURRENT_SESSION);
+    examSelect.innerHTML=`<option value="">Select Exam</option>`+
+        EXAMS.map(e=>`<option>${e.exam_name}</option>`).join("");
 }
 
-examSelect.addEventListener("change", loadFullDatesheet);
+examSelect.onchange=loadFullDatesheet;
 
-/* ================================
-   LOAD FULL DATE SHEET
-   ================================ */
-async function loadFullDatesheet() {
-    const examName = examSelect.value;
-    if (!examName) return;
+async function loadFullDatesheet(){
+    const exam=examSelect.value;
+    if(!exam) return;
 
-    tableHeadRow.innerHTML = "<th>Date</th>" + CLASSES.map(c => `<th>${c}</th>`).join("");
+    tableHeadRow.innerHTML="<th>Date</th>"+CLASSES.map(c=>`<th>${c}</th>`).join("");
 
-    let result = {};
+    let result={};
 
-    for (let cls of CLASSES) {
-        let res = await fetch(`${EXAM_API}/exam/get-datesheet?class_name=${cls}&session=${CURRENT_SESSION}&exam_name=${examName}`);
-        let data = await res.json();
+    for(let cls of CLASSES){
+        const res=await fetch(`${EXAM_API}/exam/get-datesheet?class_name=${cls}&session=${CURRENT_SESSION}&exam_name=${exam}`);
+        const data=await res.json();
 
-        (data.datesheet || []).forEach(item => {
-            if (!result[item.date]) result[item.date] = {};
-            if (!result[item.date][cls]) result[item.date][cls] = [];
-            result[item.date][cls].push(item.subject);
+        (data.datesheet||[]).forEach(d=>{
+            result[d.date]??={};
+            result[d.date][cls]??=[];
+            result[d.date][cls].push(d.subject);
         });
     }
 
-    tableBody.innerHTML = "";
-    Object.keys(result).sort().forEach(date => {
-        let tr = `<tr><td>${date}</td>`;
-        CLASSES.forEach(cls => {
-            tr += `<td>${result[date][cls] ? result[date][cls].join(", ") : ""}</td>`;
+    tableBody.innerHTML="";
+    Object.keys(result).sort().forEach(date=>{
+        let row=`<tr><td>${date}</td>`;
+        CLASSES.forEach(c=>{
+            row+=`<td>${result[date][c]?.join(", ")||""}</td>`;
         });
-        tr += "</tr>";
-        tableBody.innerHTML += tr;
+        tableBody.innerHTML+=row+"</tr>";
     });
 }
 
-window.onload = loadCurrentSession;
+window.onload=loadCurrentSession;
 </script>
 
 </body>

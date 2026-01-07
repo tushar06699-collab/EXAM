@@ -140,6 +140,7 @@ button:hover { background: #3730a3; }
                 <th>Subject 5</th>
                 <th>Subject 6</th>
                 <th>Subject 7</th>
+                <th>Subject 8</th>
                 <th>Action</th>
             </tr>
         </thead>
@@ -210,6 +211,7 @@ async function createClassRow(className) {
         <td><input id="${className}-5"></td>
         <td><input id="${className}-6"></td>
         <td><input id="${className}-7"></td>
+        <td><input id="${className}-8"></td>
         <td><button onclick="saveSubjects('${className}')">Save</button></td>
     `;
     classSubjectTable.appendChild(row);
@@ -234,7 +236,7 @@ async function loadSubjects(className) {
 async function saveSubjects(className) {
 
     let subjects = [];
-    for (let i = 1; i <= 7; i++) {
+for (let i = 1; i <= 8; i++) {
         let value = document.getElementById(`${className}-${i}`).value.trim();
         if (value) subjects.push(value);
     }

@@ -83,6 +83,14 @@ const timetableBody = document.getElementById("timetableBody");
 const sessionSelect = document.getElementById("sessionSelect");
 const teacherSelect = document.getElementById("teacherSelect");
 
+function isSeniorCombined(className){
+    return /^(11|12)\s*COMBINED/i.test(className);
+}
+
+function isSeniorStream(className){
+    return /^(11|12)\s*(Arts|Commerce|Medical)/i.test(className);
+}
+
 // ----------------- Load Data -----------------
 async function loadSessions() {
     try {
@@ -94,6 +102,7 @@ async function loadSessions() {
         sessionSelect.innerHTML = `<option value="2024_25">2024_25</option>`;
     }
 }
+
 
 async function loadTeachers() {
     try {
@@ -108,31 +117,44 @@ async function loadTeachers() {
 }
 
 async function loadClasses() {
-    // Show temporary loading message
     timetableBody.innerHTML = `<tr><td colspan="4">Loading classes...</td></tr>`;
 
     try {
         const res = await fetch(`${STUDENT_API}/students`);
         const students = await res.json();
 
-        // Extract unique class names
         classes = [...new Set(students.map(s => s.class_name).filter(Boolean))];
 
-        // Sort 1st → 12th (numeric)
         classes.sort((a,b)=>{
-            const regex = /^(\d+)(?:\s*(.*))?$/;
-            const ma = a.match(regex), mb = b.match(regex);
-            if(!ma || !mb) return 0;
-            const numA = parseInt(ma[1]), numB = parseInt(mb[1]);
-            if(numA !== numB) return numA - numB;
-            const streamA = ma[2]||"", streamB = mb[2]||"";
-            return streamA.localeCompare(streamB);
+            const ma=a.match(/^(\d+)/), mb=b.match(/^(\d+)/);
+            return (parseInt(ma?.[1]||0)) - (parseInt(mb?.[1]||0));
         });
 
-        timetableBody.innerHTML = ""; // clear loading message
-        console.log("Classes loaded:", classes);
+        // 🔥 AUTO ADD COMBINED FOR ANY CLASS WITH MULTIPLE SECTIONS / STREAMS
+// 🔥 AUTO ADD COMBINED ONLY IF MULTIPLE DISTINCT SECTIONS EXIST
+const classMap = {};
+
+// group classes by numeric prefix
+classes.forEach(c => {
+    const match = c.match(/^(\d+)/);
+    if (!match) return;
+
+    const num = match[1];
+    if (!classMap[num]) classMap[num] = new Set();
+
+    classMap[num].add(c); // Set removes duplicates automatically
+});
+
+// create COMBINED only if MORE THAN ONE UNIQUE CLASS
+Object.entries(classMap).forEach(([num, set]) => {
+    if (set.size > 1) {
+        classes.unshift(`${num} COMBINED`);
+    }
+});
+
+        timetableBody.innerHTML = "";
     } catch(e) {
-        console.error("Error loading classes:", e);
+        console.error(e);
         timetableBody.innerHTML = `<tr><td colspan="4">Failed to load classes</td></tr>`;
         classes = [];
     }
@@ -264,24 +286,49 @@ async function generateRows(existing=[]) {
         const endDaySel = tr.querySelector(".endDay");
 
         sel.onchange = async function(){
+            
             subjSel.innerHTML = `<option value="">Select Subject</option>`;
-            if(this.value){
-                const subjects = await loadSubjects(this.value);
+            if(!this.value) return;
+        
+            let subjectClass = this.value;
+        
+            // 🔥 MAP COMBINED → REAL CLASS
+            const match = this.value.match(/^(\d+)/);
+if(this.value.includes("COMBINED") && match){
+    subjectClass = classes.find(c =>
+        c.startsWith(match[1]) &&
+        /(Arts|Commerce|Medical)/i.test(c)
+    ) || classes.find(
+        c => c.startsWith(match[1]) && !c.includes("COMBINED")
+    );
+}
+
+
+        
+            if(subjectClass){
+                const subjects = await loadSubjects(subjectClass);
                 subjSel.innerHTML += subjects.map(s=>`<option value="${s}">${s}</option>`).join("");
             }
-
-            // Conflict check: fetch used days for this class & period
+        
             const periodNum = parseInt(tr.dataset.period);
-            const used = await getUsedDays(this.value, periodNum);
-            const available = weekDays.map((_,i)=>i+1).filter(d=>!used.includes(d));
+let used = [];
 
+// ❌ DO NOT CHECK CONFLICT FOR 11/12 STREAMS OR COMBINED
+if(
+    !isSeniorStream(this.value) &&
+    !isSeniorCombined(this.value)
+){
+    used = await getUsedDays(subjectClass, periodNum);
+}
+            const available = weekDays.map((_,i)=>i+1).filter(d=>!used.includes(d));
+        
             if(available.length===0){
                 alert("Class already filled for this period!");
                 startDaySel.innerHTML = `<option value="">N/A</option>`;
                 endDaySel.innerHTML = `<option value="">N/A</option>`;
             } else {
                 startDaySel.innerHTML = available.map(d=>`<option value="${d}">${weekDays[d-1].slice(0,3)}</option>`).join("");
-                endDaySel.innerHTML = available.map(d=>`<option value="${d}">${weekDays[d-1].slice(0,3)}</option>`).join("");
+                endDaySel.innerHTML = startDaySel.innerHTML;
             }
         };
     });
@@ -294,25 +341,40 @@ document.getElementById("saveBtn").onclick = async ()=>{
     const timetable = [];
 
     document.querySelectorAll('tbody tr[data-period]').forEach(row=>{
-        const periodText = row.children[0].textContent.trim();
-        const periodNum = periodMap[periodText];
-        const selClass = row.querySelector(".classSelect");
-        const subjSel = row.querySelector(".subjectSelect");
-        const startDay = parseInt(row.querySelector(".startDay").value || 1);
-        const endDay = parseInt(row.querySelector(".endDay").value || 1);
-        if(!selClass || !subjSel) return;
+    const periodText = row.children[0].textContent.trim();
+    const periodNum = periodMap[periodText];
+    const selClass = row.querySelector(".classSelect");
+    const subjSel = row.querySelector(".subjectSelect");
+    const startDay = parseInt(row.querySelector(".startDay").value || 1);
+    const endDay = parseInt(row.querySelector(".endDay").value || 1);
 
-        const className = selClass.value || "";
-        const subject = subjSel.value || "";
-        if(!className || !subject) return;
+    if(!selClass || !subjSel) return;
+    if(!selClass.value || !subjSel.value) return;
 
+    let targetClasses = [];
+
+    // 🔥 EXPAND COMBINED
+    const match = selClass.value.match(/^(\d+)/);
+
+if(selClass.value.includes("COMBINED") && match){
+    targetClasses = classes.filter(
+        c => c.startsWith(match[1]) && !c.includes("COMBINED")
+    );
+} else {
+    targetClasses = [selClass.value];
+}
+    
+
+    targetClasses.forEach(className=>{
         const periodData = { period: periodNum, class: className, startDay, endDay };
         weekDays.forEach((day, idx)=>{
-            periodData[day] = (idx+1>=startDay && idx+1<=endDay)?subject:"";
+            periodData[day] = (idx+1>=startDay && idx+1<=endDay) ? subjSel.value : "";
         });
         timetable.push(periodData);
     });
-
+});
+    
+    
     try{
         const res = await fetch(`${EXAM_API}/timetable/set`,{
             method:"POST",

@@ -6,83 +6,90 @@
 <meta name="viewport" content="width=device-width">
 
 <style>
+*{ box-sizing:border-box; }
 body { margin:0; font-family:Poppins, sans-serif; background:#eef1f6; }
 
+/* TOPBAR */
 .topbar {
-    background:#233465; color:white;
-    padding:18px 20px; display:flex; gap:20px;
+    background:#233465;
+    color:white;
+    padding:14px 18px;
+    display:flex;
     align-items:center;
+    gap:15px;
+    position:sticky;
+    top:0;
+    z-index:800;
 }
-.topbar h2 { margin:0; font-size:22px; }
+.menu-icon { font-size:28px; cursor:pointer; }
 
-.menu-icon { font-size:26px; cursor:pointer; }
-
-/* Sidebar */
+/* SIDEBAR */
 .sidebar{
-    width:250px; background:#233465; color:white;
-    height:100vh; position:fixed; top:0; left:-260px;
-    padding-top:20px; transition:.3s;
+    width:260px;
+    background:#233465;
+    color:white;
+    height:100vh;
+    position:fixed;
+    top:0;
+    left:-260px;
+    padding-top:20px;
+    transition:0.3s ease;
+    z-index:1000;
 }
 .sidebar.active{ left:0; }
-.sidebar h2{text-align:center;}
-.sidebar a{
-    display:block; padding:12px 20px; text-decoration:none;
-    color:white; margin-bottom:5px;
-}
+.sidebar a{ display:block; padding:14px 22px; color:white; text-decoration:none; }
 .sidebar a:hover{ background:rgba(255,255,255,0.25); }
+.close-btn{ position:absolute; right:15px; top:10px; font-size:28px; cursor:pointer; }
 
-.close-btn{
-    position:absolute; right:15px; top:10px;
-    font-size:28px; cursor:pointer;
-}
-
+/* OVERLAY */
 .overlay{
-    position:fixed; top:0; left:0;
-    width:100%; height:100%;
+    position:fixed;
+    inset:0;
     background:rgba(0,0,0,0.4);
-    display:none; z-index:900;
+    display:none;
+    z-index:900;
 }
-
-.sidebar{
-    width:250px; background:#233465; color:white;
-    height:100vh; position:fixed; top:0; left:-260px;
-    padding-top:20px; transition:.3s;
-    z-index:1000; /* Add this */
-}
-
 .overlay.active{ display:block; }
 
-.container{ width:95%; max-width:1000px; margin:30px auto; }
+/* CONTENT */
+.container{ width:96%; max-width:1100px; margin:20px auto; }
 .card{
-    background:white; padding:22px;
-    border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.1);
+    background:white;
+    padding:18px;
+    border-radius:12px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.1);
 }
 
-table{ width:100%; border-collapse:collapse; text-align:center; }
-th,td{
-    padding:12px; border:1px solid #ddd;
-}
-th{ background:#f1f3fa; }
-
+/* TABLE */
+table{ width:100%; border-collapse:collapse; min-width:720px; }
+th, td{ padding:10px; border:1px solid #ddd; text-align:center; font-size:13px; }
+th{ background:#f1f3fa; position:sticky; top:0; }
 .lunch-cell{ background:#f0f0f0; font-weight:bold; }
 
-.timetable-cell{
-    display:flex; flex-direction:column;
-    font-size:13px; gap:2px;
-}
+/* TIMETABLE CELL */
+.timetable-cell{ margin-bottom:4px; }
+.timetable-cell strong{ display:block; font-size:13px; }
+.timetable-cell small{ font-size:11px; color:#555; }
 
+#loading{
+    display:none;
+    font-weight:600;
+    margin:10px 0;
+    color:#233465;
+}
 </style>
 </head>
+
 <body>
 
 <!-- SIDEBAR -->
 <div class="sidebar" id="sidebar">
     <span class="close-btn" onclick="closeMenu()">×</span>
-    <h2>Teacher Menu</h2>
+    <h2 style="text-align:center;">Teacher Menu</h2>
     <a href="teacher_dashboard.html">Dashboard</a>
-        <a href="view_notices.html">Notices and Circular</a>
+    <a href="view_notices.html">Notices and Circular</a>
     <a href="teacher_my_classes.html" style="background:rgba(255,255,255,0.25);">My Timetable</a>
-        <a href="teacher_attendance.html">Upload Attendance</a>    
+    <a href="teacher_attendance.html">Upload Attendance</a>
     <a href="teacher_view_datesheet.html">View Datesheet</a>
     <a href="teacher_papers.html">Question Papers</a>
     <a href="teacher_marks_upload.html">Upload Marks</a>
@@ -104,16 +111,14 @@ th{ background:#f1f3fa; }
         <label>Session:</label>
         <select id="sessionSelect"></select>
 
+        <div id="loading">Loading timetable...</div>
+
         <table>
             <thead>
                 <tr>
                     <th>Period</th>
-                    <th>Mon</th>
-                    <th>Tue</th>
-                    <th>Wed</th>
-                    <th>Thu</th>
-                    <th>Fri</th>
-                    <th>Sat</th>
+                    <th>Mon</th><th>Tue</th><th>Wed</th>
+                    <th>Thu</th><th>Fri</th><th>Sat</th>
                 </tr>
             </thead>
             <tbody id="timetableBody"></tbody>
@@ -126,17 +131,13 @@ const EXAM_API = "https://exam-backend-ko0t.onrender.com";
 const STUDENT_API = "https://students-backend-8mup.onrender.com";
 
 const teacherName = localStorage.getItem("teacher_name");
-const teacherSession = localStorage.getItem("session");
-
-if (!teacherName) {
-    alert("Login expired! Please login again.");
-    window.location.href = "index.html";
-}
+if (!teacherName) location.href = "index.html";
 
 document.getElementById("teacherNameDisplay").textContent = teacherName;
 
 const sessionSelect = document.getElementById("sessionSelect");
 const timetableBody = document.getElementById("timetableBody");
+const loading = document.getElementById("loading");
 
 const periods = ["Period 1","Period 2","Period 3","Period 4","Lunch","Period 5","Period 6","Period 7","Period 8"];
 const periodMap = {"Period 1":1,"Period 2":2,"Period 3":3,"Period 4":4,"Period 5":5,"Period 6":6,"Period 7":7,"Period 8":8};
@@ -144,119 +145,103 @@ const week = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
 let classes = [];
 let timetableData = {};
+const timetableCache = {};
 
-// SIDE MENU
+/* MENU */
 function openMenu(){ sidebar.classList.add("active"); overlay.classList.add("active"); }
 function closeMenu(){ sidebar.classList.remove("active"); overlay.classList.remove("active"); }
 
-// Load sessions
-async function loadSessions() {
+/* LOAD SESSIONS */
+async function loadSessions(){
     const res = await fetch(`${EXAM_API}/session/list`);
     const data = await res.json();
-    const sessions = data.sessions || [];
-
-    if (!sessions.length) return;
-
-    // Populate the dropdown
-    sessionSelect.innerHTML = sessions.map(s => `<option value="${s}">${s}</option>`).join("");
-
-    // Get current session from localStorage or default to first session
-    let currentSession = localStorage.getItem("teacher_session");
-    if (!currentSession || !sessions.includes(currentSession)) {
-        currentSession = sessions[0];
-        localStorage.setItem("teacher_session", currentSession);
-    }
-
-    sessionSelect.value = currentSession;
-
-    // Load timetable for current session
-    await loadTimetable();
-    renderTable();
+    sessionSelect.innerHTML = data.sessions.map(s=>`<option>${s}</option>`).join("");
 }
 
-// Update timetable when session is changed
-sessionSelect.onchange = async () => {
-    const selected = sessionSelect.value;
-    localStorage.setItem("teacher_session", selected);
-    await loadTimetable();
-    renderTable();
-};
-// Load classes
-async function loadClasses() {
+/* LOAD CLASSES ONCE */
+async function loadClasses(){
     const res = await fetch(`${STUDENT_API}/students`);
     const data = await res.json();
     const list = data.students || data;
-
     classes = [...new Set(list.map(s=>s.class_name))].filter(Boolean);
 }
 
-// Load timetable only for this teacher
-async function loadTimetable() {
+/* FAST PARALLEL TIMETABLE */
+async function loadTimetable(){
     const session = sessionSelect.value;
+
+    if (timetableCache[session]) {
+        timetableData = timetableCache[session];
+        return;
+    }
+
+    loading.style.display = "block";
     timetableData = {};
 
-    for (let cls of classes) {
-        const res = await fetch(`${EXAM_API}/timetable/classwise?session=${session}&class_name=${cls}`);
-        const data = await res.json();
-        timetableData[cls] = data.timetable || [];
-    }
+    await Promise.all(
+        classes.map(cls =>
+            fetch(`${EXAM_API}/timetable/classwise?session=${session}&class_name=${encodeURIComponent(cls)}`)
+                .then(r=>r.json())
+                .then(d=> timetableData[cls] = d.timetable || [])
+                .catch(()=> timetableData[cls] = [])
+        )
+    );
+
+    timetableCache[session] = timetableData;
+    loading.style.display = "none";
 }
 
-// Render teacher timetable only
-function renderTable() {
+/* SHORT CLASS NAME */
+function getClassShortName(cls){
+    const n = cls.toLowerCase();
+    const num = (cls.match(/\d+/)||[""])[0];
+    if (n.includes("art")) return num+" Arts";
+    if (n.includes("comm")) return num+" Commerce";
+    if (n.includes("sci")) return num+" Science";
+    if (n.includes("med")) return num+" Medical";
+    return cls;
+}
+
+/* RENDER */
+function renderTable(){
     timetableBody.innerHTML = "";
-
-    for (let p of periods) {
+    for (let p of periods){
         let row = `<tr><td>${p}</td>`;
-
-        if (p === "Lunch") {
-            row += `<td colspan="6" class="lunch-cell">Lunch</td></tr>`;
-            timetableBody.innerHTML += row;
+        if (p==="Lunch"){
+            row+=`<td colspan="6" class="lunch-cell">Lunch</td></tr>`;
+            timetableBody.innerHTML+=row;
             continue;
         }
-
-        week.forEach(day => {
-            let cell = "";
-
-            for (let cls of classes) {
-                const items = timetableData[cls].filter(i => i.period == periodMap[p]);
-
-                items.forEach(i => {
-                    if (i[day] && i[day].startsWith(teacherName + " - ")) {
-                        const subject = i[day].split(" - ")[1];
-                        cell += `
-                            <div class="timetable-cell">
-                                <span>${subject}</span>
-                                <span>Class ${cls}</span>
-                            </div>
-                        `;
-                    }
-                });
+        week.forEach(day=>{
+            let cell="";
+            for (let cls of classes){
+                (timetableData[cls]||[])
+                    .filter(i=>i.period==periodMap[p] && i[day]?.startsWith(teacherName+" - "))
+                    .forEach(i=>{
+                        cell+=`<div class="timetable-cell">
+                            <strong>${i[day].split(" - ")[1]}</strong>
+                            <small>${getClassShortName(cls)}</small>
+                        </div>`;
+                    });
             }
-
-            row += `<td>${cell}</td>`;
+            row+=`<td>${cell}</td>`;
         });
-
-        row += `</tr>`;
-        timetableBody.innerHTML += row;
+        timetableBody.innerHTML+=row+"</tr>";
     }
 }
 
-// INIT
-async function init() {
+/* INIT */
+async function init(){
     await loadSessions();
     await loadClasses();
-
-    sessionSelect.value = teacherSession;
-
-    sessionSelect.onchange = async () => {
-        await loadTimetable();
-        renderTable();
-    };
-
     await loadTimetable();
     renderTable();
 }
+
+sessionSelect.onchange = async ()=>{
+    await loadTimetable();
+    renderTable();
+};
 
 init();
 </script>
