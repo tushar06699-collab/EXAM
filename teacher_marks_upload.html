@@ -6,13 +6,70 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body{margin:0;font-family:Poppins,sans-serif;background:#f2f4f7;display:flex;}
-.sidebar{width:240px;background:#233465;color:white;height:100vh;position:fixed;left:0;top:0;padding-top:20px;}
+body{
+    margin:0;
+    font-family:Poppins,sans-serif;
+    background:#f2f4f7;
+    display:flex;
+}
+
+/* Hamburger button for mobile */
+#hamburger {
+    display: none; /* hidden on desktop */
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    width: 30px;
+    height: 25px;
+    cursor: pointer;
+    z-index: 1002;
+}
+#hamburger span {
+    display: block;
+    height: 3px;
+    width: 100%;
+    background: white;
+    margin-bottom: 5px;
+    border-radius: 2px;
+}
+
+/* Sidebar */
+.sidebar{
+    width:240px;
+    background:#233465;
+    color:white;
+    height:100vh;
+    position:fixed;
+    left:0;
+    top:0;
+    padding-top:20px;
+    transition: transform 0.3s ease;
+    z-index: 1000;
+}
+.sidebar.hidden{
+    transform: translateX(-260px);
+}
+.sidebar.show{
+    transform: translateX(0);
+}
+
 .sidebar h2{text-align:center;font-size:22px;margin-bottom:25px;}
 .sidebar a{display:block;padding:12px 20px;color:white;text-decoration:none;font-size:16px;}
 .sidebar a:hover{background:rgba(255,255,255,0.25);}
 .sidebar a.active{background:rgba(255,255,255,0.35);}
-.content{margin-left:240px;width:calc(100% - 240px);padding:20px;}
+
+/* Content */
+.content{
+    margin-left:240px;
+    width:calc(100% - 240px);
+    padding:20px;
+    transition: margin-left 0.3s ease;
+}
+.content.shifted{
+    margin-left:0;
+}
+
+/* Header & main */
 header{background:#233465;color:#fff;padding:1rem;text-align:center;font-size:1.5rem;border-radius:8px;}
 main{max-width:700px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.1);}
 label{display:block;font-weight:600;margin-top:15px;}
@@ -25,24 +82,40 @@ th{background:#233465;color:white;}
 .low-mark{background:#f87171;color:white;}
 .total-marks{margin-top:10px;font-weight:bold;font-size:1.1rem;}
 .export-btn{background:#f59e0b;margin-top:10px;}
+
+/* Responsive for mobile */
+@media screen and (max-width: 768px){
+    #hamburger { display: block; }
+    .sidebar{ transform: translateX(-260px); }
+    .sidebar.show{ transform: translateX(0);}
+    .content{ margin-left:0; }
+    .content.shifted{ margin-left:240px; }
+}
 </style>
 </head>
 
 <body>
 
-<div class="sidebar">
-<h2>School ERP</h2>
-<a href="teacher_dashboard.html">Dashboard</a>
-    <a href="view_notices.html">Notices and Circular</a>
-    <a href="teacher_my_classes.html">My Time Table</a>
-            <a href="teacher_attendance.html">Upload Attendance</a>
-    <a href="teacher_view_datesheet.html">View Datesheet</a>
-    <a href="teacher_papers.html">Question Papers</a>
-    <a href="teacher_marks_upload.html"  style="background: rgba(255,255,255,0.25);">Upload Marks</a>
-    <a href="teacher_leave.html">Leave Permission</a>
+<!-- Hamburger button -->
+<div id="hamburger">
+    <span></span>
+    <span></span>
+    <span></span>
 </div>
 
-<div class="content">
+<div class="sidebar" id="sidebar">
+<h2>School ERP</h2>
+<a href="teacher_dashboard.html">Dashboard</a>
+<a href="view_notices.html">Notices and Circular</a>
+<a href="teacher_my_classes.html">My Time Table</a>
+<a href="teacher_attendance.html">Upload Attendance</a>
+<a href="teacher_view_datesheet.html">View Datesheet</a>
+<a href="teacher_papers.html">Question Papers</a>
+<a href="teacher_marks_upload.html"  style="background: rgba(255,255,255,0.25);">Upload Marks</a>
+<a href="teacher_leave.html">Leave Permission</a>
+</div>
+
+<div class="content" id="content">
 <header>Upload Student Marks</header>
 <main>
 
@@ -121,7 +194,6 @@ async function loadTeacherClasses(){
             });
         }
 
-        // populate classSelect with only teacher's classes
         const classes = Object.keys(TEACHER_CLASSES).sort();
         classSelect.innerHTML = `<option value="">Select Class</option>` + classes.map(c=>`<option value="${c}">${c}</option>`).join("");
         if(classes.length>0) classSelect.value = classes[0];
@@ -177,13 +249,9 @@ async function loadStudents(){
     try{
         const res = await fetch(`${STUDENT_API}/students?session=${session}`);
         const students = await res.json();
-const classStudents = students
-    .filter(s => s.class_name === cls)
-    .sort((a, b) => {
-        const ra = parseInt(a.rollno) || 0;
-        const rb = parseInt(b.rollno) || 0;
-        return ra - rb;
-    });
+        const classStudents = students
+            .filter(s => s.class_name === cls)
+            .sort((a, b) => (parseInt(a.rollno)||0) - (parseInt(b.rollno)||0));
 
         let html = `<table><tr><th>Roll No</th><th>Name</th><th>Marks</th><th>Percent</th></tr>`;
         classStudents.forEach(s=>{
@@ -307,6 +375,33 @@ function exportCSV(){
     a.click();
     URL.revokeObjectURL(url);
 }
+
+// ------------------------
+// HAMBURGER TOGGLE
+// ------------------------
+const hamburger = document.getElementById("hamburger");
+const sidebar = document.getElementById("sidebar");
+const content = document.getElementById("content");
+
+hamburger.addEventListener("click", ()=>{
+    sidebar.classList.toggle("show");
+    content.classList.toggle("shifted");
+});
+
+content.addEventListener("click", ()=>{
+    if(window.innerWidth <= 768 && sidebar.classList.contains("show")){
+        sidebar.classList.remove("show");
+        content.classList.remove("shifted");
+    }
+});
+
+// hide sidebar if resizing desktop
+window.addEventListener("resize", ()=>{
+    if(window.innerWidth > 768){
+        sidebar.classList.remove("show");
+        content.classList.remove("shifted");
+    }
+});
 </script>
 
 </body>
