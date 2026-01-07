@@ -118,6 +118,29 @@ th{background:#233465;color:white;}
         white-space:nowrap;   /* keep columns readable */
     }
 }
+/* ===== MOBILE FULL WIDTH FIX ===== */
+@media screen and (max-width: 768px){
+
+    body{
+        display:block;        /* stop flex squeezing */
+    }
+
+    .content{
+        width:100% !important;
+        margin-left:0 !important;
+        padding:14px;
+    }
+
+    header{
+        margin-left:0;
+    }
+
+    main{
+        width:100%;
+        max-width:100%;
+        margin:1rem auto;
+    }
+}
 
 </style>
 </head>
