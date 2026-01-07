@@ -6,26 +6,162 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body{margin:0;font-family:Poppins,sans-serif;background:#fff;display:flex;}
-.sidebar{width:240px;background:#233465;color:white;height:100vh;position:fixed;left:0;top:0;padding-top:20px;}
+body{
+    margin:0;
+    font-family:Poppins,sans-serif;
+    background:#ffffff;
+    display:flex;
+}
+
+/* ---------- Hamburger ---------- */
+#hamburger{
+    display:none;
+    position:fixed;
+    top:15px;
+    left:15px;
+    width:30px;
+    cursor:pointer;
+    z-index:1002;
+}
+#hamburger span{
+    display:block;
+    height:3px;
+    background:white;
+    margin:5px 0;
+    border-radius:2px;
+}
+
+/* ---------- Sidebar ---------- */
+.sidebar{
+    width:240px;
+    background:#233465;
+    color:white;
+    height:100vh;
+    position:fixed;
+    left:0;
+    top:0;
+    padding-top:20px;
+    transition:transform 0.3s ease;
+    z-index:1000;
+}
+.sidebar.hidden{
+    transform:translateX(-260px);
+}
+.sidebar.show{
+    transform:translateX(0);
+}
+
 .sidebar h2{text-align:center;font-size:22px;margin-bottom:25px;}
 .sidebar a{display:block;padding:12px 20px;color:white;text-decoration:none;font-size:16px;}
 .sidebar a:hover,.sidebar a.active{background:rgba(255,255,255,0.25);}
-.content{margin-left:240px;width:calc(100% - 240px);padding:20px;}
-header{background:#233465;color:#fff;padding:1rem;text-align:center;font-size:1.5rem;border-radius:8px;}
-main{max-width:750px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:none;}
+
+/* ---------- Content ---------- */
+.content{
+    margin-left:240px;
+    width:calc(100% - 240px);
+    padding:20px;
+    transition:margin-left 0.3s ease;
+}
+.content.shifted{
+    margin-left:0;
+    width:100%;
+}
+
+/* ---------- Main ---------- */
+header{
+    background:#233465;
+    color:#fff;
+    padding:1rem;
+    text-align:center;
+    font-size:1.5rem;
+    border-radius:8px;
+}
+main{
+    max-width:750px;
+    margin:2rem auto;
+    background:#ffffff;
+    padding:2rem;
+    border-radius:0;
+}
+
+/* ---------- Form ---------- */
 label{display:block;font-weight:600;margin-top:15px;}
-select,input{width:100%;padding:10px;margin-top:5px;border:1px solid #ccc;border-radius:6px;}
-button{margin-top:20px;width:100%;padding:12px;background:#4f46e5;color:white;border:none;font-size:16px;border-radius:6px;cursor:pointer;}
+select,input{
+    width:100%;
+    padding:10px;
+    margin-top:5px;
+    border:1px solid #ccc;
+    border-radius:6px;
+}
+button{
+    margin-top:20px;
+    width:100%;
+    padding:12px;
+    background:#4f46e5;
+    color:white;
+    border:none;
+    font-size:16px;
+    border-radius:6px;
+    cursor:pointer;
+}
 button:hover{background:#3730a3;}
-table{width:100%;border-collapse:collapse;margin-top:20px;}
-th,td{border:1px solid #ccc;padding:8px;text-align:center;}
-th{background:#233465;color:white;}
+
+/* ---------- Table ---------- */
+#tableContainer{
+    width:100%;
+    overflow-x:auto;   /* ✅ mobile fix */
+    background:white;
+}
+table{
+    width:100%;
+    min-width:600px;   /* ✅ prevents table shrinking */
+    border-collapse:collapse;
+    margin-top:20px;
+    background:white;
+}
+th,td{
+    border:1px solid #ccc;
+    padding:8px;
+    text-align:center;
+}
+th{
+    background:#233465;
+    color:white;
+}
 .attendance-select{width:120px;}
+
+/* ---------- Mobile ---------- */
+@media (max-width:768px){
+    #hamburger{display:block;}
+
+    .sidebar{
+        transform:translateX(-260px);
+    }
+    .sidebar.show{
+        transform:translateX(0);
+    }
+
+    .content{
+        margin-left:0;
+        width:100%;
+    }
+
+    main{
+        margin:1rem;
+        padding:1rem;
+    }
+}
+
 </style>
 </head>
 
 <body>
+<!-- Hamburger button -->
+<div id="hamburger">
+    <span></span>
+    <span></span>
+    <span></span>
+</div>
 
 <div class="sidebar">
 <h2>Teacher ERP</h2>
@@ -198,6 +334,28 @@ async function uploadAttendance(){
     const data = await res.json();
     alert(data.success ? "✅ Attendance saved successfully" : "❌ "+data.message);
 }
+
+const hamburger = document.getElementById("hamburger");
+const sidebar = document.querySelector(".sidebar");
+const content = document.querySelector(".content");
+
+hamburger.addEventListener("click", ()=>{
+    sidebar.classList.toggle("show");
+});
+
+content.addEventListener("click", ()=>{
+    if(window.innerWidth <= 768 && sidebar.classList.contains("show")){
+        sidebar.classList.remove("show");
+    }
+});
+
+window.addEventListener("resize", ()=>{
+    if(window.innerWidth > 768){
+        sidebar.classList.remove("show");
+    }
+});
+
+
 </script>
 
 </body>
