@@ -61,9 +61,53 @@
   .file-link{color:var(--accent-2);text-decoration:none;font-weight:600}
   .center{display:flex;align-items:center;justify-content:center}
   @media(max-width:980px){.grid{grid-template-columns:1fr;}.container{padding:16px;margin-left:0}}
+/* Hamburger button */
+#hamburger{
+  display:none;
+  position:fixed;
+  top:16px;
+  left:16px;
+  font-size:26px;
+  color:#fff;
+  background:var(--accent);
+  padding:6px 12px;
+  border-radius:8px;
+  cursor:pointer;
+  z-index:1100;
+}
+
+/* Sidebar animation */
+.sidebar{
+  transition: transform 0.3s ease;
+}
+
+/* Mobile sliding behavior */
+@media (max-width: 980px){
+  #hamburger{ display:block; }
+
+  .sidebar{
+    transform: translateX(-100%);
+    z-index:1050;
+  }
+
+  .sidebar.open{
+    transform: translateX(0);
+  }
+
+  body.sidebar-open{
+    overflow:hidden;
+  }
+
+  .container{
+    margin-left:0;
+    padding-top:70px;
+  }
+}
+
 </style>
 </head>
 <body>
+<div id="hamburger" onclick="toggleSidebar()">☰</div>
 
 <div class="sidebar">
   <h2>School ERP</h2>
@@ -393,6 +437,22 @@ function escapeHtml(str){
   if(!str) return "";
   return String(str).replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])});
 }
+function toggleSidebar(){
+  const sidebar = document.querySelector(".sidebar");
+  sidebar.classList.toggle("open");
+  document.body.classList.toggle("sidebar-open");
+}
+
+/* Auto-close after clicking menu (mobile) */
+document.querySelectorAll(".sidebar a").forEach(link=>{
+  link.addEventListener("click", ()=>{
+    if(window.innerWidth <= 980){
+      document.querySelector(".sidebar").classList.remove("open");
+      document.body.classList.remove("sidebar-open");
+    }
+  });
+});
+
 </script>
 </body>
 </html>

@@ -90,7 +90,35 @@ th{background:#233465;color:white;}
     .sidebar.show{ transform: translateX(0);}
     .content{ margin-left:0; }
     .content.shifted{ margin-left:240px; }
+}/* ===== TABLE MOBILE FIX ===== */
+#tableContainer{
+    width:100%;
+    overflow-x:auto;          /* allow horizontal scroll */
 }
+
+#tableContainer table{
+    width:100%;
+    min-width:600px;          /* prevents squeezing */
+    table-layout:auto;
+    background:#fff;
+}
+
+#tableContainer input{
+    min-width:70px;
+}
+
+/* Mobile specific */
+@media screen and (max-width: 768px){
+    main{
+        max-width:100%;       /* remove 700px limit */
+        padding:1rem;
+    }
+
+    th, td{
+        white-space:nowrap;   /* keep columns readable */
+    }
+}
+
 </style>
 </head>
 
