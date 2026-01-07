@@ -53,22 +53,6 @@ body{
     transform: translateX(0);
 }
 /* Make table responsive on mobile */
-#tableContainer {
-    overflow-x: auto; /* allows horizontal scroll if table is wide */
-}
-
-/* Make table width 100% of its container */
-#tableContainer table {
-    width: 100%;
-    table-layout: fixed; /* keeps columns consistent */
-    background: #fff; /* ensure table uses white background */
-}
-
-/* Ensure inputs inside table don't overflow */
-#tableContainer input {
-    width: 100%;
-    box-sizing: border-box;
-}
 
 .sidebar h2{text-align:center;font-size:22px;margin-bottom:25px;}
 .sidebar a{display:block;padding:12px 20px;color:white;text-decoration:none;font-size:16px;}
@@ -99,14 +83,34 @@ th{background:#233465;color:white;}
 .low-mark{background:#f87171;color:white;}
 .total-marks{margin-top:10px;font-weight:bold;font-size:1.1rem;}
 .export-btn{background:#f59e0b;margin-top:10px;}
+/* Make table responsive and white background */
+#tableContainer {
+    overflow-x: auto; /* allows horizontal scroll if table is wide */
+    background: #fff;  /* table background consistent with main */
+    border-radius: 8px;
+    padding: 5px;
+}
 
-/* Responsive for mobile */
+#tableContainer table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff; /* white background */
+}
+
+/* Only use fixed layout on desktop, not mobile */
 @media screen and (max-width: 768px){
-     #tableContainer table th,
+    #tableContainer table {
+        table-layout: auto; /* allows natural column width on mobile */
+    }
+    #tableContainer table th,
     #tableContainer table td {
         padding: 6px; 
         font-size: 14px;
     }
+}
+
+/* Responsive for mobile */
+@media screen and (max-width: 768px){
     #hamburger { display: block; }
     .sidebar{ transform: translateX(-260px); }
     .sidebar.show{ transform: translateX(0);}
