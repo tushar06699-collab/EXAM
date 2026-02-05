@@ -20,6 +20,9 @@ body{
     width:340px;
     border-radius:12px;
     box-shadow:0 4px 12px rgba(0,0,0,0.1);
+    position:relative;
+    z-index:1;
+
 }
 input{
     width:100%;
@@ -43,12 +46,47 @@ button{
     margin-top:10px;
     text-align:center;
 }
+/* BACKGROUND IMAGE */
+body{
+    background:url("images/event3.png") no-repeat center center/cover;
+}
+
+/* DARK OVERLAY */
+body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.45);
+    z-index:0;
+}
+/* LOGIN HEADER (LOGO + TEXT) */
+.login-header{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    margin-bottom:20px;
+}
+
+.login-header img{
+    width:90px;
+    height:90px;
+    object-fit:contain;
+}
+
+.login-header h1{
+    margin:0;
+}
+
 </style>
 </head>
 <body>
 
 <div class="box">
-    <h2 style="text-align:center;">Login</h2>
+<div class="login-header">
+    <img src="images/logo1.png" alt="School Logo">
+    <h1>Portal Login</h1>
+</div>
     
     <input id="user" placeholder="Username / Roll No">
     <input id="pass" placeholder="Password / DOB (DDMMYYYY)" type="password">
