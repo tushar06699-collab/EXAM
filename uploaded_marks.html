@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>View Uploaded Marks – School ERP</title>
+<title>View Uploaded Marks â€“ School ERP</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body{margin:0;font-family:Poppins,sans-serif;background:#f2f4f7;display:flex;}
@@ -11,9 +11,9 @@ body{margin:0;font-family:Poppins,sans-serif;background:#f2f4f7;display:flex;}
 .sidebar a{display:block;padding:12px 20px;color:white;text-decoration:none;font-size:16px;}
 .sidebar a:hover{background:rgba(255,255,255,0.25);}
 .sidebar a.active{background:rgba(255,255,255,0.35);}
-.content{margin-left:240px;width:calc(100% - 240px);padding:20px;}
+.content{margin-left:240px;width:calc(100% - 240px);padding:20px;box-sizing:border-box;}
 header{background:#233465;color:#fff;padding:1rem;text-align:center;font-size:1.5rem;border-radius:8px;}
-main{max-width:900px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.1);}
+main{max-width:1200px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.1);}
 label{display:block;font-weight:600;margin-top:15px;}
 select,input{width:100%;padding:10px;margin-top:5px;border:1px solid #ccc;border-radius:6px;}
 button{margin-top:20px;width:100%;padding:12px;background:#4f46e5;color:white;border:none;font-size:16px;border-radius:6px;cursor:pointer;}
@@ -22,19 +22,25 @@ table{width:100%;border-collapse:collapse;margin-top:20px;}
 th,td{border:1px solid #ccc;padding:8px;text-align:center;}
 th{background:#233465;color:white;}
 input.mark-input{width:60px;text-align:center;}
+#tableContainer{margin-top:12px;overflow-x:auto;}
+#tableContainer table{min-width:900px;}
 </style>
+<link rel="stylesheet" href="admin_theme.css">
 </head>
 <body>
 
 <div class="sidebar">
 <h2>School ERP</h2>
-<a href="dashboard.html">Dashboard</a>
-  <a href="result_upload.html">Mark Upload</a>
-  <a href="uploaded_marks.html" style="background: rgba(255,255,255,0.08);">Uploaded Marks</a>
-  <a href="marksheet.html">Marksheet</a></div>
+  <a href="dashboard.html">Dashboard</a>
+  <a href="result_upload.html">Upload External Marks</a>
+  <a href="internal_marks_upload.html">Upload Internal Marks</a>
+  <a href="uploaded_marks.html" class="active">See Uploaded Marks</a>
+  <a href="result_publish.html">Publish Results </a>
+  <a href="marksheet.html">Generate Marksheets</a>
+</div>
 
 <div class="content">
-<header>Uploaded Marks – Class Overview</header>
+<header>Uploaded Marks â€“ Class Overview</header>
 <main>
 
 <label>Session</label>
@@ -186,3 +192,5 @@ function exportCSV(){
 </script>
 </body>
 </html>
+
+

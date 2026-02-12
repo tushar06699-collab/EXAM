@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Result Upload – School ERP</title>
+<title>Result Upload â€“ School ERP</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -26,16 +26,19 @@ th{background:#233465;color:white;}
 .total-marks{margin-top:10px;font-weight:bold;font-size:1.1rem;}
 .export-btn{background:#f59e0b;margin-top:10px;}
 </style>
+<link rel="stylesheet" href="admin_theme.css">
 </head>
 
 <body>
 
 <div class="sidebar">
 <h2>School ERP</h2>
-<a href="dashboard.html">Dashboard</a>
-  <a href="result_upload.html" style="background: rgba(255,255,255,0.08);">Mark Upload</a>
-    <a href="uploaded_marks.html">Uploaded Marks</a>
-  <a href="marksheet.html">Marksheet</a>
+  <a href="dashboard.html">Dashboard</a>
+  <a href="result_upload.html" class="active">Upload External Marks</a>
+  <a href="internal_marks_upload.html">Upload Internal Marks</a>
+  <a href="uploaded_marks.html">See Uploaded Marks</a>
+  <a href="result_publish.html">Publish Results </a>
+  <a href="marksheet.html">Generate Marksheets</a>
 </div>
 
 <div class="content">
@@ -45,16 +48,15 @@ th{background:#233465;color:white;}
 <label>Session</label>
 <select id="sessionSelect"></select>
 
-<label>Exam</label>
-<select id="examSelect"></select>
-
-<div class="total-marks" id="totalMarks"></div>
-
 <label>Class</label>
 <select id="classSelect"></select>
 
 <label>Subject</label>
 <select id="subjectSelect"></select>
+
+<label>Exam</label>
+<select id="examSelect"></select>
+<div class="total-marks" id="totalMarks"></div>
 
 <button onclick="loadStudents()">Load Students</button>
 
@@ -72,6 +74,18 @@ const STUDENT_API = "https://students-backend-8mup.onrender.com";
 
 let EXAMS = [];
 let TOTAL_MARKS = 0;
+
+async function resolveExternalMaxMarks(session, cls, sub, examData){
+    if(!session || !cls || !sub || !examData) return Number(examData?.total_marks || 0);
+    try{
+        const res = await fetch(`${EXAM_API}/exam/subject-config/get?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&exam_name=${encodeURIComponent(examData.exam_name)}&subject=${encodeURIComponent(sub)}`);
+        const data = await res.json();
+        if(data.success && data.config && data.config.external_max_marks != null){
+            return Number(data.config.external_max_marks);
+        }
+    }catch(e){}
+    return Number(examData.total_marks || 0);
+}
 
 // ------------------------
 // LOAD SESSIONS
@@ -136,8 +150,10 @@ async function loadSubjects() {
     const data = await res.json();
     if(data.success){
         subjectSelect.innerHTML = data.subjects.map(s=>`<option>${s}</option>`).join("");
+        loadStudents();
     }
 }
+subjectSelect.addEventListener("change", loadStudents);
 
 // ------------------------
 // LOAD STUDENTS + MARKS
@@ -148,6 +164,10 @@ async function loadStudents() {
     const sub = subjectSelect.value;
     const examId = examSelect.value;
     if(!cls||!sub||!examId) return;
+    const examData = EXAMS.find(e=>e.exam_id==examId);
+    if(!examData) return;
+    TOTAL_MARKS = await resolveExternalMaxMarks(session, cls, sub, examData);
+    totalMarks.textContent = `External Max Marks (${sub}): ${TOTAL_MARKS}`;
 
     const res = await fetch(`${STUDENT_API}/students?session=${session}`);
     const students = await res.json();
@@ -159,12 +179,13 @@ const classStudents = students
     return r1 - r2;
   });
 
-    let html = `<table><tr><th>Roll No</th><th>Name</th><th>Marks</th><th>Percent</th></tr>`;
+    let html = `<table><tr><th>Roll No</th><th>Name</th><th>Max Marks</th><th>Marks</th><th>Percent</th></tr>`;
     classStudents.forEach(s=>{
         html += `<tr>
             <td>${s.rollno}</td>
             <td>${s.student_name}</td>
-            <td><input type="number" data-roll="${s.rollno}" min="0"></td>
+            <td class="max-cell">${TOTAL_MARKS || "-"}</td>
+            <td><input type="number" data-roll="${s.rollno}" min="0" ${TOTAL_MARKS ? `max="${TOTAL_MARKS}"` : ""}></td>
             <td class="percent-cell"></td>
         </tr>`;
     });
@@ -208,8 +229,12 @@ function updatePercentColors(){
     rows.forEach((tr,i)=>{
         if(i===0) return; // skip header
         const markInput = tr.querySelector("input[data-roll]");
+        const maxCell = tr.querySelector(".max-cell");
         const percentCell = tr.querySelector(".percent-cell");
         if(markInput){
+            if(maxCell) maxCell.textContent = TOTAL_MARKS || "-";
+            if(TOTAL_MARKS) markInput.max = TOTAL_MARKS;
+            else markInput.removeAttribute("max");
             const marks = Number(markInput.value);
             const percent = TOTAL_MARKS ? ((marks/TOTAL_MARKS)*100).toFixed(2) : 0;
             percentCell.textContent = percent + "%";
@@ -239,6 +264,12 @@ async function uploadMarks(){
     if(!examData) return;
 
     const rows = document.querySelectorAll("input[data-roll]");
+    for(const r of rows){
+        const val = Number(r.value || 0);
+        if(TOTAL_MARKS && val > TOTAL_MARKS){
+            return alert(`Marks cannot be greater than max (${TOTAL_MARKS})`);
+        }
+    }
     const marksList = Array.from(rows).map(r=>({
         roll: r.dataset.roll,
         subject: sub,
@@ -297,3 +328,5 @@ function exportCSV(){
 
 </body>
 </html>
+
+

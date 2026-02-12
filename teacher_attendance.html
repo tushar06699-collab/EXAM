@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Teacher Attendance – School ERP</title>
+<title>Teacher Attendance â€“ School ERP</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -109,12 +109,12 @@ button:hover{background:#3730a3;}
 /* ---------- Table ---------- */
 #tableContainer{
     width:100%;
-    overflow-x:auto;   /* ✅ mobile fix */
+    overflow-x:auto;   /* âœ… mobile fix */
     background:white;
 }
 table{
     width:100%;
-    min-width:600px;   /* ✅ prevents table shrinking */
+    min-width:600px;   /* âœ… prevents table shrinking */
     border-collapse:collapse;
     margin-top:20px;
     background:white;
@@ -165,14 +165,15 @@ th{
 
 <div class="sidebar">
 <h2>Teacher ERP</h2>
-<a href="teacher_dashboard.html">Dashboard</a>
-    <a href="view_notices.html">Notices and Circular</a>
-    <a href="teacher_my_classes.html">My Time Table</a>
-    <a href="teacher_attendance.html" class="active">Upload Attendance</a>
-    <a href="teacher_view_datesheet.html">View Datesheet</a>
-    <a href="teacher_papers.html">Question Papers</a>
-    <a href="teacher_marks_upload.html">Upload Marks</a>
-    <a href="teacher_leave.html">Leave Permission</a>
+    <a href="teacher_dashboard.html">Dashboard</a>
+<a href="view_notices.html">Notices and Circular</a>
+<a href="teacher_my_classes.html">My Time Table</a>
+<a href="teacher_attendance.html"style="background: rgba(255,255,255,0.25);">Upload Student Attendance</a>
+<a href="teacher_view_datesheet.html">View Datesheet</a>
+<a href="teacher_papers.html">Upload Question Papers</a>
+<a href="teacher_internal_marks_upload.html">Upload Internal Marks</a>
+<a href="teacher_marks_upload.html">Upload External Marks</a>
+<a href="teacher_leave.html">Leave Permission</a>
 </div>
 
 <div class="content">
@@ -280,13 +281,13 @@ async function loadStudents(){
 
     let existingAttendance = {};
     const ares = await fetch(
-        `${EXAM_API}/attendance/list?session=${session}&class_name=${cls}&date=${date}`
+        `${EXAM_API}/attendance/list?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&date=${encodeURIComponent(date)}`
     );
     const adata = await ares.json();
 
     if(adata.success){
         adata.attendance.forEach(a=>{
-            existingAttendance[a.student_id] = a.status;
+            existingAttendance[String(a.student_id)] = a.status;
         });
     }
 
@@ -294,13 +295,14 @@ async function loadStudents(){
         <tr><th>Roll No</th><th>Name</th><th>Status</th></tr>`;
 
     classStudents.forEach(s=>{
-        const status = existingAttendance[s._id] || "present";
+        const sid = s._id || s.id || s.student_id || "";
+        const status = existingAttendance[String(sid)] || "present";
         html += `
         <tr>
             <td>${s.rollno}</td>
             <td>${s.student_name}</td>
             <td>
-                <select class="attendance-select" data-student-id="${s._id}">
+                <select class="attendance-select" data-student-id="${sid}">
                     <option value="present" ${status==="present"?"selected":""}>Present</option>
                     <option value="absent" ${status==="absent"?"selected":""}>Absent</option>
                     <option value="leave" ${status==="leave"?"selected":""}>Leave</option>
@@ -318,12 +320,14 @@ async function uploadAttendance(){
     const session = sessionSelect.value;
     const class_name = classSelect.value;
     const date = attendanceDate.value;
+    if(!session || !class_name || !date) return alert("Select session, class and date");
 
     const attendance = [...document.querySelectorAll(".attendance-select")]
         .map(s => ({
             student_id: s.dataset.studentId,
             status: s.value
         }));
+    if(!attendance.length) return alert("Load students first");
 
     const res = await fetch(`${EXAM_API}/attendance/save`,{
         method:"POST",
@@ -331,8 +335,12 @@ async function uploadAttendance(){
         body:JSON.stringify({session,class_name,date,attendance})
     });
 
-    const data = await res.json();
-    alert(data.success ? "✅ Attendance saved successfully" : "❌ "+data.message);
+    const data = await res.json().catch(() => ({}));
+    if(!res.ok || data.success === false){
+        alert("Failed to save attendance: " + (data.message || ("HTTP " + res.status)));
+        return;
+    }
+    alert("Attendance saved successfully");
 }
 
 const hamburger = document.getElementById("hamburger");
@@ -360,3 +368,5 @@ window.addEventListener("resize", ()=>{
 
 </body>
 </html>
+
+

@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Result Upload – School ERP</title>
+<title>Principal Marks Upload - School ERP</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -26,15 +26,17 @@ th{background:#233465;color:white;}
 .total-marks{margin-top:10px;font-weight:bold;font-size:1.1rem;}
 .export-btn{background:#f59e0b;margin-top:10px;}
 </style>
+<link rel="stylesheet" href="admin_theme.css">
 </head>
 
 <body>
 
 <div class="sidebar">
-<h2>School ERP</h2>
-<a href="principal_dashboard.html">Dashboard</a>
-  <a href="principal_marks.html" style="background: rgba(255,255,255,0.08);">Uploaded Marks</a>
-  <a href="principal_marksheet.html">Marksheet</a></div>
+  <h2>School ERP</h2>
+  <a href="principal_dashboard.html">Dashboard</a>
+  <a href="principal_marks.html" class="active">Upload Students Marks</a>
+  <a href="principal_marksheet.html">Generate Marksheet</a>
+</div>
 
 <div class="content">
 <header>Upload Student Marks</header>
@@ -43,16 +45,15 @@ th{background:#233465;color:white;}
 <label>Session</label>
 <select id="sessionSelect"></select>
 
-<label>Exam</label>
-<select id="examSelect"></select>
-
-<div class="total-marks" id="totalMarks"></div>
-
 <label>Class</label>
 <select id="classSelect"></select>
 
 <label>Subject</label>
 <select id="subjectSelect"></select>
+
+<label>Exam</label>
+<select id="examSelect"></select>
+<div class="total-marks" id="totalMarks"></div>
 
 <button onclick="loadStudents()">Load Students</button>
 
@@ -71,9 +72,18 @@ const STUDENT_API = "https://students-backend-8mup.onrender.com";
 let EXAMS = [];
 let TOTAL_MARKS = 0;
 
-// ------------------------
-// LOAD SESSIONS
-// ------------------------
+async function resolveExternalMaxMarks(session, cls, sub, examData){
+    if(!session || !cls || !sub || !examData) return Number(examData?.total_marks || 0);
+    try{
+        const res = await fetch(`${EXAM_API}/exam/subject-config/get?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&exam_name=${encodeURIComponent(examData.exam_name)}&subject=${encodeURIComponent(sub)}`);
+        const data = await res.json();
+        if(data.success && data.config && data.config.external_max_marks != null){
+            return Number(data.config.external_max_marks);
+        }
+    }catch(_e){}
+    return Number(examData.total_marks || 0);
+}
+
 async function loadSessions() {
     const res = await fetch(`${EXAM_API}/session/list`);
     const data = await res.json();
@@ -86,9 +96,6 @@ async function loadSessions() {
 loadSessions();
 sessionSelect.addEventListener("change", loadClasses);
 
-// ------------------------
-// LOAD CLASSES
-// ------------------------
 async function loadClasses() {
     const session = sessionSelect.value;
     if(!session) return;
@@ -104,9 +111,6 @@ async function loadClasses() {
 }
 classSelect.addEventListener("change", loadSubjects);
 
-// ------------------------
-// LOAD EXAMS
-// ------------------------
 async function loadExams() {
     const res = await fetch(`${EXAM_API}/exam/list-all`);
     const data = await res.json();
@@ -123,39 +127,40 @@ examSelect.addEventListener("change", ()=>{
     loadStudents();
 });
 
-// ------------------------
-// LOAD SUBJECTS
-// ------------------------
 async function loadSubjects() {
     const cls = classSelect.value;
     if(!cls) return;
     const session = sessionSelect.value;
-    const res = await fetch(`${EXAM_API}/exam/subjects/get?session=${session}&class_name=${cls}`);
+    const res = await fetch(`${EXAM_API}/exam/subjects/get?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}`);
     const data = await res.json();
     if(data.success){
         subjectSelect.innerHTML = data.subjects.map(s=>`<option>${s}</option>`).join("");
+        loadStudents();
     }
 }
+subjectSelect.addEventListener("change", loadStudents);
 
-// ------------------------
-// LOAD STUDENTS + MARKS
-// ------------------------
 async function loadStudents() {
     const session = sessionSelect.value;
     const cls = classSelect.value;
     const sub = subjectSelect.value;
     const examId = examSelect.value;
-    if(!cls||!sub||!examId) return;
+    if(!cls || !sub || !examId) return;
+    const examData = EXAMS.find(e=>e.exam_id==examId);
+    if(!examData) return;
+
+    TOTAL_MARKS = await resolveExternalMaxMarks(session, cls, sub, examData);
+    totalMarks.textContent = `External Max Marks (${sub}): ${TOTAL_MARKS}`;
 
     const res = await fetch(`${STUDENT_API}/students?session=${session}`);
     const students = await res.json();
-const classStudents = students
-  .filter(s => s.class_name === cls)
-  .sort((a, b) => {
-    const r1 = parseInt(a.rollno) || 0;
-    const r2 = parseInt(b.rollno) || 0;
-    return r1 - r2;
-  });
+    const classStudents = students
+      .filter(s => s.class_name === cls)
+      .sort((a, b) => {
+        const r1 = parseInt(a.rollno) || 0;
+        const r2 = parseInt(b.rollno) || 0;
+        return r1 - r2;
+      });
 
     let html = `<table><tr><th>Roll No</th><th>Name</th><th>Marks</th><th>Percent</th></tr>`;
     classStudents.forEach(s=>{
@@ -172,20 +177,17 @@ const classStudents = students
     updatePercentColors();
 }
 
-// ------------------------
-// LOAD EXISTING MARKS
-// ------------------------
 async function loadExistingMarks() {
     const session = sessionSelect.value;
     const cls = classSelect.value;
     const sub = subjectSelect.value;
     const examId = examSelect.value;
-    if(!cls||!sub||!examId) return;
+    if(!cls || !sub || !examId) return;
     const examData = EXAMS.find(e=>e.exam_id==examId);
     if(!examData) return;
 
     try{
-        const res = await fetch(`${EXAM_API}/exam/get-marks?session=${session}&class_name=${cls}&exam_name=${examData.exam_name}`);
+        const res = await fetch(`${EXAM_API}/exam/get-marks?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&exam_name=${encodeURIComponent(examData.exam_name)}`);
         const data = await res.json();
         if(!data.success) return;
         data.marks.filter(m=>m.subject===sub).forEach(m=>{
@@ -194,24 +196,21 @@ async function loadExistingMarks() {
         });
         updatePercentColors();
     }catch(err){
-        console.error("Error loading marks:",err);
+        console.error("Error loading marks:", err);
     }
 }
 
-// ------------------------
-// UPDATE PERCENT & RED BOXES
-// ------------------------
 function updatePercentColors(){
     const rows = document.querySelectorAll("#tableContainer table tr");
     rows.forEach((tr,i)=>{
-        if(i===0) return; // skip header
+        if(i===0) return;
         const markInput = tr.querySelector("input[data-roll]");
         const percentCell = tr.querySelector(".percent-cell");
         if(markInput){
             const marks = Number(markInput.value);
-            const percent = TOTAL_MARKS ? ((marks/TOTAL_MARKS)*100).toFixed(2) : 0;
+            const percent = TOTAL_MARKS ? ((marks / TOTAL_MARKS) * 100).toFixed(2) : 0;
             percentCell.textContent = percent + "%";
-            if(marks < TOTAL_MARKS/3){
+            if(marks < TOTAL_MARKS / 3){
                 markInput.classList.add("low-mark");
                 percentCell.classList.add("low-mark");
             }else{
@@ -223,15 +222,12 @@ function updatePercentColors(){
     });
 }
 
-// ------------------------
-// UPLOAD MARKS
-// ------------------------
 async function uploadMarks(){
     const session = sessionSelect.value;
     const examId = examSelect.value;
     const cls = classSelect.value;
     const sub = subjectSelect.value;
-    if(!examId||!cls||!sub) return alert("Select exam, class, and subject!");
+    if(!examId || !cls || !sub) return alert("Select exam, class, and subject!");
 
     const examData = EXAMS.find(e=>e.exam_id==examId);
     if(!examData) return;
@@ -262,21 +258,18 @@ async function uploadMarks(){
     }
 }
 
-// ------------------------
-// EXPORT CSV
-// ------------------------
 function exportCSV(){
     const table = document.querySelector("#tableContainer table");
     if(!table) return alert("No data to export!");
-    let csv = [];
+    const csv = [];
     const rows = table.querySelectorAll("tr");
     rows.forEach(tr=>{
         const row = [];
         tr.querySelectorAll("th,td").forEach(td=>{
             const input = td.querySelector("input");
             if(input){
-                row.push(input.value); // get value from input
-            } else {
+                row.push(input.value);
+            }else{
                 row.push(td.textContent.trim());
             }
         });
@@ -286,12 +279,12 @@ function exportCSV(){
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `marks_${Date.now()}.csv`;
+    a.download = `principal_marks_${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
 }
-
 </script>
 
 </body>
 </html>
+

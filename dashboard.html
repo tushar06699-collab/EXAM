@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>School Exam ERP – Dashboard</title>
+<title>School Exam ERP â€“ Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
@@ -37,6 +37,105 @@ body {
 }
 .card p { font-size:34px; font-weight:700; margin:0; color:#233465; }
 .card:hover { transform:scale(1.04); }
+</style>
+<link rel="stylesheet" href="admin_theme.css">
+<style>
+/* Dashboard-specific overrides after shared admin theme */
+.main{
+    max-width:1280px;
+    margin-left:240px !important;
+    width:calc(100% - 240px) !important;
+    padding:28px !important;
+}
+
+.topbar{
+    background:#ffffff;
+    border:1px solid #e5e7eb;
+    border-radius:12px;
+    padding:14px 16px;
+    margin-bottom:24px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:14px;
+}
+
+.topbar-left{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+}
+
+.topbar h1{
+    margin:0;
+    font-size:26px;
+    color:#1f2937;
+}
+
+.topbar button,
+#logoutBtn,
+#manageSessionBtn{
+    width:auto !important;
+    margin-top:0 !important;
+    padding:10px 14px !important;
+    border-radius:8px !important;
+    font-size:14px !important;
+    background:#334155 !important;
+}
+
+#logoutBtn{
+    background:#b91c1c !important;
+}
+
+#logoutBtn:hover{
+    background:#991b1b !important;
+}
+
+#manageSessionBtn{
+    background:#4f46e5 !important;
+}
+
+#manageSessionBtn:hover{
+    background:#4338ca !important;
+}
+
+#sessionSelect{
+    width:190px !important;
+    margin-top:0 !important;
+    background:#fff;
+}
+
+.cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+    gap:18px;
+}
+
+.card{
+    width:auto !important;
+    border:1px solid #e5e7eb;
+    box-shadow:0 6px 16px rgba(15,23,42,.08);
+    border-radius:14px;
+    text-align:left;
+    padding:22px;
+}
+
+.card h3{
+    margin:0 0 10px 0;
+    color:#334155;
+    font-weight:600;
+}
+
+.card p{
+    margin:0;
+    font-size:34px;
+    color:#1e3a8a;
+}
+
+.card:hover{
+    transform:translateY(-2px);
+}
 </style>
 </head>
 
@@ -153,7 +252,7 @@ function loadStats() {
 }
 
 
-/* 🔵 STUDENT COUNT */
+/* ðŸ”µ STUDENT COUNT */
 async function loadStudentCount() {
     try {
         const res = await fetch(`${STUDENT_API}/students`);
@@ -168,7 +267,7 @@ async function loadStudentCount() {
 }
 
 
-/* 🟢 CLASS COUNT (UNIQUE CLASSES) */
+/* ðŸŸ¢ CLASS COUNT (UNIQUE CLASSES) */
 async function loadClassCount() {
     try {
         const res = await fetch(`${STUDENT_API}/students`);
@@ -190,7 +289,7 @@ async function loadClassCount() {
 }
 
 
-/* 🔴 EXAM COUNT */
+/* ðŸ”´ EXAM COUNT */
 async function loadExamCount() {
     try {
         const res = await fetch(`${EXAM_API}/exam/list-all`);
@@ -224,3 +323,5 @@ window.onload = loadSessions;
 
 </body>
 </html>
+
+

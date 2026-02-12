@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -139,7 +139,7 @@ async function login(){
         return;
     }
 
-    // STEP 1 — TRY NORMAL LOGIN (ADMIN / TEACHER / PRINCIPAL)
+    // STEP 1 â€” TRY NORMAL LOGIN (ADMIN / TEACHER / PRINCIPAL)
     let response = await fetch(API + "/login", {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
@@ -148,7 +148,7 @@ async function login(){
 
     let res = await response.json();
 
-    // STEP 2 — IF FAILED, TRY STUDENT DOB LOGIN
+    // STEP 2 â€” IF FAILED, TRY STUDENT DOB LOGIN
     if(!res.success){
         const dob = normalizeDOB(rawPassword);
         if(!dob){
@@ -213,3 +213,5 @@ async function login(){
 
 </body>
 </html>
+
+

@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Teacher Exam Papers – School ERP</title>
+<title>Teacher Exam Papers â€“ School ERP</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <!-- DOCX + FileSaver -->
@@ -67,18 +67,19 @@ button:hover {background:#3730a3;}
 </style>
 </head>
 <body>
-<div id="hamburger" onclick="toggleSidebar()">☰</div>
+<div id="hamburger" onclick="toggleSidebar()">â˜°</div>
 
 <div class="sidebar">
 <h2>School ERP</h2>
-<a href="teacher_dashboard.html">Dashboard</a>
-    <a href="view_notices.html">Notices and Circular</a>
-    <a href="teacher_my_classes.html">My Timetable</a>
-            <a href="teacher_attendance.html">Upload Attendance</a>
-    <a href="teacher_view_datesheet.html">View Datesheet</a>
-    <a href="teacher_papers.html" style="background:rgba(255,255,255,0.25);">Question Papers</a>
-    <a href="teacher_marks_upload.html">Upload Marks</a>
-    <a href="teacher_leave.html">Leave Permission</a>
+ <a href="teacher_dashboard.html">Dashboard</a>
+<a href="view_notices.html">Notices and Circular</a>
+<a href="teacher_my_classes.html">My Time Table</a>
+<a href="teacher_attendance.html">Upload Student Attendance</a>
+<a href="teacher_view_datesheet.html">View Datesheet</a>
+<a href="teacher_papers.html"style="background: rgba(255,255,255,0.25);">Upload Question Papers</a>
+<a href="teacher_internal_marks_upload.html">Upload Internal Marks</a>
+<a href="teacher_marks_upload.html">Upload External Marks</a>
+<a href="teacher_leave.html">Leave Permission</a>
 </div>
 
 <div class="content">
@@ -231,7 +232,7 @@ async function checkExistingPaper() {
     const div = document.getElementById("viewLink");
 
     if(res.status===200){
-        div.innerHTML = `<a href="${url}" target="_blank" style="color:#4f46e5;font-weight:600;">📄 View Uploaded Paper</a>`;
+        div.innerHTML = `<a href="${url}" target="_blank" style="color:#4f46e5;font-weight:600;">ðŸ“„ View Uploaded Paper</a>`;
     } else {
         div.innerHTML = `<p style="color:red;">No paper uploaded</p>`;
     }
@@ -253,7 +254,7 @@ async function uploadPaper() {
 
     const checkUrl = `${EXAM_API}/exam/get-paper?session=${session}&class_name=${cls}&exam_name=${examData.exam_name}&subject=${sub}`;
     const checkRes = await fetch(checkUrl);
-    if(checkRes.status===200) return alert("❌ Paper already uploaded!");
+    if(checkRes.status===200) return alert("âŒ Paper already uploaded!");
 
     let fd = new FormData();
     fd.append("pdf", file);
@@ -266,7 +267,7 @@ async function uploadPaper() {
     const data = await res.json();
 
     if(data.success){
-        alert("✅ Uploaded!");
+        alert("âœ… Uploaded!");
         checkExistingPaper();
     } else {
         alert("Error: "+data.message);
@@ -318,3 +319,5 @@ async function downloadWord() {
 </script>
 </body>
 </html>
+
+

@@ -1,0 +1,301 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin Internal Marks Upload - School ERP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{margin:0;font-family:Poppins,sans-serif;background:#f2f4f7;display:flex;}
+.sidebar{width:240px;background:#233465;color:white;height:100vh;position:fixed;left:0;top:0;padding-top:20px;}
+.sidebar h2{text-align:center;font-size:22px;margin-bottom:25px;}
+.sidebar a{display:block;padding:12px 20px;color:white;text-decoration:none;font-size:16px;}
+.sidebar a:hover{background:rgba(255,255,255,0.25);}
+.sidebar a.active{background:rgba(255,255,255,0.35);}
+.content{margin-left:240px;width:calc(100% - 240px);padding:20px;}
+header{background:#233465;color:#fff;padding:1rem;text-align:center;font-size:1.5rem;border-radius:8px;}
+main{max-width:900px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.1);}
+label{display:block;font-weight:600;margin-top:15px;}
+select,input{width:100%;padding:10px;margin-top:5px;border:1px solid #ccc;border-radius:6px;}
+button{margin-top:20px;width:100%;padding:12px;background:#4f46e5;color:white;border:none;font-size:16px;border-radius:6px;cursor:pointer;}
+button:hover{background:#3730a3;}
+table{width:100%;border-collapse:collapse;margin-top:20px;}
+th,td{border:1px solid #ccc;padding:8px;text-align:center;}
+th{background:#233465;color:white;}
+.low-mark{background:#f87171;color:white;}
+.hint{margin-top:8px;font-weight:600;color:#1f2937;}
+.export-btn{background:#f59e0b;margin-top:10px;}
+</style>
+<link rel="stylesheet" href="admin_theme.css">
+</head>
+<body>
+
+<div class="sidebar">
+  <h2>School ERP</h2>
+  <a href="dashboard.html">Dashboard</a>
+  <a href="result_upload.html" >Upload External Marks</a>
+  <a href="internal_marks_upload.html" class="active">Upload Internal Marks</a>
+  <a href="uploaded_marks.html">See Uploaded Marks</a>
+  <a href="result_publish.html">Publish Results </a>
+  <a href="marksheet.html">Generate Marksheets</a>
+</div>
+
+<div class="content">
+  <header>Upload Internal Marks (Admin)</header>
+  <main>
+    <label>Session</label>
+    <select id="sessionSelect"></select>
+
+    <label>Exam (Internal Enabled Only)</label>
+    <select id="examSelect"></select>
+
+    <label>Class</label>
+    <select id="classSelect"></select>
+
+    <label>Subject</label>
+    <select id="subjectSelect"></select>
+
+    <div id="maxHint" class="hint"></div>
+
+    <button onclick="loadStudents()">Load Students</button>
+    <div id="tableContainer"></div>
+
+    <button onclick="uploadInternalMarks()" style="background:#1e8f3d;">Upload Internal Marks</button>
+    <button onclick="exportCSV()" class="export-btn">Export CSV</button>
+  </main>
+</div>
+
+<script>
+const EXAM_API = "https://exam-backend-ko0t.onrender.com";
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
+const ADMIN_ID = "admin";
+
+let EXAMS = [];
+let STUDENTS = [];
+let MAX_INTERNAL = null;
+
+async function loadSessions() {
+  const res = await fetch(`${EXAM_API}/session/list`);
+  const data = await res.json();
+  sessionSelect.innerHTML = data.sessions.map(s => `<option>${s}</option>`).join("");
+  if (data.sessions.length > 0) {
+    sessionSelect.value = data.sessions[0];
+    await loadClasses();
+  }
+}
+loadSessions();
+sessionSelect.addEventListener("change", loadClasses);
+
+async function loadClasses() {
+  const session = sessionSelect.value;
+  if (!session) return;
+
+  const sRes = await fetch(`${STUDENT_API}/students?session=${encodeURIComponent(session)}`);
+  STUDENTS = await sRes.json();
+  const classes = [...new Set(STUDENTS.map(s => s.class_name).filter(Boolean))];
+  classSelect.innerHTML = `<option value="">Select Class</option>` + classes.map(c => `<option value="${c}">${c}</option>`).join("");
+
+  if (classes.length > 0) classSelect.value = classes[0];
+  await loadExams();
+  await loadSubjects();
+}
+classSelect.addEventListener("change", loadSubjects);
+
+async function loadExams() {
+  const session = sessionSelect.value;
+  const res = await fetch(`${EXAM_API}/exam/list-all`);
+  const data = await res.json();
+  const all = data.success ? data.exams : [];
+
+  EXAMS = all.filter(e => {
+    const sameSession = String(e.session || "") === String(session || "");
+    const v = e.internal_marks;
+    const allowInternal = !(v === false || v === "false" || v === "no" || v === "No" || v === 0);
+    return sameSession && allowInternal;
+  });
+
+  examSelect.innerHTML = EXAMS.length
+    ? EXAMS.map(e => `<option value="${e.exam_name}">${e.exam_name}</option>`).join("")
+    : `<option value="">No internal exam found</option>`;
+}
+examSelect.addEventListener("change", () => {
+  document.getElementById("tableContainer").innerHTML = "";
+  loadMaxMarksHint();
+});
+
+async function loadSubjects() {
+  const session = sessionSelect.value;
+  const cls = classSelect.value;
+  if (!session || !cls) return;
+  const res = await fetch(`${EXAM_API}/exam/subjects/get?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}`);
+  const data = await res.json();
+  subjectSelect.innerHTML = (data.success ? data.subjects : []).map(s => `<option>${s}</option>`).join("");
+  await loadMaxMarksHint();
+}
+subjectSelect.addEventListener("change", loadMaxMarksHint);
+
+async function loadMaxMarksHint() {
+  const session = sessionSelect.value;
+  const cls = classSelect.value;
+  const exam = examSelect.value;
+  const sub = subjectSelect.value;
+  if (!session || !cls || !sub || !exam) return;
+
+  try {
+    const res = await fetch(`${EXAM_API}/exam/subject-config/get?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&exam_name=${encodeURIComponent(exam)}&subject=${encodeURIComponent(sub)}`);
+    const data = await res.json();
+    if (data.success && data.config && data.config.internal_max_marks != null) {
+      MAX_INTERNAL = Number(data.config.internal_max_marks);
+      maxHint.textContent = `Internal Max Marks: ${MAX_INTERNAL}`;
+    } else {
+      MAX_INTERNAL = null;
+      maxHint.textContent = "Internal max marks not configured for this class/subject.";
+    }
+  } catch (e) {
+    MAX_INTERNAL = null;
+    maxHint.textContent = "";
+  }
+}
+
+async function loadStudents() {
+  const session = sessionSelect.value;
+  const cls = classSelect.value;
+  const sub = subjectSelect.value;
+  const exam = examSelect.value;
+  if (!session || !cls || !sub || !exam) return alert("Select session, exam, class and subject first.");
+
+  const classStudents = STUDENTS
+    .filter(s => s.class_name === cls)
+    .sort((a,b) => (parseInt(a.rollno)||0) - (parseInt(b.rollno)||0));
+
+  let html = `<table><tr><th>Roll No</th><th>Name</th><th>Max Marks</th><th>Marks</th><th>Percent</th></tr>`;
+  classStudents.forEach(s => {
+    const sid = s._id || s.id || s.student_id || "";
+    html += `<tr>
+      <td>${s.rollno || ""}</td>
+      <td>${s.student_name || ""}</td>
+      <td class="max-cell">${MAX_INTERNAL !== null ? MAX_INTERNAL : "-"}</td>
+      <td><input type="number" data-student-id="${sid}" data-student-name="${s.student_name || ""}" min="0"></td>
+      <td class="percent-cell"></td>
+    </tr>`;
+  });
+  html += `</table>`;
+  tableContainer.innerHTML = html;
+
+  await loadExistingInternalMarks();
+  applyMaxAndPercent();
+}
+
+function applyMaxAndPercent() {
+  const rows = document.querySelectorAll("#tableContainer table tr");
+  rows.forEach((tr, i) => {
+    if (i === 0) return;
+    const input = tr.querySelector("input[data-student-id]");
+    const maxCell = tr.querySelector(".max-cell");
+    const percentCell = tr.querySelector(".percent-cell");
+    if (maxCell) maxCell.textContent = (MAX_INTERNAL !== null ? MAX_INTERNAL : "-");
+    if (!input) return;
+
+    if (MAX_INTERNAL !== null) input.max = MAX_INTERNAL;
+    else input.removeAttribute("max");
+
+    const marks = Number(input.value);
+    const percent = (MAX_INTERNAL !== null && !isNaN(marks) && MAX_INTERNAL > 0)
+      ? ((marks / MAX_INTERNAL) * 100).toFixed(2)
+      : "";
+    if (percentCell) percentCell.textContent = percent ? `${percent}%` : "";
+    input.addEventListener("input", applyMaxAndPercent);
+  });
+}
+
+async function loadExistingInternalMarks() {
+  const session = sessionSelect.value;
+  const cls = classSelect.value;
+  const sub = subjectSelect.value;
+  const exam = examSelect.value;
+  if (!session || !cls || !sub || !exam) return;
+
+  try {
+    const res = await fetch(`${EXAM_API}/internal-marks/list?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&subject=${encodeURIComponent(sub)}&exam_name=${encodeURIComponent(exam)}`);
+    const data = await res.json();
+    if (!data.success) return;
+    data.marks.forEach(m => {
+      const input = document.querySelector(`input[data-student-id='${m.student_id}']`);
+      if (input) input.value = m.marks;
+    });
+  } catch (e) {}
+}
+
+async function uploadInternalMarks() {
+  const session = sessionSelect.value;
+  const cls = classSelect.value;
+  const sub = subjectSelect.value;
+  const exam = examSelect.value;
+  if (!session || !cls || !sub || !exam) return alert("Select session, exam, class and subject first.");
+
+  const rows = document.querySelectorAll("input[data-student-id]");
+  if (!rows.length) return alert("Load students first.");
+
+  if (MAX_INTERNAL !== null) {
+    for (const r of rows) {
+      const val = Number(r.value || 0);
+      if (val > MAX_INTERNAL) {
+        return alert(`Marks cannot be greater than max (${MAX_INTERNAL}) for ${r.dataset.studentName}`);
+      }
+    }
+  }
+
+  const marksList = Array.from(rows).map(r => ({
+    student_id: r.dataset.studentId,
+    student_name: r.dataset.studentName,
+    marks: r.value || 0
+  }));
+
+  try {
+    const res = await fetch(`${EXAM_API}/internal-marks/save`, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        session,
+        class_name: cls,
+        subject: sub,
+        exam_name: exam,
+        teacher_id: ADMIN_ID,
+        marks: marksList
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) {
+      return alert(data.message || `Upload failed (${res.status})`);
+    }
+    alert(data.message || "Internal marks uploaded!");
+  } catch (e) {
+    alert("Error uploading internal marks");
+  }
+}
+
+function exportCSV() {
+  const table = document.querySelector("#tableContainer table");
+  if (!table) return alert("No data to export!");
+  const csv = [];
+  table.querySelectorAll("tr").forEach(tr => {
+    const row = [];
+    tr.querySelectorAll("th,td").forEach(td => {
+      const input = td.querySelector("input");
+      row.push(input ? input.value : td.textContent.trim());
+    });
+    csv.push(row.join(","));
+  });
+  const blob = new Blob([csv.join("\n")], {type:"text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `internal_marks_${Date.now()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+
+</body>
+</html>
+

@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Teacher Leave Application – School ERP</title>
+<title>Teacher Leave Application â€“ School ERP</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap">
 <style>
   :root{
@@ -107,27 +107,28 @@
 </style>
 </head>
 <body>
-<div id="hamburger" onclick="toggleSidebar()">☰</div>
+<div id="hamburger" onclick="toggleSidebar()">â˜°</div>
 
 <div class="sidebar">
   <h2>School ERP</h2>
-  <a href="teacher_dashboard.html">Dashboard</a>
-    <a href="view_notices.html">Notices and Circular</a>
-    <a href="teacher_my_classes.html">My Time Table</a>
-    <a href="teacher_attendance.html">Upload Attendance</a>
-    <a href="teacher_view_datesheet.html">View Datesheet</a>
-    <a href="teacher_papers.html">Question Papers</a>
-    <a href="teacher_marks_upload.html">Upload Marks</a>
-    <a href="teacher_leave.html" class="active">Leave Permission</a>
+      <a href="teacher_dashboard.html">Dashboard</a>
+<a href="view_notices.html">Notices and Circular</a>
+<a href="teacher_my_classes.html">My Time Table</a>
+<a href="teacher_attendance.html">Upload Student Attendance</a>
+<a href="teacher_view_datesheet.html">View Datesheet</a>
+<a href="teacher_papers.html">Upload Question Papers</a>
+<a href="teacher_internal_marks_upload.html">Upload Internal Marks</a>
+<a href="teacher_marks_upload.html">Upload External Marks</a>
+<a href="teacher_leave.html"style="background: rgba(255,255,255,0.25);">Leave Permission</a>
 </div>
 
 <div class="container">
   <header class="main-header">
     <div>
       <h1>Leave Application</h1>
-      <small class="muted">Submit your leave request — documents optional</small>
+      <small class="muted">Submit your leave request â€” documents optional</small>
     </div>
-    <div id="teacherBadge" class="small-muted">Teacher: —</div>
+    <div id="teacherBadge" class="small-muted">Teacher: â€”</div>
   </header>
 
   <div class="grid">
@@ -316,7 +317,7 @@ leaveForm.addEventListener("submit", async (ev) => {
   if (new Date(sd) > new Date(ed)) return showMessage("Start Date cannot be after End Date.", "error");
 
   submitBtn.disabled = true;
-  submitBtn.textContent = "Submitting…";
+  submitBtn.textContent = "Submittingâ€¦";
 
   try {
     const fd = new FormData();
@@ -354,7 +355,7 @@ fd.append("reason", note);
    Load leaves (show admin reply)
    ---------------------- */
 async function loadLeaves(limit=20){
-  leaveList.innerHTML = `<div class="center small-muted">Loading…</div>`;
+  leaveList.innerHTML = `<div class="center small-muted">Loadingâ€¦</div>`;
   try {
     const res = await fetch(`${BACKEND}/leave/teacher/${encodeURIComponent(teacher.id)}`);
     const data = await res.json();
@@ -379,7 +380,7 @@ async function loadLeaves(limit=20){
       const left = document.createElement("div");
       left.className = "leave-left";
 
-      let infoHtml = `<div style="font-weight:700">${sess} • ${st} → ${en}</div>
+      let infoHtml = `<div style="font-weight:700">${sess} â€¢ ${st} â†’ ${en}</div>
                       <div class="meta small-muted">${escapeHtml(rsn)}</div>`;
       if (adminMsg) {
         infoHtml += `<div class="meta small-muted" style="color:var(--accent-2);margin-top:4px"><strong>Admin:</strong> ${escapeHtml(adminMsg)}</div>`;
@@ -456,3 +457,5 @@ document.querySelectorAll(".sidebar a").forEach(link=>{
 </script>
 </body>
 </html>
+
+

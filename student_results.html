@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -11,6 +11,12 @@
   --bg:#f5f7fb;
   --card:#ffffff;
   --fail:#ef4444;
+  --muted:#6b7280;
+  --border:#e5e7eb;
+  --pass-bg:#dcfce7;
+  --pass-text:#166534;
+  --fail-bg:#fee2e2;
+  --fail-text:#b91c1c;
 }
 body{
   margin:0;
@@ -68,12 +74,13 @@ header{
   margin:20px auto;
   padding:20px;
   border-radius:12px;
-  box-shadow:0 8px 20px rgba(0,0,0,.1);
+  box-shadow:0 8px 20px rgba(15,23,42,.08);
+  border:1px solid var(--border);
 }
 .marksheet h2{text-align:center;color:var(--primary);}
 .info{
   display:flex;flex-wrap:wrap;
-  font-size:14px;margin-bottom:10px;
+  font-size:14px;margin-bottom:12px;
 }
 .info div{width:48%;margin-bottom:6px;}
 
@@ -81,13 +88,23 @@ table{
   width:100%;border-collapse:collapse;
 }
 th,td{
-  border:1px solid #000;
-  padding:6px;text-align:center;
+  border:1px solid var(--border);
+  padding:8px;text-align:center;
 }
-tr.fail td{background:var(--fail);color:#fff;}
-.result{text-align:center;font-weight:bold;margin-top:10px;}
-.pass{color:green;}
-.fail{color:red;}
+th{background:#f8fafc;}
+.result{text-align:center;font-weight:bold;margin-top:12px;}
+.pass{color:var(--pass-text);}
+.fail{color:var(--fail-text);}
+.status-pill{
+  display:inline-block;
+  padding:3px 10px;
+  border-radius:999px;
+  font-weight:600;
+  font-size:12px;
+}
+.status-pass{background:var(--pass-bg);color:var(--pass-text);}
+.status-fail{background:var(--fail-bg);color:var(--fail-text);}
+.subtle{color:var(--muted);}
 </style>
 </head>
 <body>
@@ -95,19 +112,19 @@ tr.fail td{background:var(--fail);color:#fff;}
 <div class="overlay" id="overlay" onclick="closeMenu()"></div>
 
 <div class="sidebar" id="sidebar">
-   <h2>🎓 Student Menu</h2>
-    <a onclick="go('student_portal.html')">🏠 Dashboard</a>
-    <a onclick="go('student_results.html')">📊 Results</a>
-    <a onclick="go('student_timetable.html')">📅 Timetable</a>
-    <a onclick="go('student_exams.html')">📝 Exams</a>
-    <a onclick="go('student_attendance.html')">📌 Attendance</a>
-            <a onclick="openPage('student_notices.html')">📢 Notices</a>
-    <a onclick="openPage('student_academic_calendar.html')">📅 Academic Calendar</a>
+   <h2>ðŸŽ“ Student Menu</h2>
+    <a onclick="go('student_portal.html')">ðŸ  Dashboard</a>
+    <a onclick="go('student_results.html')">ðŸ“Š Results</a>
+    <a onclick="go('student_timetable.html')">ðŸ“… Timetable</a>
+    <a onclick="go('student_exams.html')">ðŸ“ Exams</a>
+    <a onclick="go('student_attendance.html')">ðŸ“Œ Attendance</a>
+            <a onclick="openPage('student_notices.html')">ðŸ“¢ Notices</a>
+    <a onclick="openPage('student_academic_calendar.html')">ðŸ“… Academic Calendar</a>
 </div>
 
 <header>
   <div class="left">
-    <span class="menu-btn" onclick="openMenu()">☰</span>
+    <span class="menu-btn" onclick="openMenu()">â˜°</span>
     <h2>Results</h2>
   </div>
   <div class="student-info">
@@ -143,18 +160,59 @@ fetch(`${EXAM_API}/portal/student/${studentId}`)
 
 /* LOAD RESULTS */
 async function loadMarks(){
-  let session=localStorage.getItem("session").replace("-","_");
-  const roll=localStorage.getItem("rollno")||localStorage.getItem("roll");
+  const rawSession = (localStorage.getItem("session") || "").replace(/-/g,"_");
+  const p = await (await fetch(`${EXAM_API}/portal/student/${studentId}`)).json();
+  if(!p.success || !p.student) return alert("Student not found");
 
-  const students=await (await fetch(`${STUDENT_API}/students?session=${session}`)).json();
-  const student=students.find(s=>s.admission_no==roll||s.rollno==roll);
-  if(!student) return alert("Student not found");
+  const profile = p.student;
+  const session = rawSession;
+  const rollFromProfile = String(profile.roll || "").trim();
+  const localRoll = String(localStorage.getItem("rollno") || localStorage.getItem("roll") || "").trim();
+  const norm = (v)=>String(v || "").trim().replace(/^0+/, "") || "0";
+  const candidateRolls = Array.from(new Set([
+    localRoll,
+    rollFromProfile,
+    norm(localRoll),
+    norm(rollFromProfile)
+  ].filter(Boolean)));
+  const studentIds = Array.from(new Set([String(studentId || ""), String(profile.id || "")].filter(Boolean)));
 
   const exams=(await (await fetch(`${EXAM_API}/exam/list-all`)).json()).exams;
 
   for(const exam of exams){
+    const examSession = String(exam.session || session || "").replace(/-/g,"_");
+    if(session && examSession && examSession !== session) continue;
+    const allowInternal = !(
+      exam.internal_marks === false ||
+      exam.internal_marks === "no" ||
+      exam.internal_marks === "No" ||
+      exam.internal_marks === "false" ||
+      exam.internal_marks === 0
+    );
+
+    // check publish status
+    try{
+      const statusRes = await fetch(`${EXAM_API}/result/status?session=${encodeURIComponent(examSession)}&class_name=${encodeURIComponent(profile.class_name)}&exam_name=${encodeURIComponent(exam.exam_name)}`);
+      const statusData = await statusRes.json();
+      if(!statusData.success || !statusData.published){
+        marksContainer.innerHTML+=`
+        <div class="marksheet">
+          <h2>${exam.exam_name}</h2>
+          <div class="result">Result coming soon.</div>
+        </div>`;
+        continue;
+      }
+    }catch(e){
+      marksContainer.innerHTML+=`
+      <div class="marksheet">
+        <h2>${exam.exam_name}</h2>
+        <div class="result">Result coming soon.</div>
+      </div>`;
+      continue;
+    }
+
     const r=await fetch(
-      `${EXAM_API}/exam/get-marks?session=${session}&class_name=${student.class_name}&exam_name=${exam.exam_name}`
+      `${EXAM_API}/exam/get-marks?session=${examSession}&class_name=${profile.class_name}&exam_name=${exam.exam_name}`
     );
     if(!r.ok) continue;
     const d=await r.json();
@@ -165,16 +223,84 @@ async function loadMarks(){
       if(!map[m.roll]) map[m.roll]={};
       map[m.roll][m.subject]=m.marks;
     });
-    const subs=map[roll];
-    if(!subs) continue;
+    let subs = null;
+    for(const rk of candidateRolls){
+      if(map[rk]){
+        subs = map[rk];
+        break;
+      }
+    }
+    if(!subs){
+      marksContainer.innerHTML+=`
+      <div class="marksheet">
+        <h2>${exam.exam_name}</h2>
+        <div class="result">Result not uploaded yet.</div>
+      </div>`;
+      continue;
+    }
+
+    const subjects = Object.keys(subs);
+    const externalMaxBySubject = {};
+    const internalMarksBySubject = {};
+    const internalMaxBySubject = {};
+
+    await Promise.all(subjects.map(async (sub)=>{
+      externalMaxBySubject[sub] = Number(exam.total_marks || 0);
+      internalMarksBySubject[sub] = 0;
+      internalMaxBySubject[sub] = 0;
+
+      try{
+        const rc = await fetch(`${EXAM_API}/exam/subject-config/get?session=${encodeURIComponent(examSession)}&class_name=${encodeURIComponent(profile.class_name)}&exam_name=${encodeURIComponent(exam.exam_name)}&subject=${encodeURIComponent(sub)}`);
+        const dc = await rc.json();
+        if(dc.success && dc.config){
+          if(dc.config.external_max_marks != null){
+            externalMaxBySubject[sub] = Number(dc.config.external_max_marks);
+          }
+          if(dc.config.internal_max_marks != null){
+            internalMaxBySubject[sub] = Number(dc.config.internal_max_marks);
+          }
+        }
+      }catch(e){}
+
+      if(allowInternal){
+        try{
+          const r1 = await fetch(`${EXAM_API}/internal-marks/list?session=${encodeURIComponent(examSession)}&class_name=${encodeURIComponent(profile.class_name)}&subject=${encodeURIComponent(sub)}&exam_name=${encodeURIComponent(exam.exam_name)}`);
+          const d1 = await r1.json();
+          let studentInternal = 0;
+          if(d1.success && Array.isArray(d1.marks)){
+            const row = d1.marks.find(m=>studentIds.includes(String(m.student_id)));
+            if(row && row.marks != null) studentInternal = Number(row.marks);
+          }
+          internalMarksBySubject[sub] = studentInternal;
+        }catch(e){
+          internalMarksBySubject[sub] = 0;
+        }
+      }
+    }));
 
     let total=0,totalMax=0,fail=false;
-    const rows=Object.keys(subs).map(sub=>{
-      const m=subs[sub], pass=Math.ceil(exam.total_marks*0.33);
-      total+=m; totalMax+=exam.total_marks;
-      if(m<pass) fail=true;
-      return `<tr class="${m<pass?'fail':''}">
-        <td>${sub}</td><td>${m}</td><td>${exam.total_marks}</td>
+    const rows=subjects.map(sub=>{
+      const external = Number(subs[sub] ?? 0);
+      const extMax = Number(externalMaxBySubject[sub] || exam.total_marks || 0);
+      const internal = allowInternal ? Number(internalMarksBySubject[sub] || 0) : 0;
+      const internalMax = allowInternal ? Number(internalMaxBySubject[sub] || 0) : 0;
+      const subjectTotal = external + internal;
+      const subjectMax = extMax + internalMax;
+      const passThreshold = subjectMax > 0 ? Math.ceil(subjectMax * 0.33) : 0;
+      const subjectPass = subjectTotal >= passThreshold;
+
+      total += subjectTotal;
+      totalMax += subjectMax;
+      if(!subjectPass) fail = true;
+
+      return `<tr>
+        <td>${sub}</td>
+        <td>${external}</td>
+        <td>${extMax}</td>
+        ${allowInternal ? `<td>${internal}</td><td>${internalMax}</td>` : ``}
+        <td>${subjectTotal}</td>
+        <td>${subjectMax}</td>
+        <td>${subjectPass ? `<span class="status-pill status-pass">PASS</span>` : `<span class="status-pill status-fail">FAIL</span>`}</td>
       </tr>`;
     }).join("");
 
@@ -182,19 +308,34 @@ async function loadMarks(){
     <div class="marksheet">
       <h2>${exam.exam_name}</h2>
       <div class="info">
-        <div><b>Name:</b> ${student.student_name}</div>
-        <div><b>Roll No:</b> ${student.rollno||student.admission_no}</div>
-        <div><b>Class:</b> ${student.class_name} ${student.section}</div>
-        <div><b>Session:</b> ${student.session}</div>
+        <div><b>Name:</b> ${profile.name || ""}</div>
+        <div><b>Roll No:</b> ${rollFromProfile || localRoll}</div>
+        <div><b>Class:</b> ${profile.class_name || ""} ${profile.section || ""}</div>
+        <div><b>Session:</b> ${examSession}</div>
       </div>
       <table>
-        <tr><th>Subject</th><th>Marks</th><th>Max</th></tr>
+        <tr>
+          <th>Subject</th>
+          <th>External</th>
+          <th>Ext Max</th>
+          ${allowInternal ? `<th>Internal</th><th>Int Max</th>` : ``}
+          <th>Total</th>
+          <th>Total Max</th>
+          <th>Status</th>
+        </tr>
         ${rows}
       </table>
       <div class="result ${fail?'fail':'pass'}">
         RESULT: ${fail?'FAIL':'PASS'} | ${total}/${totalMax}
       </div>
+      <div class="subtle" style="text-align:center;margin-top:6px;">
+        ${allowInternal ? "Internal marks included for this exam." : "Internal marks not applicable for this exam."}
+      </div>
     </div>`;
+  }
+
+  if(!marksContainer.innerHTML.trim()){
+    marksContainer.innerHTML = `<div class="marksheet"><h2>Result</h2><div class="result subtle">No published result found for your profile.</div></div>`;
   }
 }
 
@@ -209,3 +350,5 @@ function logout(){localStorage.clear();location.href="index.html";}
 
 </body>
 </html>
+
+

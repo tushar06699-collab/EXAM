@@ -1,0 +1,258 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exam Subject Marks Config</title>
+<link rel="stylesheet" href="admin_theme.css">
+<style>
+main{max-width:1200px !important;}
+.row{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:12px;}
+.muted{margin-top:10px;color:#64748b;font-size:13px;}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+.toolbar button{width:auto;}
+#tableWrap{margin-top:14px;overflow-x:auto;}
+#tableWrap table{min-width:980px;}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;}
+.yes{background:#dcfce7;color:#166534;}
+.no{background:#fee2e2;color:#991b1b;}
+.small-btn{padding:8px 10px;font-size:14px;margin-top:0;}
+input[disabled]{background:#f3f4f6;cursor:not-allowed;}
+@media (max-width:1100px){.row{grid-template-columns:1fr 1fr;}}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h2>School ERP</h2>
+  <a href="dashboard.html">Dashboard</a>
+  <a href="subject_add_all.html">Subjects Management</a>
+  <a href="exam_subject_marks_config.html" class="active">Subject Marks Config</a>
+  <a href="teachers.html">Teacher Management</a>
+  <a href="Timetable.html">Add Timetable</a>
+  <a href="get_classes_timetable.html">View Class Timetable</a>
+  <a href="get_teacher_timetable.html">View Teacher Timetable</a>
+</div>
+
+<div class="content">
+  <header>Exam Subject Marks Config</header>
+  <main>
+    <div class="row">
+      <div>
+        <label>Session</label>
+        <select id="sessionSelect"></select>
+      </div>
+      <div>
+        <label>Class</label>
+        <select id="classSelect"></select>
+      </div>
+      <div>
+        <label>Exam</label>
+        <select id="examSelect"></select>
+      </div>
+      <div>
+        <label>Internal Applicable</label>
+        <div id="internalBadge" style="margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <button class="small-btn" onclick="loadConfigRows()">Load Subjects</button>
+      <button class="small-btn" style="background:#1e8f3d;" onclick="saveAllRows()">Save All</button>
+    </div>
+
+    <div class="muted">
+      Subjects are shown uniquely (duplicates removed). Configure external and internal max marks per subject for selected exam.
+    </div>
+
+    <div id="tableWrap"></div>
+  </main>
+</div>
+
+<script>
+const EXAM_API = "https://exam-backend-ko0t.onrender.com";
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
+
+let EXAMS = [];
+
+function isInternalEnabled(exam){
+  const v = exam && exam.internal_marks;
+  return !(v === false || v === "false" || v === "no" || v === "No" || v === 0);
+}
+
+function esc(v){
+  return String(v ?? "").replace(/["&<>]/g, (m)=>({'"':"&quot;","&":"&amp;","<":"&lt;",">":"&gt;"}[m]));
+}
+
+async function loadSessions(){
+  const res = await fetch(`${EXAM_API}/session/list`);
+  const data = await res.json();
+  sessionSelect.innerHTML = (data.sessions || []).map(s=>`<option>${esc(s)}</option>`).join("");
+  if((data.sessions || []).length){
+    sessionSelect.value = data.sessions[0];
+    await loadClasses();
+  }
+}
+sessionSelect.addEventListener("change", async ()=>{
+  await loadClasses();
+  await loadExams();
+  refreshBadge();
+  tableWrap.innerHTML = "";
+});
+
+async function loadClasses(){
+  const session = sessionSelect.value;
+  const res = await fetch(`${STUDENT_API}/students?session=${encodeURIComponent(session)}`);
+  const students = await res.json();
+  const classes = [...new Set((students || []).map(s=>s.class_name).filter(Boolean))].sort();
+  classSelect.innerHTML = classes.map(c=>`<option>${esc(c)}</option>`).join("");
+  if(classes.length) classSelect.value = classes[0];
+}
+classSelect.addEventListener("change", ()=>{ tableWrap.innerHTML = ""; });
+
+async function loadExams(){
+  const res = await fetch(`${EXAM_API}/exam/list-all`);
+  const data = await res.json();
+  EXAMS = (data.exams || []).filter(e => String(e.session || "") === String(sessionSelect.value || ""));
+  examSelect.innerHTML = EXAMS.map(e=>`<option value="${esc(e.exam_name)}">${esc(e.exam_name)}</option>`).join("");
+}
+examSelect.addEventListener("change", ()=>{
+  refreshBadge();
+  tableWrap.innerHTML = "";
+});
+
+function refreshBadge(){
+  const exam = EXAMS.find(e=>String(e.exam_name)===String(examSelect.value));
+  const enabled = isInternalEnabled(exam);
+  internalBadge.innerHTML = enabled
+    ? `<span class="badge yes">YES</span>`
+    : `<span class="badge no">NO</span>`;
+}
+
+async function loadConfigRows(){
+  const session = sessionSelect.value;
+  const cls = classSelect.value;
+  const examName = examSelect.value;
+  if(!session || !cls || !examName) return alert("Select session, class and exam.");
+
+  const exam = EXAMS.find(e=>String(e.exam_name)===String(examName));
+  const internalEnabled = isInternalEnabled(exam);
+
+  const subRes = await fetch(`${EXAM_API}/exam/subjects/get?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}`);
+  const subData = await subRes.json();
+  const subjects = [...new Set((subData.subjects || []).map(s=>String(s).trim()).filter(Boolean))];
+  if(!subjects.length){
+    tableWrap.innerHTML = `<table><tr><td>No subjects found for this class.</td></tr></table>`;
+    return;
+  }
+
+  const rows = await Promise.all(subjects.map(async (sub)=>{
+    try{
+      const cfgRes = await fetch(`${EXAM_API}/exam/subject-config/get?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&exam_name=${encodeURIComponent(examName)}&subject=${encodeURIComponent(sub)}`);
+      const cfgData = await cfgRes.json();
+      const cfg = cfgData.config || {};
+      const ext = cfg.external_max_marks ?? (exam ? exam.total_marks : "");
+      const intv = cfg.internal_max_marks ?? "";
+      return `
+        <tr data-subject="${esc(sub)}">
+          <td>${esc(sub)}</td>
+          <td><input type="number" step="0.5" min="0" class="ext-input" value="${esc(ext)}"></td>
+          <td><input type="number" step="0.5" min="0" class="int-input" value="${esc(intv)}" ${internalEnabled ? "" : "disabled"}></td>
+          <td><button class="small-btn" onclick="saveRow(this)">Save</button></td>
+        </tr>`;
+    }catch(e){
+      return `
+        <tr data-subject="${esc(sub)}">
+          <td>${esc(sub)}</td>
+          <td><input type="number" step="0.5" min="0" class="ext-input"></td>
+          <td><input type="number" step="0.5" min="0" class="int-input" ${internalEnabled ? "" : "disabled"}></td>
+          <td><button class="small-btn" onclick="saveRow(this)">Save</button></td>
+        </tr>`;
+    }
+  }));
+
+  tableWrap.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Subject</th>
+          <th>External Max Marks</th>
+          <th>Internal Max Marks</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>${rows.join("")}</tbody>
+    </table>`;
+}
+
+async function saveRow(btn){
+  const tr = btn.closest("tr");
+  const subject = tr.dataset.subject;
+  const extInput = tr.querySelector(".ext-input");
+  const intInput = tr.querySelector(".int-input");
+
+  const payload = {
+    session: sessionSelect.value,
+    class_name: classSelect.value,
+    exam_name: examSelect.value,
+    subject,
+    external_max_marks: Number(extInput.value || 0)
+  };
+
+  if(!intInput.disabled && intInput.value !== ""){
+    payload.internal_max_marks = Number(intInput.value);
+  }
+
+  const res = await fetch(`${EXAM_API}/exam/subject-config/save`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if(!res.ok || data.success===false) return alert(data.message || "Save failed");
+  alert(`Saved: ${subject}`);
+}
+
+async function saveAllRows(){
+  const rows = document.querySelectorAll("#tableWrap tbody tr");
+  if(!rows.length) return alert("Load subjects first.");
+
+  for(const tr of rows){
+    const subject = tr.dataset.subject;
+    const extInput = tr.querySelector(".ext-input");
+    const intInput = tr.querySelector(".int-input");
+
+    const payload = {
+      session: sessionSelect.value,
+      class_name: classSelect.value,
+      exam_name: examSelect.value,
+      subject,
+      external_max_marks: Number(extInput.value || 0)
+    };
+    if(!intInput.disabled && intInput.value !== ""){
+      payload.internal_max_marks = Number(intInput.value);
+    }
+
+    const res = await fetch(`${EXAM_API}/exam/subject-config/save`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if(!res.ok || data.success===false){
+      return alert(`Failed on ${subject}: ${data.message || "Save failed"}`);
+    }
+  }
+  alert("All subject configs saved.");
+}
+
+window.onload = async ()=>{
+  await loadSessions();
+  await loadExams();
+  refreshBadge();
+};
+</script>
+
+</body>
+</html>
+

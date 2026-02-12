@@ -1,0 +1,133 @@
+:root{
+  --admin-bg:#f2f4f7;
+  --admin-sidebar:#233465;
+  --admin-sidebar-hover:rgba(255,255,255,0.25);
+  --admin-text:#0f172a;
+  --admin-card:#ffffff;
+  --admin-border:#d1d5db;
+  --admin-primary:#4f46e5;
+  --admin-primary-hover:#3730a3;
+}
+
+html,body{
+  margin:0;
+  font-family:Poppins,Segoe UI,Roboto,Arial,sans-serif;
+  background:var(--admin-bg);
+  color:var(--admin-text);
+}
+
+body{
+  display:flex;
+}
+
+.sidebar{
+  width:240px !important;
+  background:var(--admin-sidebar) !important;
+  color:#fff;
+  height:100vh;
+  position:fixed;
+  left:0;
+  top:0;
+  padding-top:20px;
+}
+
+.sidebar h2{
+  text-align:center;
+  font-size:22px;
+  margin-bottom:24px;
+}
+
+.sidebar a{
+  display:block;
+  padding:12px 20px;
+  color:#fff;
+  text-decoration:none;
+  font-size:16px;
+  border-radius:0;
+}
+
+.sidebar a:hover{
+  background:var(--admin-sidebar-hover);
+}
+
+.sidebar a.active{
+  background:var(--admin-sidebar-hover);
+}
+
+.content,
+.main{
+  margin-left:240px !important;
+  width:calc(100% - 240px) !important;
+  box-sizing:border-box;
+  padding:20px !important;
+}
+
+header{
+  background:var(--admin-sidebar) !important;
+  color:#fff !important;
+  padding:1rem !important;
+  text-align:center;
+  font-size:1.5rem !important;
+  border-radius:8px;
+}
+
+main{
+  max-width:1200px !important;
+  margin:2rem auto !important;
+  background:var(--admin-card);
+  padding:2rem !important;
+  border-radius:12px;
+  box-shadow:0 2px 12px rgba(0,0,0,.08);
+}
+
+label{
+  display:block;
+  font-weight:600;
+  margin-top:15px;
+}
+
+select,input{
+  width:100%;
+  padding:10px;
+  margin-top:5px;
+  border:1px solid var(--admin-border);
+  border-radius:6px;
+  box-sizing:border-box;
+}
+
+button{
+  margin-top:14px;
+  width:100%;
+  padding:12px;
+  background:var(--admin-primary);
+  color:#fff;
+  border:none;
+  font-size:16px;
+  border-radius:6px;
+  cursor:pointer;
+}
+
+button:hover{
+  background:var(--admin-primary-hover);
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:20px;
+}
+
+th,td{
+  border:1px solid var(--admin-border);
+  padding:8px;
+  text-align:center;
+}
+
+th{
+  background:var(--admin-sidebar);
+  color:#fff;
+}
+
+#tableContainer{
+  overflow-x:auto;
+}

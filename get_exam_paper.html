@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>View Exam Papers – School ERP</title>
+<title>View Exam Papers â€“ School ERP</title>
 <style>
 body {
     margin: 0;
@@ -171,7 +171,7 @@ async function loadGrid(){
         const students = await res.json();
         let classes = [...new Set(students.map(s=>s.class_name).filter(Boolean))];
 
-        // Sort classes in 1st → 12th sequence
+        // Sort classes in 1st â†’ 12th sequence
         const order = ["1st","2nd","3rd","4th","5th","6th","7th","8th","9th","10th","11th","12th"];
         classes.sort((a,b)=>{
             const idxA = order.findIndex(o=>a.startsWith(o));
@@ -200,10 +200,10 @@ async function loadGrid(){
                 div.className = "subject";
 
                 if(headRes.ok){
-                    div.innerHTML = `<a href="${url}" target="_blank">📄 ${sub}</a> 
+                    div.innerHTML = `<a href="${url}" target="_blank">ðŸ“„ ${sub}</a> 
                         <button class="delete-paper" onclick="deletePaper('${cls}','${sub}','${examData.exam_name}',this)">Delete</button>`;
                 } else {
-                    div.innerHTML = `<span style="color:red;">${sub} ❌</span>`;
+                    div.innerHTML = `<span style="color:red;">${sub} âŒ</span>`;
                 }
 
                 box.appendChild(div);
@@ -240,7 +240,7 @@ async function deletePaper(className, subject, examName, btn){
         const data = await res.json();
         alert(data.message);
         // remove the deleted paper from grid
-        if(data.success) btn.parentElement.innerHTML = `<span style="color:red;">${subject} ❌</span>`;
+        if(data.success) btn.parentElement.innerHTML = `<span style="color:red;">${subject} âŒ</span>`;
     } catch(e){
         console.error(e);
         alert("Failed to delete paper.");
@@ -249,3 +249,5 @@ async function deletePaper(className, subject, examName, btn){
 </script>
 </body>
 </html>
+
+

@@ -1,16 +1,20 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Marksheet – School ERP</title>
+<title>Principal Marksheet - School ERP</title>
 
 <style>
 :root{
   --brand:#233465;
   --accent:#4f46e5;
   --muted:#f2f4f7;
-  --fail-bg:#ef4444;
+  --fail-bg:#fee2e2;
+  --fail-text:#b91c1c;
+  --pass-bg:#dcfce7;
+  --pass-text:#166534;
+  --border:#e5e7eb;
 }
 
 html,body{
@@ -19,7 +23,6 @@ html,body{
   background:var(--muted);
 }
 
-/* ===== SIDEBAR ===== */
 .sidebar{
   width:240px;
   background:var(--brand);
@@ -41,7 +44,6 @@ html,body{
 
 .content{ margin-left:240px; padding:20px; }
 
-/* ===== CONTROLS ===== */
 .controls{
   display:flex;
   gap:12px;
@@ -64,51 +66,74 @@ button{
 
 .marksheet-container{ display:none; }
 
-/* ===== MARKSHEET ===== */
 .marksheet{
   width:210mm;
   min-height:297mm;
   background:#fff;
   margin:0 auto 30px;
   padding:18mm;
+  box-sizing:border-box;
   position:relative;
-  box-shadow:0 0 10px rgba(0,0,0,.15);
+  box-shadow:0 12px 30px rgba(0,0,0,.12);
   page-break-after:always;
+  border-radius:12px;
 }
 
-/* SCHOOL LOGO */
+.marksheet header{
+  position:relative;
+  background:#233465;
+  border-radius:12px;
+  min-height:190px;
+  margin-bottom:18px;
+  text-align:center;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  padding:20px 180px 20px 130px;
+  box-sizing:border-box;
+}
+.marksheet header h1{
+  margin:0;
+  font-size:34px;
+  font-weight:700;
+  color:#ffffff;
+  letter-spacing:.4px;
+}
+.marksheet header h3{
+  margin:6px 0 0;
+  font-size:18px;
+  font-weight:600;
+  color:#ffffff;
+}
+.marksheet header h2{
+  margin:14px 0 0;
+  color:#6366f1;
+  font-size:20px;
+  font-weight:800;
+  letter-spacing:1px;
+}
+
 .school-logo{
   position:absolute;
-  top:18mm;
-  left:18mm;
-  width:130px;
+  left:18px;
+  top:50%;
+  transform:translateY(-50%);
+  width:120px;
   height:auto;
   object-fit:contain;
 }
 
-/* STUDENT PHOTO */
 .student-photo{
   position:absolute;
-  top:18mm;
-  right:18mm;
-  width:150px;
-  height:180px;
-  border:2px solid #333;
+  right:18px;
+  top:50%;
+  transform:translateY(-50%);
+  width:130px;
+  height:165px;
+  border:2px solid #334155;
+  background:#fff;
   object-fit:cover;
-}
-
-.marksheet header{
-  text-align:center;
-  margin-bottom:15px;
-}
-.marksheet header h1{
-  margin:0;
-  font-size:30px;
-  color:#233465;
-}
-.marksheet header h2{
-  margin:5px 0;
-  color:#4f46e5;
 }
 
 .student-info{
@@ -127,18 +152,21 @@ table{
   width:100%;
   border-collapse:collapse;
   margin-top:15px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  overflow:hidden;
 }
 th,td{
-  border:1px solid #000;
-  padding:7px;
+  border:1px solid var(--border);
+  padding:8px;
   text-align:center;
   font-size:14px;
 }
-th{ background:#f0f0f0; }
+th{ background:#f8fafc; }
 
 tr.fail td{
   background:var(--fail-bg);
-  color:#fff;
+  color:var(--fail-text);
 }
 
 .summary{
@@ -154,8 +182,18 @@ tr.fail td{
   font-weight:bold;
   text-align:center;
 }
-.pass{ color:green; }
-.fail-text{ color:red; }
+.pass{ color:var(--pass-text); }
+.fail-text{ color:var(--fail-text); }
+
+.status-pill{
+  display:inline-block;
+  padding:3px 10px;
+  border-radius:999px;
+  font-weight:600;
+  font-size:12px;
+}
+.status-pass{ background:var(--pass-bg); color:var(--pass-text); }
+.status-fail{ background:var(--fail-bg); color:var(--fail-text); }
 
 .sign-block{
   display:flex;
@@ -178,32 +216,82 @@ tr.fail td{
   padding:8px;
 }
 .holistic-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr); /* 2 items per row */
-  gap: 5px 40px; /* row gap, column gap */
-  font-family: 'Poppins', sans-serif;
-  font-size: 14px;
-  color: #333;
+  display:grid;
+  grid-template-columns:repeat(2, 1fr);
+  gap:5px 40px;
+  font-family:Poppins,sans-serif;
+  font-size:14px;
+  color:#333;
 }
 
 .holistic-grid div {
-  background: #f7f9fc;
-  padding: 8px 12px;
-  border-radius: 3px;
+  background:#f7f9fc;
+  padding:8px 12px;
+  border-radius:3px;
 }
 
 .holistic-grid b {
-  color: #233465;
+  color:#233465;
 }
 
-/* ===== PRINT ===== */
+@page{
+  size:A4 portrait;
+  margin:10mm;
+}
+
 @media print{
-  body{ background:#fff; }
+  html,body{
+    width:auto !important;
+    margin:0 !important;
+    padding:0 !important;
+    background:#fff !important;
+  }
+  body{
+    background:#fff;
+    display:block !important;
+  }
   .sidebar,.controls{ display:none; }
-  .content{ margin:0; padding:0; }
-  .marksheet{ box-shadow:none; }
+  .content > h3{ display:none; }
+  .content{
+    margin:0 !important;
+    width:auto !important;
+    max-width:none !important;
+    padding:0 !important;
+  }
+  .marksheet{
+    width:100% !important;
+    min-height:0 !important;
+    margin:0 !important;
+    padding:7mm !important;
+    box-sizing:border-box;
+    border-radius:0;
+    border:none;
+    box-shadow:none;
+    page-break-after:always;
+    break-after:page;
+    overflow:hidden;
+  }
+  .marksheet header{
+    min-height:120px;
+    padding:12px 105px;
+    border-radius:6px;
+  }
+  .school-logo{ width:88px; left:12px; }
+  .student-photo{ width:88px; height:110px; right:12px; }
+  .marksheet header h1{ font-size:24px; }
+  .marksheet header h3{ font-size:14px; }
+  .marksheet header h2{
+    font-size:24px;
+    margin-top:6px;
+    line-height:1.1;
+    max-width:100%;
+    word-break:break-word;
+    letter-spacing:.2px;
+  }
+  th,td{ font-size:13px; padding:6px; }
 }
 </style>
+<link rel="stylesheet" href="admin_theme.css">
 </head>
 
 <body>
@@ -211,8 +299,8 @@ tr.fail td{
 <div class="sidebar">
   <h2>School ERP</h2>
   <a href="principal_dashboard.html">Dashboard</a>
-  <a href="principal_marks.html">Uploaded Marks</a>
-  <a href="principal_marksheet.html" style="background: rgba(255,255,255,0.08);">Marksheet</a>
+  <a href="principal_marks.html">Upload Students Marks</a>
+  <a href="principal_marksheet.html" class="active">Generate Marksheet</a>
 </div>
 
 <div class="content">
@@ -244,114 +332,189 @@ tr.fail td{
 const STUDENT_API = "https://students-backend-8mup.onrender.com";
 const EXAM_API = "https://exam-backend-ko0t.onrender.com";
 
-let STUDENTS=[], EXAMS=[];
+let STUDENTS = [];
+let EXAMS = [];
 
 function safe(v){ return v ?? ""; }
 function safePhoto(url){
   return url && url.trim() ? url : "images/default.png";
 }
+function getStudentId(s){
+  return s._id || s.id || s.student_id || "";
+}
 
-/* LOAD SESSIONS */
 async function loadSessions(){
   const r = await fetch(`${EXAM_API}/session/list`);
   const d = await r.json();
-  sessionSelect.innerHTML = d.sessions.map(s=>`<option>${s}</option>`).join("");
+  sessionSelect.innerHTML = (d.sessions || []).map(s=>`<option>${s}</option>`).join("");
   loadClasses();
 }
 loadSessions();
 
-/* LOAD CLASSES */
 async function loadClasses(){
   const res = await fetch(`${STUDENT_API}/students?session=${sessionSelect.value}`);
   STUDENTS = await res.json();
-  const classes=[...new Set(STUDENTS.map(s=>s.class_name))];
+  const classes = [...new Set(STUDENTS.map(s=>s.class_name))];
   classSelect.innerHTML = classes.map(c=>`<option>${c}</option>`).join("");
   loadExams();
 }
 sessionSelect.onchange = loadClasses;
 
-/* LOAD EXAMS */
 async function loadExams(){
   const r = await fetch(`${EXAM_API}/exam/list-all`);
   const d = await r.json();
-  EXAMS = d.exams;
+  EXAMS = d.exams || [];
   examSelect.innerHTML = EXAMS.map(e =>
     `<option value="${e.exam_name}">${e.exam_name}</option>`
   ).join("");
 }
 
-/* GENERATE MARKSHEETS */
 async function generateMarksheets(){
   const cls = classSelect.value;
   const exam = examSelect.value;
+  const session = sessionSelect.value;
   const container = document.getElementById("marksheetContainer");
-  container.innerHTML="";
+  container.innerHTML = "";
 
   const resMarks = await fetch(
-    `${EXAM_API}/exam/get-marks?session=${sessionSelect.value}&class_name=${cls}&exam_name=${exam}`
+    `${EXAM_API}/exam/get-marks?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&exam_name=${encodeURIComponent(exam)}`
   );
   const mdata = await resMarks.json();
   if(!mdata.success) return alert("No marks found");
 
-  const markMap={};
+  const markMap = {};
   mdata.marks.forEach(m=>{
-    if(!markMap[m.roll]) markMap[m.roll]={};
-    markMap[m.roll][m.subject]=m.marks;
+    if(!markMap[m.roll]) markMap[m.roll] = {};
+    markMap[m.roll][m.subject] = m.marks;
   });
+
+  const externalSubjects = [...new Set(mdata.marks.map(m=>m.subject))];
+  const externalMaxBySubject = {};
+  const internalMarksBySubject = {};
+  const internalMaxBySubject = {};
+
+  const examObj = EXAMS.find(e=>e.exam_name===exam);
+  const allowInternal = examObj
+    ? !(
+        examObj.internal_marks === false ||
+        examObj.internal_marks === "no" ||
+        examObj.internal_marks === "No" ||
+        examObj.internal_marks === "false" ||
+        examObj.internal_marks === 0
+      )
+    : true;
+
+  let internalSubjects = [];
+  if(allowInternal){
+    try{
+      const subRes = await fetch(`${EXAM_API}/internal-marks/subjects?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&exam_name=${encodeURIComponent(exam)}`);
+      const subData = await subRes.json();
+      if(subData.success && Array.isArray(subData.subjects)){
+        internalSubjects = subData.subjects;
+      }
+    }catch(_e){
+      internalSubjects = [];
+    }
+  }
+
+  const subjects = Array.from(new Set([...externalSubjects, ...internalSubjects]));
+
+  await Promise.all(subjects.map(async (sub)=>{
+    externalMaxBySubject[sub] = Number(examObj?.total_marks || 100);
+    internalMarksBySubject[sub] = {};
+    internalMaxBySubject[sub] = 0;
+
+    try{
+      const rc = await fetch(`${EXAM_API}/exam/subject-config/get?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&exam_name=${encodeURIComponent(exam)}&subject=${encodeURIComponent(sub)}`);
+      const dc = await rc.json();
+      if(dc.success && dc.config){
+        if(dc.config.external_max_marks != null){
+          externalMaxBySubject[sub] = Number(dc.config.external_max_marks);
+        }
+        if(dc.config.internal_max_marks != null){
+          internalMaxBySubject[sub] = Number(dc.config.internal_max_marks);
+        }
+      }
+    }catch(_e){}
+
+    if(allowInternal){
+      try{
+        const map = {};
+        const r1 = await fetch(`${EXAM_API}/internal-marks/list?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&subject=${encodeURIComponent(sub)}&exam_name=${encodeURIComponent(exam)}`);
+        const d1 = await r1.json();
+        if(d1.success && Array.isArray(d1.marks)){
+          d1.marks.forEach(m=>{
+            map[m.student_id] = m.marks ?? 0;
+          });
+        }
+        internalMarksBySubject[sub] = map;
+      }catch(_e){
+        internalMarksBySubject[sub] = {};
+      }
+    }
+  }));
 
   const sortedStudents = STUDENTS
     .filter(s=>s.class_name===cls)
     .sort((a,b)=>(parseInt(a.rollno)||0)-(parseInt(b.rollno)||0));
 
   for(const s of sortedStudents){
-    const subs = markMap[s.rollno];
-    if(!subs) continue;
+    const sid = String(getStudentId(s));
+    const subs = markMap[s.rollno] || {};
 
-    const examObj = EXAMS.find(e=>e.exam_name===exam);
-    const maxPerSubject = examObj ? examObj.total_marks : 100;
+    const hasExternal = Object.keys(subs).length > 0;
+    const hasInternal = allowInternal && subjects.some(sub=>{
+      return internalMarksBySubject[sub] && internalMarksBySubject[sub][sid] != null;
+    });
+    if(!hasExternal && !hasInternal) continue;
 
-    let total=0, totalMax=0, fail=false;
+    let total = 0;
+    let totalMax = 0;
+    let fail = false;
 
-    const rows = Object.keys(subs).map(sub=>{
-      const m = subs[sub] ?? 0;
+    const rows = subjects.map(sub=>{
+      const m = Number(subs[sub] ?? 0);
+      const maxPerSubject = Number(externalMaxBySubject[sub] || examObj?.total_marks || 100);
+      const internal = allowInternal && (internalMarksBySubject[sub] && internalMarksBySubject[sub][sid] != null)
+        ? Number(internalMarksBySubject[sub][sid])
+        : 0;
+      const internalMax = allowInternal ? Number(internalMaxBySubject[sub] || 0) : 0;
       const passMarks = Math.ceil(maxPerSubject * 0.33);
-      total+=m; totalMax+=maxPerSubject;
-      if(m < passMarks) fail=true;
+      const subjectTotal = m + (allowInternal ? internal : 0);
+      const subjectMax = maxPerSubject + (allowInternal ? internalMax : 0);
+      const subjectPass = subjectMax > 0 ? (subjectTotal >= Math.ceil(subjectMax * 0.33)) : (m >= passMarks);
 
-      return `<tr class="${m<passMarks?'fail':''}">
-        <td>${sub}</td><td>${m}</td><td>${maxPerSubject}</td>
+      total += subjectTotal;
+      totalMax += subjectMax;
+      if(!subjectPass) fail = true;
+
+      return `<tr class="${subjectPass ? "" : "fail"}">
+        <td>${sub}</td>
+        <td>${m}</td>
+        <td>${maxPerSubject}</td>
+        ${allowInternal ? `<td>${internal}</td><td>${internalMax}</td>` : ``}
+        <td>${subjectTotal}</td>
+        <td>${subjectMax}</td>
+        <td>${subjectPass ? `<span class="status-pill status-pass">PASS</span>` : `<span class="status-pill status-fail">FAIL</span>`}</td>
       </tr>`;
     }).join("");
 
-    const percent=((total/totalMax)*100).toFixed(2);
+    const percent = totalMax > 0 ? ((total / totalMax) * 100).toFixed(2) : "0.00";
     const result = fail ? "FAIL" : "PASS";
 
-    container.innerHTML+=`
+    container.innerHTML += `
     <div class="marksheet">
-
-      <img class="school-logo" src="images/school_logo.png" onerror="this.style.display='none'">
-
-      <img class="student-photo"
-        src="${safePhoto(s.photo_url)}"
-        onerror="this.onerror=null;this.src='images/default.png';">
-
       <header>
+        <img class="school-logo" src="images/school_logo.png" onerror="this.style.display='none'">
+        <img class="student-photo"
+          src="${safePhoto(s.photo_url)}"
+          onerror="this.onerror=null;this.src='images/default.png';">
         <h1>P.S. Public School</h1>
         <h3>On Gannaur Road Bhurri (Sonipat)</h3>
-        <h2>${exam} Marksheet</h2>
+        <h2>${exam} MARKSHEET</h2>
       </header>
 
       <div class="student-info">
-        <div></div>
-        <div></div>
-        <div></div>
-        <div></div>
-        <div></div>
-        <div></div>
-        <div></div>
-        <div></div>
-        
-
         <div><b>Name:</b> ${safe(s.student_name)}</div>
         <div><b>Admission No:</b> ${safe(s.admission_no)}</div>
         <div><b>Roll No:</b> ${safe(s.rollno)}</div>
@@ -363,7 +526,15 @@ async function generateMarksheets(){
       </div>
 
       <table>
-        <tr><th>Subject</th><th>Marks</th><th>Max</th></tr>
+        <tr>
+          <th>Subject</th>
+          <th>External</th>
+          <th>Ext Max</th>
+          ${allowInternal ? `<th>Internal</th><th>Int Max</th>` : ``}
+          <th>Total</th>
+          <th>Total Max</th>
+          <th>Status</th>
+        </tr>
         ${rows}
       </table>
 
@@ -371,20 +542,17 @@ async function generateMarksheets(){
         <div><b>Total:</b> ${total} / ${totalMax}</div>
         <div><b>Percentage:</b> ${percent}%</div>
       </div>
-        <div></div>
-        <div></div>
-       <div class="holistic-grid">
-  <div><b>Attendance:</b> A</div>
-  <div><b>Discipline:</b> A</div>
 
-  <div><b>Sports Skill:</b> A</div>
-  <div><b>Co-Curricular Activities:</b> A</div>
+      <div class="holistic-grid">
+        <div><b>Attendance:</b> A</div>
+        <div><b>Discipline:</b> A</div>
+        <div><b>Sports Skill:</b> A</div>
+        <div><b>Co-Curricular Activities:</b> A</div>
+        <div><b>Health & Cleanliness:</b> A</div>
+        <div><b>Teacher's Remarks:</b> Shows good performance.</div>
+      </div>
 
-  <div><b>Health & Cleanliness:</b> A</div>
-  <div><b>Teacher’s Remarks:</b> Shows good performance.</div>
- </div>
-
-      <div class="result-status ${result==='PASS'?'pass':'fail-text'}">
+      <div class="result-status ${result==="PASS" ? "pass" : "fail-text"}">
         RESULT: ${result}
       </div>
 
@@ -397,9 +565,10 @@ async function generateMarksheets(){
     </div>`;
   }
 
-  container.style.display="block";
+  container.style.display = "block";
 }
 </script>
 
 </body>
 </html>
+

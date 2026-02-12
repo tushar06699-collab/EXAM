@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -115,8 +115,8 @@ async function loadExams(){
                 <td>${exam.exam_id}</td>
                 <td>${exam.exam_name}</td>
                 <td>${exam.session}</td>
-                <td>${exam.exam_time || '—'}</td>
-                <td>${exam.total_marks || '—'}</td>
+                <td>${exam.exam_time || 'â€”'}</td>
+                <td>${exam.total_marks || 'â€”'}</td>
                 <td>
                     <button class="delete-btn" onclick="deleteExam('${exam.exam_id}')">Delete</button>
                 </td>
@@ -153,3 +153,5 @@ window.onload = loadSessions;
 
 </body>
 </html>
+
+

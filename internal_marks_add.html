@@ -1,0 +1,319 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Internal Marks Config â€“ School ERP</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: Poppins, sans-serif;
+  background: #f2f4f7;
+  display: flex;
+}
+
+/* ---------------- SIDEBAR ---------------- */
+.sidebar {
+  width: 240px;
+  background: #233465;
+  color: white;
+  height: 100vh;
+  padding: 20px 0;
+  position: fixed;
+  left: 0;
+  top: 0;
+  overflow-y: auto;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.15);
+}
+
+.sidebar h2 {
+  text-align: center;
+  font-size: 22px;
+  margin-bottom: 25px;
+  font-weight: 600;
+}
+
+.sidebar a {
+  display: block;
+  padding: 12px 22px;
+  font-size: 16px;
+  color: white;
+  text-decoration: none;
+  transition: 0.2s;
+}
+
+.sidebar a:hover {
+  background: rgba(255,255,255,0.15);
+  padding-left: 30px;
+}
+
+.sidebar .active {
+  background: rgba(255,255,255,0.25);
+}
+
+/* ---------------- CONTENT ---------------- */
+.content {
+  margin-left: 260px;
+  padding: 25px;
+  width: calc(100% - 260px);
+}
+
+header {
+  background: #233465;
+  color: white;
+  padding: 1rem;
+  text-align: center;
+  font-size: 1.4rem;
+  border-radius: 8px;
+}
+
+main {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  margin-top: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+label {
+  font-weight: 600;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.row select {
+  flex: 1;
+  padding: 8px;
+}
+
+/* ---------------- TABLE ---------------- */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 8px;
+}
+
+input[type="number"] {
+  width: 90%;
+  padding: 6px;
+}
+
+button {
+  padding: 6px 12px;
+  background: #302c7d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+button:hover { background: #3730a3; }
+
+.muted {
+  color: #666;
+  font-size: 12px;
+  margin-top: 8px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ---------------- SIDEBAR ---------------- -->
+<div class="sidebar">
+    <h2>School ERP</h2>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="subject_add_all.html">Add Subjects</a>
+    <a href="internal_marks_add.html" class="active">Internal Marks Config</a>
+    <a href="teachers.html">Teacher Management</a>
+    <a href="Timetable.html">Add Timetable</a>
+    <a href="get_classes_timetable.html">View Class Timetable</a>
+    <a href="get_teacher_timetable.html">View Teacher Timetable</a>
+</div>
+
+<!-- ---------------- CONTENT ---------------- -->
+<div class="content">
+<header>Internal Marks Max (Per Subject)</header>
+
+<main>
+    <div class="row">
+        <label>Session:</label>
+        <select id="sessionSelect"></select>
+
+        <label>Class:</label>
+        <select id="classSelect"></select>
+    </div>
+
+    <div class="muted">Select session and class to load subjects.</div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Subject</th>
+                <th>Max Marks</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="configTable"></tbody>
+    </table>
+</main>
+</div>
+
+<script>
+const EXAM_API = "https://exam-backend-ko0t.onrender.com";
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
+
+const sessionSelect = document.getElementById("sessionSelect");
+const classSelect = document.getElementById("classSelect");
+const configTable = document.getElementById("configTable");
+
+let currentSession = localStorage.getItem("session") || "";
+
+/* ---------- Load Sessions ---------- */
+async function loadSessions() {
+    try {
+        const res = await fetch(`${EXAM_API}/session/list`);
+        const data = await res.json();
+
+        sessionSelect.innerHTML = data.sessions.map(s => `<option>${s}</option>`).join("");
+        sessionSelect.value = currentSession || data.sessions[0];
+        currentSession = sessionSelect.value;
+
+        sessionSelect.onchange = () => {
+            currentSession = sessionSelect.value;
+            localStorage.setItem("session", currentSession);
+            loadClasses();
+        };
+
+        loadClasses();
+    } catch (err) {
+        console.error("Failed to load sessions:", err);
+    }
+}
+
+/* ---------- Load Classes ---------- */
+async function loadClasses() {
+    configTable.innerHTML = `<tr><td colspan="3">Loading...</td></tr>`;
+
+    try {
+        const res = await fetch(`${STUDENT_API}/students`);
+        const students = await res.json();
+        let classList = [...new Set(students.map(s => s.class_name).filter(Boolean))];
+
+        classList.sort((a,b)=>{
+            let A = parseInt(a);
+            let B = parseInt(b);
+            return A - B;
+        });
+
+        classSelect.innerHTML = classList.map(c => `<option>${c}</option>`).join("");
+        classSelect.onchange = () => loadSubjectsForClass(classSelect.value);
+
+        if (classList.length > 0) {
+            classSelect.value = classList[0];
+            loadSubjectsForClass(classSelect.value);
+        } else {
+            configTable.innerHTML = `<tr><td colspan="3">No classes found</td></tr>`;
+        }
+    } catch (err) {
+        console.error("Failed to load classes:", err);
+    }
+}
+
+/* ---------- Load Subjects for Class ---------- */
+async function loadSubjectsForClass(className) {
+    if (!className || !currentSession) return;
+    configTable.innerHTML = `<tr><td colspan="3">Loading...</td></tr>`;
+
+    try {
+        const res = await fetch(`${EXAM_API}/exam/subjects/get?session=${encodeURIComponent(currentSession)}&class_name=${encodeURIComponent(className)}`);
+        const data = await res.json();
+        const subjects = data.subjects || [];
+
+        if (subjects.length === 0) {
+            configTable.innerHTML = `<tr><td colspan="3">No subjects found for this class</td></tr>`;
+            return;
+        }
+
+        configTable.innerHTML = "";
+        for (const sub of subjects) {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${sub}</td>
+                <td><input type="number" min="0" step="0.5" id="max-${safeId(sub)}"></td>
+                <td><button onclick="saveConfig('${sub}')">Save</button></td>
+            `;
+            configTable.appendChild(row);
+            await loadExistingConfig(className, sub);
+        }
+    } catch (err) {
+        console.error("Failed to load subjects:", err);
+    }
+}
+
+/* ---------- Load Existing Config ---------- */
+async function loadExistingConfig(className, subject) {
+    try {
+        const res = await fetch(`${EXAM_API}/internal-config/get?session=${encodeURIComponent(currentSession)}&class_name=${encodeURIComponent(className)}&subject=${encodeURIComponent(subject)}`);
+        const data = await res.json();
+        if (!data.success) return;
+        const cfg = data.config || {};
+        const maxInput = document.getElementById(`max-${safeId(subject)}`);
+        if (maxInput && cfg.max_marks != null) maxInput.value = cfg.max_marks;
+    } catch (err) {
+        console.error("Failed to load config:", err);
+    }
+}
+
+/* ---------- Save Config ---------- */
+async function saveConfig(subject) {
+    const className = classSelect.value;
+    const maxInput = document.getElementById(`max-${safeId(subject)}`);
+    const maxMarks = maxInput ? maxInput.value : "";
+
+    if (!maxMarks) {
+        alert("Enter max marks");
+        return;
+    }
+
+    const payload = {
+        session: currentSession,
+        class_name: className,
+        subject: subject
+    };
+    if (maxMarks !== "") payload.max_marks = Number(maxMarks);
+
+    try {
+        const res = await fetch(`${EXAM_API}/internal-config/save`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        alert(result.success ? "Saved!" : result.message);
+    } catch (err) {
+        console.error("Save failed:", err);
+        alert("Error saving config");
+    }
+}
+
+function safeId(str) {
+    return String(str).replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
+window.onload = loadSessions;
+</script>
+
+</body>
+</html>
+

@@ -1,0 +1,335 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Publish Results â€“ School ERP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{margin:0;font-family:Poppins,sans-serif;background:#f2f4f7;display:flex;}
+.sidebar{width:240px;background:#233465;color:white;height:100vh;position:fixed;left:0;top:0;padding-top:20px;}
+.sidebar h2{text-align:center;font-size:22px;margin-bottom:25px;}
+.sidebar a{display:block;padding:12px 20px;color:white;text-decoration:none;font-size:16px;}
+.sidebar a:hover{background:rgba(255,255,255,0.25);}
+.sidebar a.active{background:rgba(255,255,255,0.35);}
+.content{margin-left:240px;width:calc(100% - 240px);padding:20px;}
+header{background:#233465;color:#fff;padding:1rem;text-align:center;font-size:1.5rem;border-radius:8px;}
+main{max-width:900px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.1);}
+label{display:block;font-weight:600;margin-top:15px;}
+select{width:100%;padding:10px;margin-top:5px;border:1px solid #ccc;border-radius:6px;}
+button{margin-top:12px;width:100%;padding:12px;background:#4f46e5;color:white;border:none;font-size:16px;border-radius:6px;cursor:pointer;}
+button:hover{background:#3730a3;}
+.btn-green{background:#10b981;}
+.btn-red{background:#ef4444;}
+.status{margin-top:10px;font-weight:600;}
+.checklist{margin-top:16px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;}
+.checklist table{width:100%;border-collapse:collapse;}
+.checklist th,.checklist td{border:1px solid #e5e7eb;padding:8px;text-align:left;}
+.checklist th{background:#f3f4f6;}
+.ok{color:#166534;font-weight:600;}
+.bad{color:#b91c1c;font-weight:600;}
+.muted{color:#6b7280;font-weight:600;}
+</style>
+<link rel="stylesheet" href="admin_theme.css">
+</head>
+
+<body>
+
+<div class="sidebar">
+<h2>School ERP</h2>
+  <a href="dashboard.html">Dashboard</a>
+  <a href="result_upload.html">Upload External Marks</a>
+  <a href="internal_marks_upload.html">Upload Internal Marks</a>
+  <a href="uploaded_marks.html">See Uploaded Marks</a>
+  <a href="result_publish.html" class="active">Publish Results </a>
+  <a href="marksheet.html">Generate Marksheets</a>
+</div>
+
+<div class="content">
+<header>Publish Student Results</header>
+<main>
+
+<label>Session</label>
+<select id="sessionSelect"></select>
+
+<label>Class</label>
+<select id="classSelect"></select>
+
+<label>Exam</label>
+<select id="examSelect"></select>
+
+<div class="status" id="publishStatus"></div>
+
+<button class="btn-green" onclick="setPublish(true)">Publish Result</button>
+<button class="btn-red" onclick="setPublish(false)">Unpublish Result</button>
+<button onclick="loadMarksDetails()">See Checklist (Marks Details)</button>
+<button onclick="exportChecklistCSV()" style="background:#1e8f3d;">Export Checklist CSV</button>
+
+<div class="checklist" id="checklist"></div>
+<div class="checklist" id="marksDetails"></div>
+
+</main>
+</div>
+
+<script>
+const EXAM_API = "https://exam-backend-ko0t.onrender.com";
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
+
+let EXAMS = [];
+
+async function loadSessions() {
+  const res = await fetch(`${EXAM_API}/session/list`);
+  const data = await res.json();
+  sessionSelect.innerHTML = data.sessions.map(s=>`<option>${s}</option>`).join("");
+  if(data.sessions.length>0){
+    sessionSelect.value = data.sessions[0];
+    await loadClasses();
+  }
+}
+loadSessions();
+sessionSelect.addEventListener("change", loadClasses);
+
+async function loadClasses() {
+  const session = sessionSelect.value;
+  if(!session) return;
+  const res = await fetch(`${STUDENT_API}/students?session=${session}`);
+  const students = await res.json();
+  const classes = [...new Set(students.map(s=>s.class_name).filter(Boolean))];
+  classSelect.innerHTML = `<option value="">Select Class</option>` + classes.map(c=>`<option value="${c}">${c}</option>`).join("");
+  if(classes.length>0){
+    classSelect.value = classes[0];
+    await loadExams();
+    await refreshChecklist();
+  }
+}
+classSelect.addEventListener("change", refreshChecklist);
+
+async function loadExams() {
+  const res = await fetch(`${EXAM_API}/exam/list-all`);
+  const data = await res.json();
+  if(!data.success) return alert("Exam load error");
+  EXAMS = data.exams;
+  examSelect.innerHTML = `<option value="">Select Exam</option>` + EXAMS.map(e=>`<option value="${e.exam_id}">${e.exam_name}</option>`).join("");
+}
+examSelect.addEventListener("change", refreshChecklist);
+
+async function refreshChecklist(){
+  const session = sessionSelect.value;
+  const cls = classSelect.value;
+  const examId = examSelect.value;
+  const examData = EXAMS.find(e=>e.exam_id==examId);
+  if(!session || !cls || !examData){
+    checklist.innerHTML = "";
+    publishStatus.textContent = "";
+    return;
+  }
+
+  await loadPublishStatus(session, cls, examData.exam_name);
+
+  // subjects from class definition
+  const subRes = await fetch(`${EXAM_API}/exam/subjects/get?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}`);
+  const subData = await subRes.json();
+  const subjects = subData.success ? subData.subjects : [];
+
+  // uploaded marks for exam
+  const marksRes = await fetch(`${EXAM_API}/exam/get-marks?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&exam_name=${encodeURIComponent(examData.exam_name)}`);
+  const marksData = await marksRes.json();
+  const markSubjects = new Set((marksData.marks || []).map(m=>m.subject));
+  const allowInternal = !(
+    examData.internal_marks === false ||
+    examData.internal_marks === "false" ||
+    examData.internal_marks === "no" ||
+    examData.internal_marks === "No" ||
+    examData.internal_marks === 0
+  );
+
+  let internalSubjects = new Set();
+  if(allowInternal){
+    try{
+      const iRes = await fetch(`${EXAM_API}/internal-marks/subjects?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&exam_name=${encodeURIComponent(examData.exam_name)}`);
+      const iData = await iRes.json();
+      internalSubjects = new Set((iData.subjects || []).map(s=>String(s)));
+    }catch(e){
+      internalSubjects = new Set();
+    }
+  }
+
+  let rows = subjects.map(s=>{
+    const extOk = markSubjects.has(s);
+    const intState = allowInternal
+      ? (internalSubjects.has(s) ? `<span class="ok">Uploaded</span>` : `<span class="bad">Missing</span>`)
+      : `<span class="muted">N/A</span>`;
+    return `<tr>
+      <td>${s}</td>
+      <td class="${extOk?'ok':'bad'}">${extOk?'Uploaded':'Missing'}</td>
+      <td>${intState}</td>
+    </tr>`;
+  }).join("");
+  if(!rows){
+    rows = `<tr><td colspan="3">No subjects found for this class</td></tr>`;
+  }
+
+  checklist.innerHTML = `
+    <table>
+      <tr><th>Subject</th><th>External Marks</th><th>Internal Marks</th></tr>
+      ${rows}
+    </table>
+  `;
+
+  marksDetails.innerHTML = "";
+}
+
+async function loadPublishStatus(session, cls, examName){
+  try{
+    const res = await fetch(`${EXAM_API}/result/status?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&exam_name=${encodeURIComponent(examName)}`);
+    const data = await res.json();
+    if(data.success){
+      publishStatus.textContent = data.published ? "Result is published for students." : "Result not published yet.";
+    }else{
+      publishStatus.textContent = "";
+    }
+  }catch(e){
+    publishStatus.textContent = "";
+  }
+}
+
+async function setPublish(published){
+  const session = sessionSelect.value;
+  const cls = classSelect.value;
+  const examId = examSelect.value;
+  const examData = EXAMS.find(e=>e.exam_id==examId);
+  if(!session || !cls || !examData){
+    return alert("Select session, class and exam first!");
+  }
+  try{
+    const res = await fetch(`${EXAM_API}/result/publish`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        session,
+        class_name: cls,
+        exam_name: examData.exam_name,
+        published
+      })
+    });
+    const data = await res.json();
+    if(!data.success) return alert(data.message || "Publish failed");
+    await refreshChecklist();
+    alert(published ? "Result published" : "Result unpublished");
+  }catch(e){
+    alert("Publish failed");
+  }
+}
+
+// ------------------------
+// MARKS DETAILS TABLE
+// ------------------------
+async function loadMarksDetails(){
+  const session = sessionSelect.value;
+  const cls = classSelect.value;
+  const examId = examSelect.value;
+  const examData = EXAMS.find(e=>e.exam_id==examId);
+  if(!session || !cls || !examData){
+    return alert("Select session, class and exam first!");
+  }
+
+  try{
+    const [studentsRes, subjectsRes, marksRes] = await Promise.all([
+      fetch(`${STUDENT_API}/students?session=${encodeURIComponent(session)}`),
+      fetch(`${EXAM_API}/exam/subjects/get?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}`),
+      fetch(`${EXAM_API}/exam/get-marks?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&exam_name=${encodeURIComponent(examData.exam_name)}`)
+    ]);
+
+    const students = await studentsRes.json();
+    const subjectsData = await subjectsRes.json();
+    const marksData = await marksRes.json();
+
+    const classStudents = students
+      .filter(s => s.class_name === cls)
+      .sort((a, b) => (parseInt(a.rollno)||0) - (parseInt(b.rollno)||0));
+
+    const subjects = subjectsData.success ? subjectsData.subjects : [];
+    const allowInternal = !(
+      examData.internal_marks === false ||
+      examData.internal_marks === "false" ||
+      examData.internal_marks === "no" ||
+      examData.internal_marks === "No" ||
+      examData.internal_marks === 0
+    );
+
+    const markMap = {};
+    (marksData.marks || []).forEach(m=>{
+      if(!markMap[m.roll]) markMap[m.roll] = {};
+      markMap[m.roll][m.subject] = m.marks;
+    });
+
+    const internalMapBySubject = {};
+    if(allowInternal && subjects.length){
+      await Promise.all(subjects.map(async (sub)=>{
+        try{
+          const iRes = await fetch(`${EXAM_API}/internal-marks/list?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&subject=${encodeURIComponent(sub)}&exam_name=${encodeURIComponent(examData.exam_name)}`);
+          const iData = await iRes.json();
+          const map = {};
+          if(iData.success && Array.isArray(iData.marks)){
+            iData.marks.forEach(m=>{
+              map[String(m.student_id)] = m.marks;
+            });
+          }
+          internalMapBySubject[sub] = map;
+        }catch(e){
+          internalMapBySubject[sub] = {};
+        }
+      }));
+    }
+
+    if(subjects.length === 0 || classStudents.length === 0){
+      marksDetails.innerHTML = `<table><tr><td>No data to show</td></tr></table>`;
+      return;
+    }
+
+    const header = `<tr><th>Roll No</th><th>Name</th>${subjects.map(s=>`<th>${s} Ext</th><th>${s} Int</th>`).join("")}</tr>`;
+    const rows = classStudents.map(s=>{
+      const roll = s.rollno || s.admission_no || "";
+      const sid = String(s._id || s.id || s.student_id || "");
+      const rowMarks = subjects.map(sub=>{
+        const ext = markMap[roll] && markMap[roll][sub] != null ? markMap[roll][sub] : "-";
+        const intVal = allowInternal
+          ? ((internalMapBySubject[sub] && internalMapBySubject[sub][sid] != null) ? internalMapBySubject[sub][sid] : "-")
+          : "N/A";
+        return `<td>${ext}</td><td>${intVal}</td>`;
+      }).join("");
+      return `<tr><td>${roll}</td><td>${s.student_name}</td>${rowMarks}</tr>`;
+    }).join("");
+
+    marksDetails.innerHTML = `<table>${header}${rows}</table>`;
+  }catch(e){
+    marksDetails.innerHTML = `<table><tr><td>Error loading marks details</td></tr></table>`;
+  }
+}
+
+function exportChecklistCSV(){
+  const table = document.querySelector("#marksDetails table");
+  if(!table) return alert("Open checklist first.");
+
+  const csv = [];
+  table.querySelectorAll("tr").forEach(tr=>{
+    const row = [];
+    tr.querySelectorAll("th,td").forEach(td=>{
+      row.push(td.textContent.trim());
+    });
+    csv.push(row.join(","));
+  });
+
+  const blob = new Blob([csv.join("\n")], {type:"text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `result_checklist_${Date.now()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+
+</body>
+</html>
+

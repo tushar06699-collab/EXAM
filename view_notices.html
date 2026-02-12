@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>All Notices – School ERP</title>
+<title>All Notices â€“ School ERP</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body {
@@ -166,7 +166,7 @@ header {
 
 <!-- Page Content -->
 <div class="content" id="content">
-    <header>📄 All Notices</header>
+    <header>ðŸ“„ All Notices</header>
 
     <div class="notice-container" id="noticeList">
         <!-- Notices will be injected here -->
@@ -213,7 +213,7 @@ const res = await fetch(`${API}/notice/list?role=teacher`);
             }
 
             card.innerHTML = `
-                <h3>📌 ${n.title}</h3>
+                <h3>ðŸ“Œ ${n.title}</h3>
                 <p>${n.description || ""}</p>
                 <p class="date">Date: ${n.date}</p>
                 <div class="actions">
@@ -239,3 +239,5 @@ function viewNotice(filename){
 
 </body>
 </html>
+
+
