@@ -112,19 +112,20 @@ th{background:#f8fafc;}
 <div class="overlay" id="overlay" onclick="closeMenu()"></div>
 
 <div class="sidebar" id="sidebar">
-   <h2>ðŸŽ“ Student Menu</h2>
-    <a onclick="go('student_portal.html')">ðŸ  Dashboard</a>
-    <a onclick="go('student_results.html')">ðŸ“Š Results</a>
-    <a onclick="go('student_timetable.html')">ðŸ“… Timetable</a>
-    <a onclick="go('student_exams.html')">ðŸ“ Exams</a>
-    <a onclick="go('student_attendance.html')">ðŸ“Œ Attendance</a>
-            <a onclick="openPage('student_notices.html')">ðŸ“¢ Notices</a>
-    <a onclick="openPage('student_academic_calendar.html')">ðŸ“… Academic Calendar</a>
+   <h2>Student Menu</h2>
+    <a onclick="go('student_portal.html')">Dashboard</a>
+    <a onclick="go('student_results.html')">Results</a>
+    <a onclick="go('student_timetable.html')">Timetable</a>
+    <a onclick="go('student_exams.html')">Exams</a>
+    <a onclick="go('student_hall_ticket.html')">Hall Ticket</a>
+    <a onclick="go('student_attendance.html')">Attendance</a>
+            <a onclick="openPage('student_notices.html')">Notices</a>
+    <a onclick="openPage('student_academic_calendar.html')">Academic Calendar</a>
 </div>
 
 <header>
   <div class="left">
-    <span class="menu-btn" onclick="openMenu()">â˜°</span>
+    <span class="menu-btn" onclick="openMenu()">☰</span>
     <h2>Results</h2>
   </div>
   <div class="student-info">
@@ -165,16 +166,26 @@ async function loadMarks(){
   if(!p.success || !p.student) return alert("Student not found");
 
   const profile = p.student;
+  if(profile.eligible === false){
+    marksContainer.innerHTML = `<div class="marksheet"><h2>Result</h2><div class="result fail">You are not eligible to attend the exam. Result is not released.</div></div>`;
+    return;
+  }
+  if(profile.release_result === false){
+    marksContainer.innerHTML = `<div class="marksheet"><h2>Result</h2><div class="result subtle">Result is not released for your profile yet ( Contact To Admin Block) .</div></div>`;
+    return;
+  }
+
   const session = rawSession;
   const rollFromProfile = String(profile.roll || "").trim();
-  const localRoll = String(localStorage.getItem("rollno") || localStorage.getItem("roll") || "").trim();
   const norm = (v)=>String(v || "").trim().replace(/^0+/, "") || "0";
   const candidateRolls = Array.from(new Set([
-    localRoll,
     rollFromProfile,
-    norm(localRoll),
     norm(rollFromProfile)
   ].filter(Boolean)));
+  if(!candidateRolls.length){
+    marksContainer.innerHTML = `<div class="marksheet"><h2>Result</h2><div class="result subtle">Roll number is not released for your profile.</div></div>`;
+    return;
+  }
   const studentIds = Array.from(new Set([String(studentId || ""), String(profile.id || "")].filter(Boolean)));
 
   const exams=(await (await fetch(`${EXAM_API}/exam/list-all`)).json()).exams;
@@ -309,7 +320,7 @@ async function loadMarks(){
       <h2>${exam.exam_name}</h2>
       <div class="info">
         <div><b>Name:</b> ${profile.name || ""}</div>
-        <div><b>Roll No:</b> ${rollFromProfile || localRoll}</div>
+        <div><b>Roll No:</b> ${rollFromProfile || "Not Released"}</div>
         <div><b>Class:</b> ${profile.class_name || ""} ${profile.section || ""}</div>
         <div><b>Session:</b> ${examSession}</div>
       </div>
@@ -350,5 +361,9 @@ function logout(){localStorage.clear();location.href="index.html";}
 
 </body>
 </html>
+
+
+
+
 
 

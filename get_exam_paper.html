@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>View Exam Papers â€“ School ERP</title>
+<title>View Exam Papers - School ERP</title>
 <style>
 body {
     margin: 0;
@@ -200,10 +200,10 @@ async function loadGrid(){
                 div.className = "subject";
 
                 if(headRes.ok){
-                    div.innerHTML = `<a href="${url}" target="_blank">ðŸ“„ ${sub}</a> 
+                    div.innerHTML = `<a href="${url}" target="_blank">${sub}</a> 
                         <button class="delete-paper" onclick="deletePaper('${cls}','${sub}','${examData.exam_name}',this)">Delete</button>`;
                 } else {
-                    div.innerHTML = `<span style="color:red;">${sub} âŒ</span>`;
+                    div.innerHTML = `<span style="color:red;">${sub} </span>`;
                 }
 
                 box.appendChild(div);
@@ -240,7 +240,7 @@ async function deletePaper(className, subject, examName, btn){
         const data = await res.json();
         alert(data.message);
         // remove the deleted paper from grid
-        if(data.success) btn.parentElement.innerHTML = `<span style="color:red;">${subject} âŒ</span>`;
+        if(data.success) btn.parentElement.innerHTML = `<span style="color:red;">${subject} </span>`;
     } catch(e){
         console.error(e);
         alert("Failed to delete paper.");
@@ -249,5 +249,8 @@ async function deletePaper(className, subject, examName, btn){
 </script>
 </body>
 </html>
+
+
+
 
 

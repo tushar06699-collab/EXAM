@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Monthly Attendance â€“ School ERP</title>
+<title>Monthly Attendance - School ERP</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -135,7 +135,7 @@ const classStudents = students
     let attendanceMap = {};
 
     classStudents.forEach(s=>{
-const sid = s._id;
+const sid = (typeof s._id === "string") ? s._id : (s._id && s._id.$oid ? s._id.$oid : (s.id || s.student_id || ""));
         attendanceMap[sid] = {
             name: s.student_name,
             roll: s.rollno || "-"
@@ -217,5 +217,8 @@ function exportCSV(){
 
 </body>
 </html>
+
+
+
 
 

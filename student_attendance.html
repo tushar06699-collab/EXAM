@@ -126,20 +126,21 @@ td.leave{color:#d97706;font-weight:600;}
 <div class="overlay" id="overlay" onclick="closeMenu()"></div>
 
 <div class="sidebar" id="sidebar">
-    <h2>ðŸŽ“ Student Menu</h2>
-    <a onclick="openPage('student_portal.html')">ðŸ  Dashboard</a>
-    <a onclick="openPage('student_results.html')">ðŸ“Š Results</a>
-    <a onclick="openPage('student_timetable.html')">ðŸ“… Timetable</a>
-    <a onclick="openPage('student_exams.html')">ðŸ“ Exams</a>
-    <a onclick="openPage('student_attendance.html')">ðŸ“Œ Attendance</a>
-            <a onclick="openPage('student_notices.html')">ðŸ“¢ Notices</a>
-        <a onclick="openPage('student_academic_calendar.html')">ðŸ“… Academic Calendar</a>
+    <h2>Student Menu</h2>
+    <a onclick="openPage('student_portal.html')">Dashboard</a>
+    <a onclick="openPage('student_results.html')">Results</a>
+    <a onclick="openPage('student_timetable.html')">Timetable</a>
+    <a onclick="openPage('student_exams.html')">Exams</a>
+    <a onclick="openPage('student_hall_ticket.html')">Hall Ticket</a>
+    <a onclick="openPage('student_attendance.html')">Attendance</a>
+            <a onclick="openPage('student_notices.html')">Notices</a>
+        <a onclick="openPage('student_academic_calendar.html')">Academic Calendar</a>
     <hr>
 </div>
 
 <header>
     <div class="left">
-        <span class="menu-btn" onclick="openMenu()">â˜°</span>
+        <span class="menu-btn" onclick="openMenu()">☰</span>
         <h1>Attendance</h1>
     </div>
     <div class="student-info">
@@ -209,6 +210,18 @@ const fallbackSession = localStorage.getItem("session") || "";
 let resolvedClass = "";
 let resolvedSession = "";
 let studentIdKeys = [];
+let studentRollKeys = [];
+
+function normalizedId(raw){
+    if(raw == null) return "";
+    if(typeof raw === "string") return raw.trim();
+    if(typeof raw === "object"){
+        if(typeof raw.$oid === "string") return raw.$oid.trim();
+        if(typeof raw.oid === "string") return raw.oid.trim();
+        if(typeof raw.id === "string") return raw.id.trim();
+    }
+    return String(raw).trim();
+}
 
 let attendanceChart = null;
 
@@ -235,7 +248,11 @@ fetch(`${API}/portal/student/${studentId}`)
     resolvedSession = s.session || fallbackSession;
     studentIdKeys = [studentId, s._id, s.id, s.student_id]
         .filter(Boolean)
-        .map(v => String(v));
+        .map(v => normalizedId(v))
+        .filter(Boolean);
+    studentRollKeys = [s.roll, localStorage.getItem("rollno"), localStorage.getItem("roll")]
+        .filter(Boolean)
+        .map(v => String(v).trim());
 
     if(!resolvedClass || !resolvedSession){
         throw "Missing class/session";
@@ -258,6 +275,11 @@ monthPicker.addEventListener("change", loadAttendance);
 /* ---------- LOAD ATTENDANCE ---------- */
 async function loadAttendance(){
     if(!resolvedClass || !resolvedSession) return;
+    const sessionCandidates = Array.from(new Set([
+        resolvedSession,
+        String(resolvedSession).replace(/_/g, "-"),
+        String(resolvedSession).replace(/-/g, "_")
+    ].filter(Boolean)));
 
     const [y,m] = monthPicker.value.split("-");
     const days = new Date(y,m,0).getDate();
@@ -269,11 +291,19 @@ async function loadAttendance(){
         let status="-";
 
         try{
-            const r = await fetch(
-                `${API}/attendance/list?session=${encodeURIComponent(resolvedSession)}&class_name=${encodeURIComponent(resolvedClass)}&date=${encodeURIComponent(date)}`
-            );
-            const j = await r.json();
-            const rec = j.attendance?.find(x=>studentIdKeys.includes(String(x.student_id)));
+            let rec = null;
+            for(const sess of sessionCandidates){
+                const r = await fetch(
+                    `${API}/attendance/list?session=${encodeURIComponent(sess)}&class_name=${encodeURIComponent(resolvedClass)}&date=${encodeURIComponent(date)}`
+                );
+                const j = await r.json();
+                rec = j.attendance?.find(x=>{
+                    const sid = normalizedId(x.student_id);
+                    const sroll = String(x.student_roll || "").trim();
+                    return studentIdKeys.includes(sid) || (sroll && studentRollKeys.includes(sroll));
+                }) || null;
+                if(rec) break;
+            }
 
             if(rec){
                 status = rec.status;
@@ -352,5 +382,9 @@ const attendanceChartEl = document.getElementById("attendanceChart");
 
 </body>
 </html>
+
+
+
+
 
 

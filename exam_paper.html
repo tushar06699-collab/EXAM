@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Exam Papers â€“ School ERP</title>
+<title>Exam Papers - School ERP</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <!-- DOCX + FileSaver -->
@@ -282,7 +282,7 @@ async function checkExistingPaper() {
     const div = document.getElementById("viewLink");
 
     if (res.status === 200) {
-        div.innerHTML = `<a href="${url}" target="_blank" style="color:#4f46e5;font-weight:600;">ðŸ“„ View Uploaded Paper</a>`;
+        div.innerHTML = `<a href="${url}" target="_blank" style="color:#4f46e5;font-weight:600;">View Uploaded Paper</a>`;
     } else {
         div.innerHTML = `<p style="color:red;">No paper uploaded</p>`;
     }
@@ -304,7 +304,7 @@ async function uploadPaper() {
 
     const checkUrl = `${EXAM_API}/exam/get-paper?session=${session}&class_name=${cls}&exam_name=${examData.exam_name}&subject=${sub}`;
     const checkRes = await fetch(checkUrl);
-    if (checkRes.status === 200) return alert("âŒ Paper already uploaded!");
+    if (checkRes.status === 200) return alert(" Paper already uploaded!");
 
     let fd = new FormData();
     fd.append("pdf", file);
@@ -317,7 +317,7 @@ async function uploadPaper() {
     const data = await res.json();
 
     if (data.success) {
-        alert("âœ… Uploaded!");
+        alert(" Uploaded!");
         checkExistingPaper();
     } else {
         alert("Error: " + data.message);
@@ -377,5 +377,8 @@ async function downloadWord() {
 </script>
 </body>
 </html>
+
+
+
 
 

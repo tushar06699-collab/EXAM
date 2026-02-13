@@ -1,0 +1,401 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Hall Ticket</title>
+<style>
+:root{
+  --primary:#1f3a8a;
+  --accent:#0f172a;
+  --bg:#f3f5fa;
+  --line:#dbe1ea;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  font-family:Poppins,system-ui,sans-serif;
+  background:var(--bg);
+  color:#0f172a;
+}
+header{
+  background:#4e73df;
+  color:#fff;
+  padding:10px 20px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.menu-btn{font-size:26px;cursor:pointer;}
+.student-info{display:flex;align-items:center;gap:10px;}
+.student-info img{width:38px;height:38px;border-radius:50%;border:2px solid #fff;object-fit:cover;}
+.logout{background:rgba(255,255,255,.25);border:none;color:white;padding:6px 12px;border-radius:20px;cursor:pointer;}
+
+.sidebar{
+  position:fixed;top:0;left:-280px;
+  width:260px;height:100%;
+  background:#fff;padding:20px;
+  box-shadow:2px 0 15px rgba(0,0,0,.2);
+  transition:.3s;z-index:1001;
+}
+.sidebar a{display:block;padding:12px 0;color:#333;text-decoration:none;border-bottom:1px solid #eee;}
+.sidebar a.active{color:#4e73df;font-weight:600;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;z-index:1000;}
+
+.container{max-width:1050px;margin:20px auto;padding:0 16px;}
+.panel{
+  background:#fff;
+  border-radius:14px;
+  padding:18px;
+  box-shadow:0 8px 20px rgba(0,0,0,.08);
+}
+.controls{
+  display:grid;
+  grid-template-columns:1.2fr 1fr 140px;
+  gap:12px;
+  align-items:end;
+  margin-bottom:16px;
+}
+label{font-weight:600;font-size:14px;display:block;margin-bottom:6px;}
+select,button{
+  width:100%;
+  padding:10px;
+  border:1px solid #cbd5e1;
+  border-radius:8px;
+}
+button{
+  border:none;
+  background:#4e73df;
+  color:#fff;
+  cursor:pointer;
+}
+button.print-btn{background:#1e8f3d;}
+
+.ticket{
+  margin-top:14px;
+  border:2px solid #0f172a;
+  border-radius:10px;
+  overflow:hidden;
+  background:#fff;
+}
+.ticket-head{
+  background:linear-gradient(135deg,#1f3a8a,#1e40af);
+  color:#fff;
+  display:grid;
+  grid-template-columns:90px 1fr 110px;
+  gap:10px;
+  align-items:center;
+  padding:14px;
+}
+.ticket-head img.logo{width:72px;height:72px;object-fit:contain;background:#fff;border-radius:50%;padding:4px;}
+.school-title{text-align:center;}
+.school-title h1{margin:0;font-size:24px;line-height:1.2;}
+.school-title p{margin:2px 0 0;font-size:13px;opacity:.9;}
+.school-title h2{margin:8px 0 0;font-size:20px;letter-spacing:.6px;}
+.ticket-head img.photo{width:96px;height:112px;object-fit:cover;border:2px solid #fff;border-radius:6px;justify-self:end;background:#e5e7eb;}
+
+.meta{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px 18px;
+  padding:14px;
+  border-bottom:1px solid var(--line);
+}
+.meta div{font-size:14px;}
+.meta b{color:var(--accent);}
+
+table{width:100%;border-collapse:collapse;}
+th,td{border:1px solid var(--line);padding:10px;text-align:center;font-size:14px;}
+th{background:#eef2ff;color:#1e3a8a;}
+
+.instructions{
+  padding:14px;
+}
+.instructions h3{margin:0 0 8px;color:#1e3a8a;}
+.instructions ul{margin:0;padding-left:18px;}
+.instructions li{margin:6px 0;font-size:13px;line-height:1.4;}
+
+.sign{
+  display:flex;
+  justify-content:space-between;
+  padding:18px 14px 14px;
+}
+.sig-box{
+  width:220px;
+  text-align:center;
+  border-top:2px solid #111827;
+  padding-top:6px;
+  font-size:13px;
+}
+
+.status-note{
+  margin-top:12px;
+  font-size:14px;
+  color:#b91c1c;
+  font-weight:600;
+}
+
+@media (max-width:760px){
+  .controls{grid-template-columns:1fr;}
+  .ticket-head{grid-template-columns:1fr; text-align:center;}
+  .ticket-head img.logo,.ticket-head img.photo{justify-self:center;}
+  .meta{grid-template-columns:1fr;}
+}
+
+@page{
+  size:A4 portrait;
+  margin:8mm;
+}
+@media print{
+  body{background:#fff;}
+  header,.controls,.status-note,.sidebar,.overlay{display:none !important;}
+  .container{max-width:none;margin:0;padding:0;}
+  .panel{box-shadow:none;border-radius:0;padding:0;}
+  .ticket{border:1px solid #111827;border-radius:0;page-break-after:always;}
+}
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay" onclick="closeMenu()"></div>
+
+<div class="sidebar" id="sidebar">
+  <h2>Student Menu</h2>
+  <a onclick="openPage('student_portal.html')">Dashboard</a>
+  <a onclick="openPage('student_results.html')">Results</a>
+  <a onclick="openPage('student_timetable.html')">Timetable</a>
+  <a onclick="openPage('student_exams.html')">Exams</a>
+  <a class="active" onclick="openPage('student_hall_ticket.html')">Hall Ticket</a>
+  <a onclick="openPage('student_attendance.html')">Attendance</a>
+  <a onclick="openPage('student_notices.html')">Notices</a>
+  <a onclick="openPage('student_academic_calendar.html')">Academic Calendar</a>
+</div>
+
+<header>
+  <div>
+    <span class="menu-btn" onclick="openMenu()">☰</span>
+    <span style="font-size:20px;margin-left:10px;">Hall Ticket</span>
+  </div>
+  <div class="student-info">
+    <img id="headerPhoto" src="images/default.png">
+    <span id="headerName">Student</span>
+    <button class="logout" onclick="logout()">Logout</button>
+  </div>
+</header>
+
+<div class="container">
+  <div class="panel">
+    <div class="controls">
+      <div>
+        <label>Select Exam</label>
+        <select id="examSelect"></select>
+      </div>
+      <div>
+        <label>Session</label>
+        <select id="sessionSelect"></select>
+      </div>
+      <div>
+        <button class="print-btn" onclick="window.print()">Print</button>
+      </div>
+    </div>
+
+    <div id="statusNote" class="status-note"></div>
+
+    <div class="ticket" id="ticketCard" style="display:none;">
+      <div class="ticket-head">
+        <img class="logo" src="images/school_logo.png" onerror="this.style.display='none'">
+        <div class="school-title">
+          <h1>P.S. Public School</h1>
+          <p>On Gannaur Road Bhurri (Sonipat)</p>
+          <h2 id="examTitle">ADMIT CARD</h2>
+        </div>
+        <img class="photo" id="studentPhoto" src="images/default.png">
+      </div>
+
+      <div class="meta">
+        <div><b>Student Name:</b> <span id="mName"></span></div>
+        <div><b>Father Name:</b> <span id="mFather"></span></div>
+        <div><b>Class:</b> <span id="mClass"></span></div>
+        <div><b>Section:</b> <span id="mSection"></span></div>
+        <div><b>Roll No:</b> <span id="mRoll"></span></div>
+        <div><b>Session:</b> <span id="mSession"></span></div>
+        <div><b>Admission No:</b> <span id="mAdmission"></span></div>
+        <div><b>Admit Card No:</b> <span id="mAdmitNo"></span></div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Subject</th>
+            <th>Duration</th>
+            <th>Max Marks</th>
+          </tr>
+        </thead>
+        <tbody id="datesheetBody"></tbody>
+      </table>
+
+      <div class="instructions">
+        <h3>Important Instructions</h3>
+        <ul>
+          <li>Carry this admit card and school ID card on every exam day.</li>
+          <li>Reach exam hall at least 30 minutes before the reporting time.</li>
+          <li>Use only blue/black pen. Mobile phones and electronic devices are not allowed.</li>
+          <li>Any unfair means will lead to cancellation of the exam.</li>
+          <li>Follow invigilator and school examination rules strictly.</li>
+        </ul>
+      </div>
+
+      <div class="sign">
+        <div class="sig-box">Class Incharge</div>
+        <div class="sig-box">Exam Controller</div>
+        <div class="sig-box">Principal</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+if(localStorage.getItem("role") !== "student"){
+  location.href = "index.html";
+}
+
+const EXAM_API = "https://exam-backend-ko0t.onrender.com";
+const studentId = localStorage.getItem("student_id");
+if(!studentId) location.href = "index.html";
+
+let profile = null;
+let exams = [];
+const examSelect = document.getElementById("examSelect");
+const sessionSelect = document.getElementById("sessionSelect");
+const statusNote = document.getElementById("statusNote");
+const ticketCard = document.getElementById("ticketCard");
+const datesheetBody = document.getElementById("datesheetBody");
+
+const headerName = document.getElementById("headerName");
+const headerPhoto = document.getElementById("headerPhoto");
+const studentPhoto = document.getElementById("studentPhoto");
+const mName = document.getElementById("mName");
+const mFather = document.getElementById("mFather");
+const mClass = document.getElementById("mClass");
+const mSection = document.getElementById("mSection");
+const mRoll = document.getElementById("mRoll");
+const mSession = document.getElementById("mSession");
+const mAdmission = document.getElementById("mAdmission");
+const mAdmitNo = document.getElementById("mAdmitNo");
+const examTitle = document.getElementById("examTitle");
+const sidebar = document.getElementById("sidebar");
+const overlay = document.getElementById("overlay");
+
+async function init(){
+  await loadProfile();
+  await loadSessions();
+  await loadExams();
+  if(examSelect.value) await renderTicket();
+}
+
+async function loadProfile(){
+  const r = await fetch(`${EXAM_API}/portal/student/${studentId}`);
+  const d = await r.json();
+  if(!d.success || !d.student){
+    alert("Student not found");
+    logout();
+    return;
+  }
+  profile = d.student;
+  headerName.textContent = profile.name || "Student";
+  headerPhoto.src = profile.photo_url || "images/default.png";
+  studentPhoto.src = profile.photo_url || "images/default.png";
+  headerPhoto.onerror = ()=> headerPhoto.src = "images/default.png";
+  studentPhoto.onerror = ()=> studentPhoto.src = "images/default.png";
+}
+
+async function loadSessions(){
+  const r = await fetch(`${EXAM_API}/session/list`);
+  const d = await r.json();
+  const list = d.sessions || [];
+  sessionSelect.innerHTML = list.map(s=>`<option value="${s}">${s}</option>`).join("");
+  if(profile && profile.session && list.includes(profile.session)){
+    sessionSelect.value = profile.session;
+  }else if(list.length){
+    sessionSelect.value = list[list.length - 1];
+  }
+}
+
+async function loadExams(){
+  const r = await fetch(`${EXAM_API}/exam/list-all`);
+  const d = await r.json();
+  exams = (d.exams || []).filter(e => String(e.session || "") === String(sessionSelect.value || ""));
+  examSelect.innerHTML = exams.length
+    ? exams.map(e=>`<option value="${e.exam_name}">${e.exam_name}</option>`).join("")
+    : `<option value="">No exam found</option>`;
+}
+
+async function renderTicket(){
+  statusNote.textContent = "";
+  ticketCard.style.display = "none";
+  datesheetBody.innerHTML = "";
+  const examName = examSelect.value;
+  const session = sessionSelect.value;
+  if(!profile || !examName || !session) return;
+
+  if(profile.eligible === false){
+    statusNote.textContent = "You are currently not eligible for exam. Hall ticket is not available.";
+    return;
+  }
+  if(profile.release_rollno === false || !profile.roll){
+    statusNote.textContent = "Roll number is not released for your profile. Hall ticket is not available.";
+    return;
+  }
+
+  const url = `${EXAM_API}/exam/get-datesheet?class_name=${encodeURIComponent(profile.class_name)}&session=${encodeURIComponent(session)}&exam_name=${encodeURIComponent(examName)}`;
+  const r = await fetch(url);
+  const d = await r.json();
+  if(!d.success || !Array.isArray(d.datesheet) || !d.datesheet.length){
+    statusNote.textContent = "Datesheet is not available for selected exam.";
+    return;
+  }
+
+  mName.textContent = profile.name || "";
+  mFather.textContent = profile.father_name || "";
+  mClass.textContent = profile.class_name || "";
+  mSection.textContent = profile.section || "";
+  mRoll.textContent = profile.roll || "";
+  mSession.textContent = session;
+  mAdmission.textContent = profile.admission_no || localStorage.getItem("admission_no") || "-";
+  mAdmitNo.textContent = `${session}-${(profile.class_name || "").replace(/\s+/g,"")}-${profile.roll}-${examName.replace(/\s+/g,"")}`;
+  examTitle.textContent = `${examName} ADMIT CARD`;
+
+  d.datesheet.forEach(row=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${row.date || "-"}</td>
+      <td>${row.subject || "-"}</td>
+      <td>${row.duration || "-"}</td>
+      <td>${row.total_marks != null ? row.total_marks : "-"}</td>
+    `;
+    datesheetBody.appendChild(tr);
+  });
+
+  ticketCard.style.display = "block";
+}
+
+sessionSelect.addEventListener("change", async ()=>{
+  await loadExams();
+  await renderTicket();
+});
+examSelect.addEventListener("change", renderTicket);
+
+function openMenu(){ sidebar.style.left = "0"; overlay.style.display = "block"; }
+function closeMenu(){ sidebar.style.left = "-280px"; overlay.style.display = "none"; }
+function openPage(p){ location.href = p; }
+function logout(){ localStorage.clear(); location.href = "index.html"; }
+
+init();
+</script>
+</body>
+</html>
+
+
+
+

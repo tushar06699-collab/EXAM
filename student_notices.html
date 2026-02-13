@@ -154,20 +154,21 @@ header{
 <div class="overlay" id="overlay" onclick="closeMenu()"></div>
 
 <div class="sidebar" id="sidebar">
-    <h2>ðŸŽ“ Student Menu</h2>
-    <a onclick="openPage('student_portal.html')">ðŸ  Dashboard</a>
-    <a onclick="openPage('student_results.html')">ðŸ“Š Results</a>
-    <a onclick="openPage('student_timetable.html')">ðŸ“… Timetable</a>
-    <a onclick="openPage('student_exams.html')">ðŸ“ Exams</a>
-    <a onclick="openPage('student_attendance.html')">ðŸ“Œ Attendance</a>
-    <a onclick="openPage('student_notices.html')">ðŸ“¢ Notices</a>
-        <a onclick="openPage('student_academic_calendar.html')">ðŸ“… Academic Calendar</a>
+    <h2>Student Menu</h2>
+    <a onclick="openPage('student_portal.html')">Dashboard</a>
+    <a onclick="openPage('student_results.html')">Results</a>
+    <a onclick="openPage('student_timetable.html')">Timetable</a>
+    <a onclick="openPage('student_exams.html')">Exams</a>
+    <a onclick="openPage('student_hall_ticket.html')">Hall Ticket</a>
+    <a onclick="openPage('student_attendance.html')">Attendance</a>
+    <a onclick="openPage('student_notices.html')">Notices</a>
+        <a onclick="openPage('student_academic_calendar.html')">Academic Calendar</a>
     <hr>
 </div>
 
 <header>
     <div class="left">
-        <span class="menu-btn" onclick="openMenu()">â˜°</span>
+        <span class="menu-btn" onclick="openMenu()">☰</span>
         <h1>Notices</h1>
     </div>
     <div class="student-info">
@@ -180,7 +181,7 @@ header{
 <div class="container">
 
 <div class="page-title">
-    <h2>ðŸ“¢ School Notices</h2>
+    <h2>School Notices</h2>
 </div>
 
 <div id="noticeList"></div>
@@ -229,7 +230,7 @@ fetch(`${API}/notice/list?role=student`)
             <p>${n.description || "No description provided."}</p>
 
             <div class="date">
-                ðŸ“… ${new Date(n.date).toDateString()}
+                ${new Date(n.date).toDateString()}
             </div>
 
             ${n.file ? `
@@ -237,7 +238,7 @@ fetch(`${API}/notice/list?role=student`)
                     <a href="${API}/notice/get-file/${n.file}" 
                        target="_blank"
                        style="color:#4e73df;font-weight:600;text-decoration:none">
-                        ðŸ“„ View Attachment
+                        View Attachment
                     </a>
                 </div>
             ` : ``}
@@ -269,5 +270,9 @@ function logout(){
 
 </body>
 </html>
+
+
+
+
 
 

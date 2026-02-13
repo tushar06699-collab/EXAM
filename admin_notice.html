@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Admin â€“ Notice & Circular Upload</title>
+<title>Admin - Notice & Circular Upload</title>
 <meta name="viewport" content="width=device-width">
 
 <style>
@@ -126,7 +126,7 @@ button:hover {background:#1b2854;}
 <!-- Content -->
 <div class="content">
 
-<h2>ðŸ“¢ Upload Notice / Circular</h2>
+<h2>Upload Notice / Circular</h2>
 
 <div class="card">
 
@@ -139,7 +139,7 @@ button:hover {background:#1b2854;}
     <label>Description</label>
     <textarea id="descInput" placeholder="Write details"></textarea>
 
-    <!-- ðŸ”½ TARGET SELECTOR -->
+    <!-- TARGET SELECTOR -->
     <label>Notice For</label>
     <select id="targetSelect">
         <option value="student">Student</option>
@@ -156,7 +156,7 @@ button:hover {background:#1b2854;}
     <button onclick="uploadNotice()">Upload Notice</button>
 </div>
 
-<h2>ðŸ“„ All Notices</h2>
+<h2>All Notices</h2>
 <div id="noticeList"></div>
 
 </div>
@@ -193,7 +193,7 @@ async function uploadNotice(){
     fd.append("title", title);
     fd.append("description", description);
     fd.append("date", date);
-    fd.append("target", target); // âœ… NEW FIELD
+    fd.append("target", target); //  NEW FIELD
     if(pdf) fd.append("pdf", pdf);
 
     try{
@@ -204,7 +204,7 @@ async function uploadNotice(){
         const data = await res.json();
 
         if(data.success){
-            alert("âœ… Notice uploaded");
+            alert(" Notice uploaded");
             titleInput.value="";
             descInput.value="";
             dateInput.value="";
@@ -212,7 +212,7 @@ async function uploadNotice(){
             targetSelect.value="student";
             loadNotices();
         }else{
-            alert("âŒ "+data.message);
+            alert(" "+data.message);
         }
     }catch(err){
         alert("Upload failed");
@@ -238,7 +238,7 @@ async function loadNotices(){
                 <span class="badge ${n.target}">
                     ${n.target.toUpperCase()}
                 </span>
-                <span><b>ðŸ“Œ ${n.title}</b></span>
+                <span><b>${n.title}</b></span>
                 <span>${n.description || ""}</span>
                 <span>Date: ${n.date}</span>
                 ${n.file ? `<button class="view-btn" onclick="viewNotice('${n.file}')">View PDF</button>` : ""}
@@ -262,7 +262,7 @@ async function deleteNotice(id){
     const res = await fetch(`${API}/notice/delete/${id}`,{method:"DELETE"});
     const d = await res.json();
     if(d.success){
-        alert("ðŸ—‘ Deleted");
+        alert("Deleted");
         loadNotices();
     }
 }
@@ -270,5 +270,8 @@ async function deleteNotice(id){
 
 </body>
 </html>
+
+
+
 
 

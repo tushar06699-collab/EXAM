@@ -1,0 +1,267 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Exam Access - School ERP</title>
+<style>
+body{margin:0;font-family:Poppins,sans-serif;background:#f2f4f7;display:flex;}
+.sidebar{width:240px;background:#233465;color:white;height:100vh;position:fixed;left:0;top:0;padding-top:20px;}
+.sidebar h2{text-align:center;font-size:22px;margin-bottom:25px;}
+.sidebar a{display:block;padding:12px 20px;color:white;text-decoration:none;font-size:16px;}
+.sidebar a:hover{background:rgba(255,255,255,0.25);}
+.sidebar a.active{background:rgba(255,255,255,0.35);}
+.content{margin-left:240px;width:calc(100% - 240px);padding:20px;}
+header{background:#233465;color:#fff;padding:1rem;text-align:center;font-size:1.5rem;border-radius:8px;}
+main{max-width:1100px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.1);}
+.row{display:grid;grid-template-columns:1fr 1fr 160px;gap:12px;align-items:end;}
+label{display:block;font-weight:600;margin-top:10px;}
+select,button{width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;}
+button{background:#4f46e5;color:white;border:none;cursor:pointer;}
+button:hover{background:#3730a3;}
+table{width:100%;border-collapse:collapse;margin-top:20px;}
+th,td{border:1px solid #ddd;padding:8px;text-align:center;}
+th{background:#233465;color:white;}
+.save-btn{margin-top:16px;background:#1e8f3d;}
+.hint{margin-top:10px;color:#374151;font-size:14px;}
+</style>
+<link rel="stylesheet" href="admin_theme.css">
+</head>
+<body>
+<div class="sidebar">
+  <h2>School ERP</h2>
+  <a href="dashboard.html">Dashboard</a>
+  <a href="result_upload.html">Upload External Marks</a>
+  <a href="internal_marks_upload.html">Upload Internal Marks</a>
+  <a href="student_exam_access.html" class="active">Student Exam Access</a>
+  <a href="uploaded_marks.html">See Uploaded Marks</a>
+  <a href="result_publish.html">Publish Results</a>
+  <a href="marksheet.html">Generate Marksheets</a>
+</div>
+
+<div class="content">
+  <header>Student Exam Eligibility and Release Control</header>
+  <main>
+    <div class="row">
+      <div>
+        <label>Session</label>
+        <select id="sessionSelect"></select>
+      </div>
+      <div>
+        <label>Class</label>
+        <select id="classSelect"></select>
+      </div>
+      <div>
+        <button id="loadBtn">Load Students</button>
+      </div>
+    </div>
+    <div class="hint">If Eligible = No, Release Roll No and Release Result are forced to No.</div>
+    <div id="tableContainer"></div>
+    <button class="save-btn" id="saveBtn">Save Settings</button>
+  </main>
+</div>
+
+<script>
+const EXAM_API = "https://exam-backend-ko0t.onrender.com";
+const STUDENT_API = "https://students-backend-8mup.onrender.com";
+
+let STUDENTS = [];
+const sessionSelectEl = document.getElementById("sessionSelect");
+const classSelectEl = document.getElementById("classSelect");
+const tableContainer = document.getElementById("tableContainer");
+const loadBtn = document.getElementById("loadBtn");
+const saveBtn = document.getElementById("saveBtn");
+
+async function loadSessions(){
+  const r = await fetch(`${EXAM_API}/session/list`);
+  const d = await r.json();
+  sessionSelectEl.innerHTML = (d.sessions || []).map(s=>`<option value="${s}">${s}</option>`).join("");
+  await loadClasses();
+}
+
+async function loadClasses(){
+  const session = sessionSelectEl.value;
+  if(!session) return;
+  const r = await fetch(`${STUDENT_API}/students?session=${encodeURIComponent(session)}`);
+  const students = await r.json();
+  const classes = [...new Set((students || []).map(s=>s.class_name).filter(Boolean))];
+  classSelectEl.innerHTML = classes.map(c=>`<option value="${c}">${c}</option>`).join("");
+  if(!classes.length){
+    tableContainer.innerHTML = `<div class="hint">No classes found for selected session.</div>`;
+  }
+}
+
+function buildRowsFromRawStudents(rawStudents, cls){
+  const list = (rawStudents || [])
+    .filter(s => s.class_name === cls)
+    .sort((a,b)=>(parseInt(a.rollno)||0)-(parseInt(b.rollno)||0));
+  return list.map(s=>({
+    student_id: String(s._id || s.id || s.student_id || ""),
+    name: s.student_name || s.name || "",
+    father_name: s.father_name || "",
+    class_name: s.class_name || cls,
+    rollno: s.rollno || "",
+    eligible: (s.eligible !== undefined ? !!s.eligible : true),
+    release_rollno: (s.release_rollno !== undefined ? !!s.release_rollno : true),
+    release_result: (s.release_result !== undefined ? !!s.release_result : true)
+  }));
+}
+
+async function loadStudents(){
+  const session = sessionSelectEl.value;
+  const cls = classSelectEl.value;
+  if(!session || !cls) return;
+
+  let list = [];
+  try{
+    const r = await fetch(`${EXAM_API}/student-access/list?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}`);
+    if(r.ok){
+      const d = await r.json();
+      if(d.success && Array.isArray(d.students)){
+        list = d.students;
+      }
+    }
+  }catch(_e){}
+
+  if(!list.length){
+    try{
+      // Prefer portal students because this endpoint returns stable ids and access flags.
+      const pr = await fetch(`${EXAM_API}/portal/students`);
+      const pd = await pr.json();
+      if(pd.success && Array.isArray(pd.students)){
+        const portalFiltered = pd.students.filter(s =>
+          String(s.session || "") === String(session) && String(s.class_name || "") === String(cls)
+        );
+        list = buildRowsFromRawStudents(portalFiltered, cls);
+      }
+    }catch(_e){}
+  }
+
+  if(!list.length){
+    try{
+      const sr = await fetch(`${STUDENT_API}/students?session=${encodeURIComponent(session)}`);
+      const sd = await sr.json();
+      list = buildRowsFromRawStudents(sd, cls);
+    }catch(_e){
+      list = [];
+    }
+  }
+  STUDENTS = list || [];
+
+  if(!STUDENTS.length){
+    tableContainer.innerHTML = `<div class="hint">No student data found for selected class/session.</div>`;
+    return;
+  }
+
+  let html = `<table><tr>
+    <th>Roll No</th>
+    <th>Student Name</th>
+    <th>Class</th>
+    <th>Father Name</th>
+    <th>Eligible</th>
+    <th>Release Roll No</th>
+    <th>Release Result</th>
+  </tr>`;
+
+  STUDENTS.forEach(s=>{
+    const yesNo = (v)=> v ? "yes" : "no";
+    html += `<tr data-student-id="${s.student_id}">
+      <td>${s.rollno || ""}</td>
+      <td>${s.name || ""}</td>
+      <td>${s.class_name || ""}</td>
+      <td>${s.father_name || ""}</td>
+      <td>
+        <select class="eligible">
+          <option value="yes" ${yesNo(s.eligible)==="yes"?"selected":""}>Yes</option>
+          <option value="no" ${yesNo(s.eligible)==="no"?"selected":""}>No</option>
+        </select>
+      </td>
+      <td>
+        <select class="release-roll">
+          <option value="yes" ${yesNo(s.release_rollno)==="yes"?"selected":""}>Yes</option>
+          <option value="no" ${yesNo(s.release_rollno)==="no"?"selected":""}>No</option>
+        </select>
+      </td>
+      <td>
+        <select class="release-result">
+          <option value="yes" ${yesNo(s.release_result)==="yes"?"selected":""}>Yes</option>
+          <option value="no" ${yesNo(s.release_result)==="no"?"selected":""}>No</option>
+        </select>
+      </td>
+    </tr>`;
+  });
+  html += `</table>`;
+  tableContainer.innerHTML = html;
+
+  bindEligibilityRules();
+}
+
+function bindEligibilityRules(){
+  document.querySelectorAll("#tableContainer tr").forEach((tr, idx)=>{
+    if(idx===0) return;
+    const eligible = tr.querySelector(".eligible");
+    const relRoll = tr.querySelector(".release-roll");
+    const relResult = tr.querySelector(".release-result");
+    if(!eligible || !relRoll || !relResult) return;
+
+    const apply = ()=>{
+      const ok = eligible.value === "yes";
+      if(!ok){
+        relRoll.value = "no";
+        relResult.value = "no";
+      }
+      relRoll.disabled = !ok;
+      relResult.disabled = !ok;
+    };
+    eligible.addEventListener("change", apply);
+    apply();
+  });
+}
+
+async function saveSettings(){
+  const session = sessionSelectEl.value;
+  const cls = classSelectEl.value;
+  if(!session || !cls) return;
+
+  const rows = [...document.querySelectorAll("#tableContainer tr[data-student-id]")];
+  if(!rows.length) return alert("Load students first.");
+
+  const students = [];
+  for(const tr of rows){
+    const sid = String(tr.dataset.studentId || "").trim();
+    if(!sid){
+      return alert("Some rows have missing student id. Please reload students.");
+    }
+    const eligible = tr.querySelector(".eligible").value === "yes";
+    const release_rollno = tr.querySelector(".release-roll").value === "yes";
+    const release_result = tr.querySelector(".release-result").value === "yes";
+    students.push({
+      student_id: sid,
+      eligible,
+      release_rollno,
+      release_result
+    });
+  }
+
+  const r = await fetch(`${EXAM_API}/student-access/save`, {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({session, class_name: cls, students})
+  });
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok || d.success === false){
+    return alert(d.message || `Save failed (${r.status})`);
+  }
+  alert((d.message || "Settings saved successfully.") + ` Saved rows: ${d.saved || students.length}`);
+  await loadStudents();
+}
+
+sessionSelectEl.addEventListener("change", loadClasses);
+loadBtn.addEventListener("click", loadStudents);
+saveBtn.addEventListener("click", saveSettings);
+loadSessions();
+</script>
+</body>
+</html>
+
+

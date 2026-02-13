@@ -99,21 +99,22 @@ header{
 <div class="overlay" id="overlay" onclick="closeMenu()"></div>
 
 <div class="sidebar" id="sidebar">
-    <h2>ðŸŽ“ Student Menu</h2>
-    <a onclick="openPage('student_portal.html')">ðŸ  Dashboard</a>
-    <a onclick="openPage('student_results.html')">ðŸ“Š Results</a>
-    <a onclick="openPage('student_timetable.html')">ðŸ“… Timetable</a>
-        <a onclick="openPage('student_exams.html')">ðŸ“ Exams</a>
-    <a onclick="openPage('student_attendance.html')">ðŸ“Œ Attendance</a>
-    <a onclick="openPage('student_notices.html')">ðŸ“¢ Notices</a>
-    <a onclick="openPage('student_academic_calendar.html')">ðŸ“… Academic Calendar</a>
+    <h2>Student Menu</h2>
+    <a onclick="openPage('student_portal.html')">Dashboard</a>
+    <a onclick="openPage('student_results.html')">Results</a>
+    <a onclick="openPage('student_timetable.html')">Timetable</a>
+        <a onclick="openPage('student_exams.html')">Exams</a>
+    <a onclick="openPage('student_hall_ticket.html')">Hall Ticket</a>
+    <a onclick="openPage('student_attendance.html')">Attendance</a>
+    <a onclick="openPage('student_notices.html')">Notices</a>
+    <a onclick="openPage('student_academic_calendar.html')">Academic Calendar</a>
     <hr>
-    <a onclick="logout()">ðŸšª Logout</a>
+    <a onclick="logout()">Logout</a>
 </div>
 
 <header>
     <div class="left">
-        <span class="menu-btn" onclick="openMenu()">â˜°</span>
+        <span class="menu-btn" onclick="openMenu()">☰</span>
         <h1>Academic Calendar</h1>
     </div>
     <div class="student-info">
@@ -188,7 +189,7 @@ async function loadCurrentSession(){
     const data = await res.json();
     CURRENT_SESSION = data.sessions[0]; // first session is current
     const {startYear,endYear} = parseSession(CURRENT_SESSION);
-    sessionTitle.innerText = `April ${startYear} â€“ March ${endYear}`;
+    sessionTitle.innerText = `April ${startYear} - March ${endYear}`;
     generateCalendar(startYear, endYear);
 }
 
@@ -268,5 +269,9 @@ loadCurrentSession();
 
 </body>
 </html>
+
+
+
+
 
 

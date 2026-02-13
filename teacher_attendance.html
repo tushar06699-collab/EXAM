@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Teacher Attendance â€“ School ERP</title>
+<title>Teacher Attendance - School ERP</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -109,12 +109,12 @@ button:hover{background:#3730a3;}
 /* ---------- Table ---------- */
 #tableContainer{
     width:100%;
-    overflow-x:auto;   /* âœ… mobile fix */
+    overflow-x:auto;   /*  mobile fix */
     background:white;
 }
 table{
     width:100%;
-    min-width:600px;   /* âœ… prevents table shrinking */
+    min-width:600px;   /*  prevents table shrinking */
     border-collapse:collapse;
     margin-top:20px;
     background:white;
@@ -207,6 +207,17 @@ const attendanceDate = document.getElementById("attendanceDate");
 
 const TEACHER_ID = localStorage.getItem("teacher_id");
 
+function normalizedStudentId(student){
+    const raw = student?._id ?? student?.id ?? student?.student_id ?? "";
+    if(typeof raw === "string") return raw;
+    if(raw && typeof raw === "object"){
+        if(typeof raw.$oid === "string") return raw.$oid;
+        if(typeof raw.oid === "string") return raw.oid;
+        if(typeof raw.id === "string") return raw.id;
+    }
+    return String(raw || "");
+}
+
 /* ------------------ TODAY DATE ------------------ */
 window.addEventListener("DOMContentLoaded", () => {
     const t = new Date();
@@ -295,14 +306,14 @@ async function loadStudents(){
         <tr><th>Roll No</th><th>Name</th><th>Status</th></tr>`;
 
     classStudents.forEach(s=>{
-        const sid = s._id || s.id || s.student_id || "";
+        const sid = normalizedStudentId(s);
         const status = existingAttendance[String(sid)] || "present";
         html += `
         <tr>
             <td>${s.rollno}</td>
             <td>${s.student_name}</td>
             <td>
-                <select class="attendance-select" data-student-id="${sid}">
+                <select class="attendance-select" data-student-id="${sid}" data-student-roll="${s.rollno || ""}">
                     <option value="present" ${status==="present"?"selected":""}>Present</option>
                     <option value="absent" ${status==="absent"?"selected":""}>Absent</option>
                     <option value="leave" ${status==="leave"?"selected":""}>Leave</option>
@@ -325,6 +336,7 @@ async function uploadAttendance(){
     const attendance = [...document.querySelectorAll(".attendance-select")]
         .map(s => ({
             student_id: s.dataset.studentId,
+            student_roll: s.dataset.studentRoll || "",
             status: s.value
         }));
     if(!attendance.length) return alert("Load students first");
@@ -368,5 +380,8 @@ window.addEventListener("resize", ()=>{
 
 </body>
 </html>
+
+
+
 
 

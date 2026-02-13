@@ -188,21 +188,22 @@ header{
 <div class="overlay" id="overlay" onclick="closeMenu()"></div>
 
 <div class="sidebar" id="sidebar">
-    <h2>ðŸŽ“ Student Menu</h2>
-    <a onclick="openPage('student_portal.html')">ðŸ  Dashboard</a>
-    <a onclick="openPage('student_results.html')">ðŸ“Š Results</a>
-    <a onclick="openPage('student_timetable.html')">ðŸ“… Timetable</a>
-    <a onclick="openPage('student_exams.html')">ðŸ“ Exams</a>
-    <a onclick="openPage('student_attendance.html')">ðŸ“Œ Attendance</a>
-        <a onclick="openPage('student_notices.html')">ðŸ“¢ Notices</a>
-        <a onclick="openPage('student_academic_calendar.html')">ðŸ“… Academic Calendar</a>
+    <h2>Student Menu</h2>
+    <a onclick="openPage('student_portal.html')">Dashboard</a>
+    <a onclick="openPage('student_results.html')">Results</a>
+    <a onclick="openPage('student_timetable.html')">Timetable</a>
+    <a onclick="openPage('student_exams.html')">Exams</a>
+    <a onclick="openPage('student_hall_ticket.html')">Hall Ticket</a>
+    <a onclick="openPage('student_attendance.html')">Attendance</a>
+        <a onclick="openPage('student_notices.html')">Notices</a>
+        <a onclick="openPage('student_academic_calendar.html')">Academic Calendar</a>
     <hr>
-    <a onclick="logout()">ðŸšª Logout</a>
+    <a onclick="logout()">Logout</a>
 </div>
 
 <header>
     <div class="left">
-        <span class="menu-btn" onclick="openMenu()">â˜°</span>
+        <span class="menu-btn" onclick="openMenu()">☰</span>
         <h1>Student Portal</h1>
     </div>
     <div class="student-info">
@@ -221,12 +222,13 @@ header{
             <h2 id="dashName">Student Name</h2>
             <p id="dashClass">Class - Section</p>
             <p id="dashRoll">Roll No</p>
+            <p id="eligibilityMsg" style="margin-top:8px;color:#b91c1c;font-weight:600;"></p>
         </div>
     </div>
      <!-- LATEST NOTICES -->
 <div class="latest-notices">
   <div class="section-header">
-    <h3>ðŸ“¢ Latest Notices</h3>
+    <h3>Latest Notices</h3>
     <a href="student_notices.html">View All</a>
   </div>
 
@@ -262,7 +264,15 @@ fetch(`https://exam-backend-ko0t.onrender.com/portal/student/${studentId}`)
     headerName.innerText = s.name;
     dashName.innerText = s.name;
     dashClass.innerText = `${s.class_name} - ${s.section}`;
-    dashRoll.innerText = `Roll No: ${s.roll}`;
+    dashRoll.innerText = s.release_rollno ? `Roll No: ${s.roll}` : "Roll No: Not Released";
+
+    if(s.eligible === false){
+        eligibilityMsg.innerText = "You are currently not eligible for exam/result release.";
+    }else if(s.release_result === false){
+        eligibilityMsg.innerText = "Result is not released for your profile yet.";
+    }else{
+        eligibilityMsg.innerText = "";
+    }
 
     headerPhoto.onerror = dashPhoto.onerror = ()=>{
         headerPhoto.src = dashPhoto.src = "images/default.png";
@@ -293,7 +303,7 @@ fetch("https://exam-backend-ko0t.onrender.com/notice/list?role=student")
         <div class="notice-mini">
             <h4>${n.title}</h4>
             <p>${(n.description || "").substring(0,80)}...</p>
-            <span>ðŸ“… ${new Date(n.date).toDateString()}</span>
+            <span>${new Date(n.date).toDateString()}</span>
         </div>
     `).join("");
 })
@@ -320,5 +330,9 @@ function logout(){
 
 </body>
 </html>
+
+
+
+
 
 

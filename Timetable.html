@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Teacher Timetable â€“ School ERP</title>
+<title>Teacher Timetable - School ERP</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
@@ -130,8 +130,8 @@ async function loadClasses() {
             return (parseInt(ma?.[1]||0)) - (parseInt(mb?.[1]||0));
         });
 
-        // ðŸ”¥ AUTO ADD COMBINED FOR ANY CLASS WITH MULTIPLE SECTIONS / STREAMS
-// ðŸ”¥ AUTO ADD COMBINED ONLY IF MULTIPLE DISTINCT SECTIONS EXIST
+        // AUTO ADD COMBINED FOR ANY CLASS WITH MULTIPLE SECTIONS / STREAMS
+// AUTO ADD COMBINED ONLY IF MULTIPLE DISTINCT SECTIONS EXIST
 const classMap = {};
 
 // group classes by numeric prefix
@@ -292,7 +292,7 @@ async function generateRows(existing=[]) {
         
             let subjectClass = this.value;
         
-            // ðŸ”¥ MAP COMBINED â†’ REAL CLASS
+            // MAP COMBINED â†’ REAL CLASS
             const match = this.value.match(/^(\d+)/);
 if(this.value.includes("COMBINED") && match){
     subjectClass = classes.find(c =>
@@ -313,7 +313,7 @@ if(this.value.includes("COMBINED") && match){
             const periodNum = parseInt(tr.dataset.period);
 let used = [];
 
-// âŒ DO NOT CHECK CONFLICT FOR 11/12 STREAMS OR COMBINED
+//  DO NOT CHECK CONFLICT FOR 11/12 STREAMS OR COMBINED
 if(
     !isSeniorStream(this.value) &&
     !isSeniorCombined(this.value)
@@ -353,7 +353,7 @@ document.getElementById("saveBtn").onclick = async ()=>{
 
     let targetClasses = [];
 
-    // ðŸ”¥ EXPAND COMBINED
+    // EXPAND COMBINED
     const match = selClass.value.match(/^(\d+)/);
 
 if(selClass.value.includes("COMBINED") && match){
@@ -415,5 +415,8 @@ init();
 
 </body>
 </html>
+
+
+
 
 
