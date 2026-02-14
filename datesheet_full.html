@@ -46,6 +46,16 @@ main {
 }
 label { font-weight:600; display:block; margin-top:1rem; }
 select { padding:10px; width:100%; border-radius:6px; border:1px solid #ccc; }
+button{
+    margin-top:12px;
+    padding:10px 12px;
+    border:none;
+    border-radius:6px;
+    background:#0f766e;
+    color:#fff;
+    cursor:pointer;
+}
+.btn-csv{background:#1e8f3d;}
 
 .sessionBox {
     background:#233465;
@@ -88,6 +98,8 @@ th { background:#f0f0f0; }
 
     <label>Select Exam</label>
     <select id="examSelect"></select>
+    <button class="btn-csv" onclick="exportCSV()">Export CSV</button>
+    <button onclick="downloadPDF()">Download PDF</button>
 
     <table id="fullTable">
         <thead>
@@ -100,6 +112,8 @@ th { background:#f0f0f0; }
 
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const EXAM_API = "https://exam-backend-ko0t.onrender.com";
 const STUDENT_API = "https://students-backend-8mup.onrender.com";
@@ -200,6 +214,102 @@ async function loadFullDatesheet() {
         tr += "</tr>";
         tableBody.innerHTML += tr;
     });
+}
+
+async function downloadPDF(){
+    const table = document.getElementById("fullTable");
+    if(!table || !table.querySelector("tbody tr")){
+        return alert("No datesheet data to export.");
+    }
+    const jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+    if(!jsPDFCtor || typeof window.html2canvas === "undefined"){
+        return alert("PDF library is not loaded. Refresh and try again.");
+    }
+
+    const host = document.createElement("div");
+    host.style.position = "fixed";
+    host.style.left = "-99999px";
+    host.style.top = "0";
+    host.style.width = "1600px";
+    host.style.background = "#fff";
+    host.style.padding = "10px";
+    host.style.fontFamily = "Poppins, sans-serif";
+    host.style.fontSize = "11px";
+    host.innerHTML = `<h3 style="margin:0 0 10px 0;font-family:Poppins,sans-serif;">Full Datesheet - ${examSelect.value || ""} - ${CURRENT_SESSION || ""}</h3>`;
+    const tableClone = table.cloneNode(true);
+    tableClone.style.fontSize = "10px";
+    tableClone.querySelectorAll("th,td").forEach(cell=>{
+        cell.style.padding = "4px";
+        cell.style.fontSize = "10px";
+        cell.style.whiteSpace = "nowrap";
+    });
+    host.appendChild(tableClone);
+    document.body.appendChild(host);
+
+    const btn = document.querySelector('button[onclick="downloadPDF()"]');
+    const oldText = btn ? btn.textContent : "";
+    if(btn) btn.textContent = "Generating PDF...";
+
+    try{
+        const canvas = await window.html2canvas(host, {scale:2, useCORS:true, backgroundColor:"#fff"});
+        const img = canvas.toDataURL("image/jpeg", 0.95);
+        const pdf = new jsPDFCtor("l","mm","a4");
+        const pageW=297, pageH=210, margin=6, maxW=pageW-margin*2, maxH=pageH-margin*2;
+        let w=maxW, h=(canvas.height*w)/canvas.width;
+        if(h<=maxH){
+            const x=(pageW-w)/2, y=(pageH-h)/2;
+            pdf.addImage(img,"JPEG",x,y,w,h);
+        }else{
+            const pageCanvas=document.createElement("canvas");
+            const ctx=pageCanvas.getContext("2d");
+            const sliceHeightPx=Math.floor(canvas.width*(maxH/maxW));
+            pageCanvas.width=canvas.width;
+            let yPx=0, page=0;
+            while(yPx<canvas.height){
+                const cur=Math.min(sliceHeightPx, canvas.height-yPx);
+                pageCanvas.height=cur;
+                ctx.clearRect(0,0,pageCanvas.width,pageCanvas.height);
+                ctx.drawImage(canvas,0,yPx,canvas.width,cur,0,0,canvas.width,cur);
+                const slice=pageCanvas.toDataURL("image/jpeg",0.95);
+                const sliceH=(cur*maxW)/canvas.width;
+                if(page>0) pdf.addPage();
+                pdf.addImage(slice,"JPEG",margin,margin,maxW,sliceH);
+                yPx+=cur; page+=1;
+            }
+        }
+        pdf.save(`full_datesheet_${examSelect.value || "exam"}_${CURRENT_SESSION || "session"}.pdf`);
+    }catch(e){
+        console.error(e);
+        alert("Unable to generate PDF.");
+    }finally{
+        if(btn) btn.textContent = oldText || "Download PDF";
+        if(host.parentNode) host.parentNode.removeChild(host);
+    }
+}
+
+function exportCSV(){
+    const table = document.getElementById("fullTable");
+    if(!table || !table.querySelector("tbody tr")){
+        return alert("No datesheet data to export.");
+    }
+
+    const rows = [];
+    table.querySelectorAll("tr").forEach(tr=>{
+        const cols = [];
+        tr.querySelectorAll("th,td").forEach(td=>{
+            const text = (td.innerText || "").replace(/\n/g, " ").replace(/,/g, " ");
+            cols.push(text.trim());
+        });
+        rows.push(cols.join(","));
+    });
+
+    const blob = new Blob([rows.join("\n")], {type:"text/csv"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `full_datesheet_${examSelect.value || "exam"}_${CURRENT_SESSION || "session"}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
 }
 
 window.onload = loadCurrentSession;

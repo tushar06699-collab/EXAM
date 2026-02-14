@@ -51,7 +51,7 @@ header{
 }
 .controls{
   display:grid;
-  grid-template-columns:1.2fr 1fr 140px;
+  grid-template-columns:1.2fr 1fr 140px 140px;
   gap:12px;
   align-items:end;
   margin-bottom:16px;
@@ -154,7 +154,7 @@ th{background:#eef2ff;color:#1e3a8a;}
   .ticket{border:1px solid #111827;border-radius:0;page-break-after:always;}
 }
 </style>
-</head>
+<link rel="stylesheet" href="student_mobile.css"></head>
 <body>
 
 <div class="overlay" id="overlay" onclick="closeMenu()"></div>
@@ -196,6 +196,9 @@ th{background:#eef2ff;color:#1e3a8a;}
       </div>
       <div>
         <button class="print-btn" onclick="window.print()">Print</button>
+      </div>
+      <div>
+        <button onclick="downloadHallTicketPDF()">Download PDF</button>
       </div>
     </div>
 
@@ -255,6 +258,7 @@ th{background:#eef2ff;color:#1e3a8a;}
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 if(localStorage.getItem("role") !== "student"){
   location.href = "index.html";
@@ -391,10 +395,31 @@ function closeMenu(){ sidebar.style.left = "-280px"; overlay.style.display = "no
 function openPage(p){ location.href = p; }
 function logout(){ localStorage.clear(); location.href = "index.html"; }
 
+function downloadHallTicketPDF(){
+  if(ticketCard.style.display === "none"){
+    alert("Load hall ticket first.");
+    return;
+  }
+  const exam = examSelect.value || "hall_ticket";
+  const cls = profile?.class_name || "class";
+  const roll = profile?.roll || "student";
+  const opt = {
+    margin: 5,
+    filename: `${cls}_${roll}_${exam}_hall_ticket.pdf`,
+    image: { type: "jpeg", quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+    pagebreak: { mode: ["css", "legacy"] }
+  };
+  html2pdf().set(opt).from(ticketCard).save();
+}
+
 init();
 </script>
 </body>
 </html>
+
+
 
 
 

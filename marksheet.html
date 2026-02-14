@@ -242,7 +242,7 @@ tr.fail td{
 /* ===== PRINT ===== */
 @page{
   size:A4 portrait;
-  margin:10mm;
+  margin:8mm;
 }
 
 @media print{
@@ -263,12 +263,18 @@ tr.fail td{
     width:auto !important;
     max-width:none !important;
     padding:0 !important;
+    box-sizing:border-box !important;
+  }
+  #marksheetContainer{
+    width:100% !important;
+    margin:0 !important;
+    padding:0 !important;
   }
   .marksheet{
-    width:100% !important;
+    width:auto !important;
     min-height:0 !important;
-    margin:0 !important;
-    padding:7mm !important;
+    margin:0 0 8mm 0 !important;
+    padding:6mm !important;
     box-sizing:border-box;
     border-radius:0;
     border:none;
@@ -331,13 +337,16 @@ tr.fail td{
     </div>
     <div>
       <button onclick="generateMarksheets()">Generate</button>
-      <button onclick="window.print()">Print</button>
+      <button onclick="downloadMarksheetPDF()">Download PDF</button>
     </div>
   </div>
 
   <div id="marksheetContainer" class="marksheet-container"></div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 const STUDENT_API = "https://students-backend-8mup.onrender.com";
 const EXAM_API = "https://exam-backend-ko0t.onrender.com";
@@ -350,6 +359,77 @@ function safePhoto(url){
 }
 function getStudentId(s){
   return s._id || s.id || s.student_id || "";
+}
+
+function downloadMarksheetPDF(){
+  const container = document.getElementById("marksheetContainer");
+  if(!container || container.style.display === "none" || !container.children.length){
+    alert("Generate marksheets first.");
+    return;
+  }
+
+  const pages = [...container.querySelectorAll(".marksheet")];
+  if(!pages.length){
+    alert("No marksheets available for PDF export.");
+    return;
+  }
+
+  const jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+  if(!jsPDFCtor || typeof window.html2canvas === "undefined"){
+    alert("PDF library is not loaded. Please refresh and try again.");
+    return;
+  }
+
+  const exam = examSelect.value || "marksheet";
+  const cls = classSelect.value || "class";
+  const session = sessionSelect.value || "session";
+  const pdf = new jsPDFCtor("p", "mm", "a4");
+
+  const pageW = 210;
+  const pageH = 297;
+  const margin = 6;
+  const maxW = pageW - (margin * 2);
+  const maxH = pageH - (margin * 2);
+
+  const btn = document.querySelector('button[onclick="downloadMarksheetPDF()"]');
+  const oldLabel = btn ? btn.textContent : "";
+  if(btn) btn.textContent = "Generating PDF...";
+
+  (async ()=>{
+    try{
+      for(let i=0; i<pages.length; i++){
+        const node = pages[i];
+        const canvas = await window.html2canvas(node, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: "#ffffff",
+          scrollX: 0,
+          scrollY: -window.scrollY
+        });
+        const img = canvas.toDataURL("image/jpeg", 0.95);
+
+        let w = maxW;
+        let h = (canvas.height * w) / canvas.width;
+        if(h > maxH){
+          h = maxH;
+          w = (canvas.width * h) / canvas.height;
+        }
+
+        const x = (pageW - w) / 2;
+        const y = (pageH - h) / 2;
+        if(i > 0) pdf.addPage();
+        pdf.addImage(img, "JPEG", x, y, w, h);
+      }
+
+      pdf.save(`${cls}_${exam}_${session}_marksheets.pdf`);
+    }catch(err){
+      console.error(err);
+      alert("Unable to generate PDF. Try Print instead.");
+    }finally{
+      if(btn) btn.textContent = oldLabel || "Download PDF";
+    }
+  })();
 }
 
 /* LOAD SESSIONS */

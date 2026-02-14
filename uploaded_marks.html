@@ -55,12 +55,15 @@ input.mark-input{width:60px;text-align:center;}
 
 <button onclick="loadMarks()">Load Marks</button>
 <button onclick="exportCSV()" style="background:#1e8f3d;">Export CSV</button>
+<button onclick="exportPDF()" style="background:#0f766e;">Download PDF</button>
 
 <div id="tableContainer"></div>
 
 </main>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const EXAM_API = "https://exam-backend-ko0t.onrender.com";
 const STUDENT_API = "https://students-backend-8mup.onrender.com";
@@ -69,6 +72,16 @@ let EXAMS = [];
 let STUDENTS = [];
 let SUBJECTS = [];
 let TOTAL_MARKS = 100; // default
+
+function getStudentId(s){
+    const raw = s?._id ?? s?.id ?? s?.student_id ?? "";
+    if(typeof raw === "string") return raw;
+    if(raw && typeof raw === "object"){
+        if(typeof raw.$oid === "string") return raw.$oid;
+        if(typeof raw.id === "string") return raw.id;
+    }
+    return String(raw || "");
+}
 
 // Load sessions
 async function loadSessions(){
@@ -135,7 +148,7 @@ STUDENTS = (await resStu.json())
     const subData = await resSub.json();
     SUBJECTS = subData.subjects || [];
 
-    // Load marks
+    // Load external marks
     const resMarks = await fetch(`${EXAM_API}/exam/get-marks?session=${session}&class_name=${cls}&exam_name=${examData.exam_name}`);
     const markData = await resMarks.json();
     if(!markData.success) return alert("No marks found");
@@ -147,23 +160,56 @@ STUDENTS = (await resStu.json())
         marksMap[m.roll][m.subject] = m.marks;
     });
 
-    // Build table
+    // Load internal marks subject-wise (if exam internal enabled)
+    const allowInternal = !(
+        examData.internal_marks === false ||
+        examData.internal_marks === "false" ||
+        examData.internal_marks === "no" ||
+        examData.internal_marks === "No" ||
+        examData.internal_marks === 0
+    );
+    const internalBySubject = {};
+    if(allowInternal){
+        await Promise.all(SUBJECTS.map(async (sub)=>{
+            try{
+                const r = await fetch(`${EXAM_API}/internal-marks/list?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&subject=${encodeURIComponent(sub)}&exam_name=${encodeURIComponent(examData.exam_name)}`);
+                const d = await r.json();
+                const map = {};
+                if(d.success && Array.isArray(d.marks)){
+                    d.marks.forEach(row=>{
+                        map[String(row.student_id)] = Number(row.marks || 0);
+                    });
+                }
+                internalBySubject[sub] = map;
+            }catch(_e){
+                internalBySubject[sub] = {};
+            }
+        }));
+    }
+
+    // Build table: Subject-wise External + Internal
     let html = `<table><tr><th>Roll</th><th>Name</th>`;
-    SUBJECTS.forEach(s=>html+=`<th>${s}</th>`);
-    html+=`<th>Total</th><th>Percent</th></tr>`;
+    SUBJECTS.forEach(s=>html+=`<th>${s} Ext</th><th>${s} Int</th>`);
+    html+=`<th>Ext Total</th><th>Int Total</th><th>Grand Total</th><th>Percent</th></tr>`;
 
     STUDENTS.forEach(st=>{
-        let total=0;
+        let extTotal=0;
+        let intTotal=0;
+        const sid = String(getStudentId(st));
         html+=`<tr><td>${st.rollno}</td><td>${st.student_name}</td>`;
         SUBJECTS.forEach(sub=>{
-            const m = marksMap[st.rollno]?.[sub] || 0;
-            total+=parseFloat(m);
-            const color = m < (TOTAL_MARKS/3) ? 'style="background:#ffcccc"' : '';
-            html+=`<td ${color}>${m}</td>`;
+            const ext = Number(marksMap[st.rollno]?.[sub] || 0);
+            const int = allowInternal ? Number(internalBySubject[sub]?.[sid] || 0) : 0;
+            extTotal += ext;
+            intTotal += int;
+            const extColor = ext < (TOTAL_MARKS/3) ? 'style="background:#ffcccc"' : '';
+            html+=`<td ${extColor}>${ext}</td><td>${allowInternal ? int : "-"}</td>`;
         });
-        const percent = ((total/(SUBJECTS.length*TOTAL_MARKS))*100).toFixed(2);
+        const grand = extTotal + intTotal;
+        const maxMarks = SUBJECTS.length * TOTAL_MARKS; // percent based on external max baseline
+        const percent = maxMarks > 0 ? ((grand/maxMarks)*100).toFixed(2) : "0.00";
         const rowColor = percent < 33 ? 'style="background:#ffcccc"' : '';
-        html+=`<td>${total}</td><td ${rowColor}>${percent}</td></tr>`;
+        html+=`<td>${extTotal}</td><td>${allowInternal ? intTotal : "-"}</td><td>${grand}</td><td ${rowColor}>${percent}</td></tr>`;
     });
 
     html+=`</table>`;
@@ -189,6 +235,77 @@ function exportCSV(){
     a.download=`marks_${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+}
+
+async function exportPDF(){
+    const table = document.querySelector("#tableContainer table");
+    if(!table) return alert("No data");
+    const jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+    if(!jsPDFCtor || typeof window.html2canvas === "undefined"){
+        return alert("PDF library is not loaded. Please refresh and try again.");
+    }
+
+    const host = document.createElement("div");
+    host.style.position = "fixed";
+    host.style.left = "-99999px";
+    host.style.top = "0";
+    host.style.background = "#fff";
+    host.style.padding = "10px";
+    host.style.width = "1700px";
+
+    const examId = examSelect.value;
+    const examData = EXAMS.find(e=>e.exam_id==examId);
+    const title = document.createElement("h3");
+    title.textContent = `Uploaded Marks Report - ${classSelect.value} - ${examData?.exam_name || ""} - ${sessionSelect.value}`;
+    title.style.margin = "0 0 10px 0";
+    host.appendChild(title);
+    host.appendChild(table.cloneNode(true));
+    document.body.appendChild(host);
+
+    const btn = document.querySelector('button[onclick="exportPDF()"]');
+    const oldText = btn ? btn.textContent : "";
+    if(btn) btn.textContent = "Generating PDF...";
+
+    try{
+        const canvas = await window.html2canvas(host, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+        const img = canvas.toDataURL("image/jpeg", 0.95);
+        const pdf = new jsPDFCtor("l", "mm", "a4");
+        const pageW = 297, pageH = 210, margin = 6;
+        const maxW = pageW - margin*2;
+        const maxH = pageH - margin*2;
+        let w = maxW, h = (canvas.height * w) / canvas.width;
+        if(h <= maxH){
+            const x = (pageW - w) / 2;
+            const y = (pageH - h) / 2;
+            pdf.addImage(img, "JPEG", x, y, w, h);
+        }else{
+            const pageCanvas = document.createElement("canvas");
+            const ctx = pageCanvas.getContext("2d");
+            const sliceHeightPx = Math.floor(canvas.width * (maxH / maxW));
+            pageCanvas.width = canvas.width;
+            let yPx = 0;
+            let page = 0;
+            while(yPx < canvas.height){
+                const cur = Math.min(sliceHeightPx, canvas.height - yPx);
+                pageCanvas.height = cur;
+                ctx.clearRect(0,0,pageCanvas.width,pageCanvas.height);
+                ctx.drawImage(canvas, 0, yPx, canvas.width, cur, 0, 0, canvas.width, cur);
+                const slice = pageCanvas.toDataURL("image/jpeg", 0.95);
+                const sliceH = (cur * maxW) / canvas.width;
+                if(page > 0) pdf.addPage();
+                pdf.addImage(slice, "JPEG", margin, margin, maxW, sliceH);
+                yPx += cur;
+                page += 1;
+            }
+        }
+        pdf.save(`uploaded_marks_${classSelect.value}_${Date.now()}.pdf`);
+    }catch(err){
+        console.error(err);
+        alert("Unable to generate PDF");
+    }finally{
+        if(btn) btn.textContent = oldText || "Download PDF";
+        if(host.parentNode) host.parentNode.removeChild(host);
+    }
 }
 </script>
 </body>

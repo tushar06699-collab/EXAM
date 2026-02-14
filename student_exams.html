@@ -68,7 +68,7 @@ th,td{border:1px solid #ddd;padding:10px;text-align:center;}
 th{background:var(--primary);color:#fff;}
 tr:nth-child(even){background:#f4f6fb;}
 </style>
-</head>
+<link rel="stylesheet" href="student_mobile.css"></head>
 
 <body>
 
@@ -109,6 +109,7 @@ tr:nth-child(even){background:#f4f6fb;}
 
 <label><b>Select Exam</b></label>
 <select id="examSelect" style="padding:10px;width:100%;margin-bottom:15px;border-radius:8px;"></select>
+<button onclick="downloadPDF()" style="padding:10px 14px;border:none;border-radius:8px;background:#0f766e;color:#fff;cursor:pointer;margin-bottom:12px;">Download PDF</button>
 
 <table>
 <thead>
@@ -122,6 +123,8 @@ tr:nth-child(even){background:#f4f6fb;}
 
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 /* ========= AUTH ========= */
 if(localStorage.getItem("role") !== "student"){
@@ -229,12 +232,73 @@ function logout(){
     location.href="index.html";
 }
 
+async function downloadPDF(){
+    const exam = examSelect.value;
+    if(!exam) return alert("Select exam first.");
+    if(!body.querySelector("tr")) return alert("Load datesheet first.");
+
+    const jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+    if(!jsPDFCtor || typeof window.html2canvas === "undefined"){
+        return alert("PDF library not loaded. Refresh and try again.");
+    }
+
+    const host = document.createElement("div");
+    host.style.position = "fixed";
+    host.style.left = "-99999px";
+    host.style.top = "0";
+    host.style.width = "1100px";
+    host.style.background = "#fff";
+    host.style.padding = "10px";
+    host.style.fontFamily = "Poppins, sans-serif";
+    host.innerHTML = `<h3 style="margin:0 0 8px 0;">Exam Datesheet - ${exam}</h3>
+                      <div style="margin:0 0 10px 0;">Class: ${studentClass} | Session: ${CURRENT_SESSION}</div>`;
+    host.appendChild(document.querySelector("table").cloneNode(true));
+    document.body.appendChild(host);
+
+    try{
+        const canvas = await window.html2canvas(host, {scale:2, useCORS:true, backgroundColor:"#fff"});
+        const img = canvas.toDataURL("image/jpeg", 0.95);
+        const pdf = new jsPDFCtor("p","mm","a4");
+        const pageW=210, pageH=297, margin=8, maxW=pageW-margin*2, maxH=pageH-margin*2;
+        let w=maxW, h=(canvas.height*w)/canvas.width;
+        if(h<=maxH){
+            const x=(pageW-w)/2, y=(pageH-h)/2;
+            pdf.addImage(img,"JPEG",x,y,w,h);
+        }else{
+            const pageCanvas=document.createElement("canvas");
+            const ctx=pageCanvas.getContext("2d");
+            const sliceHeightPx=Math.floor(canvas.width*(maxH/maxW));
+            pageCanvas.width=canvas.width;
+            let yPx=0, page=0;
+            while(yPx<canvas.height){
+                const cur=Math.min(sliceHeightPx, canvas.height-yPx);
+                pageCanvas.height=cur;
+                ctx.clearRect(0,0,pageCanvas.width,pageCanvas.height);
+                ctx.drawImage(canvas,0,yPx,canvas.width,cur,0,0,canvas.width,cur);
+                const slice=pageCanvas.toDataURL("image/jpeg",0.95);
+                const sliceH=(cur*maxW)/canvas.width;
+                if(page>0) pdf.addPage();
+                pdf.addImage(slice,"JPEG",margin,margin,maxW,sliceH);
+                yPx+=cur; page+=1;
+            }
+        }
+        pdf.save(`student_datesheet_${exam}_${CURRENT_SESSION}.pdf`);
+    }catch(e){
+        console.error(e);
+        alert("Unable to generate PDF.");
+    }finally{
+        if(host.parentNode) host.parentNode.removeChild(host);
+    }
+}
+
 /* ========= INIT ========= */
 loadSession();
 </script>
 
 </body>
 </html>
+
+
 
 
 

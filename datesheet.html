@@ -22,6 +22,7 @@ th, td {border:1px solid #ccc;padding:10px;text-align:center;}
 th {background:#e8e8e8;}
 input[type="date"] {padding:6px;width:120px;}
 button {margin-top:20px;padding:12px;width:100%;background:#4f46e5;color:white;border:none;border-radius:6px;cursor:pointer;}
+.btn-pdf{background:#0f766e;}
 </style>
 </head>
 <body>
@@ -88,8 +89,11 @@ button {margin-top:20px;padding:12px;width:100%;background:#4f46e5;color:white;b
 </table>
 
 <button onclick="saveAll()">SAVE FULL DATESHEET</button>
+<button class="btn-pdf" onclick="downloadPDF()">DOWNLOAD PDF</button>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const FEE_API = "https://fee-backend-ntas.onrender.com";
 const EXAM_API = "https://exam-backend-ko0t.onrender.com";
@@ -116,9 +120,21 @@ hamburger.addEventListener("click", () => {
 /* ------------------ LOAD SESSIONS AND LOCK TO LATEST ------------------ */
 async function loadSessionsAndLock(){
   try {
-    const res = await fetch(`${FEE_API}/session/list`);
-    const data = await res.json();
-    const sessions = data.sessions || [];
+    // Primary source: exam backend sessions
+    let sessions = [];
+    try{
+      const r1 = await fetch(`${EXAM_API}/session/list`);
+      const d1 = await r1.json();
+      sessions = d1.sessions || [];
+    }catch(_e){}
+
+    // Fallback source: fee backend sessions
+    if(!sessions.length){
+      const r2 = await fetch(`${FEE_API}/session/list`);
+      const d2 = await r2.json();
+      sessions = d2.sessions || [];
+    }
+
     if(sessions.length > 0){
       // Pick latest session (or first) as current
       const currentSession = sessions[sessions.length-1];
@@ -159,9 +175,11 @@ async function loadExams(){
 
 /* ------------------ LOAD CLASSES ------------------ */
 async function loadClasses(){
-  const res = await fetch(`${STUDENT_API}/students`);
+  const session = sessionSelect.value;
+  const res = await fetch(`${STUDENT_API}/students?session=${encodeURIComponent(session)}`);
   const data = await res.json();
-  CLASS_LIST = [...new Set(data.map(s=>s.class_name))].filter(Boolean).sort((a,b)=>{
+  const list = Array.isArray(data) ? data : (data.students || []);
+  CLASS_LIST = [...new Set(list.map(s=>s.class_name))].filter(Boolean).sort((a,b)=>{
     let n1=parseInt(a), n2=parseInt(b);
     if(!isNaN(n1) && !isNaN(n2)) return n1-n2;
     return a.localeCompare(b);
@@ -179,15 +197,15 @@ async function buildTable(){
   await loadClasses();
   SUBJECTS_BY_CLASS = {};
 
-  for(let cls of CLASS_LIST){
+  await Promise.all(CLASS_LIST.map(async (cls)=>{
     try {
-      const res = await fetch(`${EXAM_API}/exam/get-datesheet?class_name=${cls}&session=${session}&exam_name=${exam}`);
+      const res = await fetch(`${EXAM_API}/exam/get-datesheet?class_name=${encodeURIComponent(cls)}&session=${encodeURIComponent(session)}&exam_name=${encodeURIComponent(exam)}`);
       const data = await res.json();
       SUBJECTS_BY_CLASS[cls] = data.datesheet || [];
     } catch(e){
       SUBJECTS_BY_CLASS[cls] = [];
     }
-  }
+  }));
 
   let allSubjectsSet = new Set();
   Object.values(SUBJECTS_BY_CLASS).forEach(arr => arr.forEach(sub => {
@@ -235,6 +253,68 @@ async function saveAll(){
   }
 
   alert("Datesheet saved successfully!");
+}
+
+async function downloadPDF(){
+  const table = document.getElementById("sheetTable");
+  if(!table || !table.querySelector("tbody tr")){
+    return alert("No datesheet data to export.");
+  }
+  const jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+  if(!jsPDFCtor || typeof window.html2canvas === "undefined"){
+    return alert("PDF library is not loaded. Refresh and try again.");
+  }
+
+  const host = document.createElement("div");
+  host.style.position = "fixed";
+  host.style.left = "-99999px";
+  host.style.top = "0";
+  host.style.width = "1600px";
+  host.style.background = "#fff";
+  host.style.padding = "10px";
+  host.innerHTML = `<h3 style="margin:0 0 10px 0;font-family:Poppins,sans-serif;">Datesheet - ${examSelect.value} - ${sessionSelect.value}</h3>`;
+  host.appendChild(table.cloneNode(true));
+  document.body.appendChild(host);
+
+  const btn = document.querySelector('button[onclick="downloadPDF()"]');
+  const oldText = btn ? btn.textContent : "";
+  if(btn) btn.textContent = "Generating PDF...";
+
+  try{
+    const canvas = await window.html2canvas(host, {scale:2, useCORS:true, backgroundColor:"#fff"});
+    const img = canvas.toDataURL("image/jpeg", 0.95);
+    const pdf = new jsPDFCtor("l","mm","a4");
+    const pageW=297, pageH=210, margin=6, maxW=pageW-margin*2, maxH=pageH-margin*2;
+    let w=maxW, h=(canvas.height*w)/canvas.width;
+    if(h<=maxH){
+      const x=(pageW-w)/2, y=(pageH-h)/2;
+      pdf.addImage(img,"JPEG",x,y,w,h);
+    }else{
+      const pageCanvas=document.createElement("canvas");
+      const ctx=pageCanvas.getContext("2d");
+      const sliceHeightPx=Math.floor(canvas.width*(maxH/maxW));
+      pageCanvas.width=canvas.width;
+      let yPx=0, page=0;
+      while(yPx<canvas.height){
+        const cur=Math.min(sliceHeightPx, canvas.height-yPx);
+        pageCanvas.height=cur;
+        ctx.clearRect(0,0,pageCanvas.width,pageCanvas.height);
+        ctx.drawImage(canvas,0,yPx,canvas.width,cur,0,0,canvas.width,cur);
+        const slice=pageCanvas.toDataURL("image/jpeg",0.95);
+        const sliceH=(cur*maxW)/canvas.width;
+        if(page>0) pdf.addPage();
+        pdf.addImage(slice,"JPEG",margin,margin,maxW,sliceH);
+        yPx+=cur; page+=1;
+      }
+    }
+    pdf.save(`datesheet_${examSelect.value || "exam"}_${sessionSelect.value || "session"}.pdf`);
+  }catch(e){
+    console.error(e);
+    alert("Unable to generate PDF.");
+  }finally{
+    if(btn) btn.textContent = oldText || "DOWNLOAD PDF";
+    if(host.parentNode) host.parentNode.removeChild(host);
+  }
 }
 
 // INITIAL LOAD
