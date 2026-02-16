@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Daily Attendance</title>
+<link rel="stylesheet" href="student_mobile.css">
+<style>
+:root{--primary:#4e73df;--bg:#f5f7fb;--card:#ffffff;--text:#333}
+body{margin:0;font-family:Poppins,system-ui,sans-serif;background:var(--bg);color:var(--text)}
+header{background:var(--primary);color:#fff;padding:10px 20px;display:flex;justify-content:space-between;align-items:center}
+.left{display:flex;align-items:center;gap:10px}.menu-btn{font-size:26px;cursor:pointer}
+.student-info{display:flex;align-items:center;gap:10px}.student-info img{width:38px;height:38px;border-radius:50%;border:2px solid #fff;object-fit:cover}
+.logout{background:rgba(255,255,255,.25);border:none;color:#fff;padding:6px 12px;border-radius:20px;cursor:pointer}
+.sidebar{position:fixed;top:0;left:-280px;width:260px;height:100%;background:#fff;box-shadow:2px 0 15px rgba(0,0,0,.2);padding:20px;transition:.3s;z-index:1001}
+.sidebar h2{color:var(--primary)}.sidebar a{display:block;padding:12px 0;color:#333;text-decoration:none;border-bottom:1px solid #eee}.sidebar a:hover{color:var(--primary)}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;z-index:1000}
+.container{max-width:1000px;margin:auto;padding:20px}
+.card{background:#fff;border-radius:14px;padding:18px;box-shadow:0 6px 15px rgba(0,0,0,.06);margin-bottom:20px}
+#statusMsg{font-size:13px;color:#6b7280;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{padding:10px;text-align:center;border-bottom:1px solid #ddd}th{background:#f3f4f6}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-weight:600;font-size:12px}
+.badge.present{background:#dcfce7;color:#166534}.badge.absent{background:#fee2e2;color:#991b1b}.badge.leave{background:#fef3c7;color:#92400e}
+</style>
+</head>
+<body>
+<div class="overlay" id="overlay" onclick="closeMenu()"></div>
+<div class="sidebar" id="sidebar">
+  <h2>Student Menu</h2>
+  <a onclick="openPage('student_portal.html')">Dashboard</a>
+  <a onclick="openPage('student_results.html')">Results</a>
+  <a onclick="openPage('student_timetable.html')">Timetable</a>
+  <a onclick="openPage('student_exams.html')">Exams</a>
+  <a onclick="openPage('student_hall_ticket.html')">Hall Ticket</a>
+  <a onclick="openPage('student_attendance.html')">Attendance Summary</a>
+  <a onclick="openPage('student_daily_attendance.html')">Daily Attendance</a>
+  <a onclick="openPage('student_notices.html')">Notices</a>
+  <a onclick="openPage('student_academic_calendar.html')">Academic Calendar</a>
+  <hr>
+</div>
+<header>
+  <div class="left"><span class="menu-btn" onclick="openMenu()">&#9776;</span><h1>Daily Attendance</h1></div>
+  <div class="student-info"><img id="headerPhoto" src="images/default.png"><span id="headerName">Student</span><button class="logout" onclick="logout()">Logout</button></div>
+</header>
+<div class="container">
+  <div class="card">
+    <div id="statusMsg">Loading day-wise attendance...</div>
+    <table>
+      <thead><tr><th>Date</th><th>Status</th></tr></thead>
+      <tbody id="attendanceBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="student_attendance_data.js"></script>
+<script>
+if(localStorage.getItem('role')!=='student') location.href='index.html';
+const API='https://exam-backend-ko0t.onrender.com';
+const studentId=localStorage.getItem('student_id');
+if(!studentId) location.href='index.html';
+
+const fallbackClass=localStorage.getItem('class')||'';
+const fallbackSession=localStorage.getItem('session')||'';
+let resolvedClass='';
+let resolvedSession='';
+let studentIdKeys=[];
+let studentRollKeys=[];
+
+function renderRows(records){
+  const byDate = StudentAttendanceData.aggregateByDate(records);
+  const sorted = Object.keys(byDate).sort((a,b)=>a.localeCompare(b));
+  if(!sorted.length){
+    attendanceBody.innerHTML='<tr><td colspan="2">No attendance marked yet.</td></tr>';
+    return 0;
+  }
+  attendanceBody.innerHTML = sorted.map(date=>{
+    const st = byDate[date];
+    return `<tr><td>${date}</td><td><span class="badge ${st}">${st}</span></td></tr>`;
+  }).join('');
+  return sorted.length;
+}
+
+async function loadDaily(){
+  if(!resolvedClass || !resolvedSession) return;
+
+  const cached = StudentAttendanceData.getCachedAttendanceData({
+    studentId,
+    resolvedSession,
+    resolvedClass,
+    maxCacheMs: 15*60*1000
+  });
+  if(cached.records && cached.records.length){
+    const count = renderRows(cached.records);
+    statusMsg.textContent = `Showing cached entries (${count})...`;
+  }else{
+    statusMsg.textContent='Loading daily attendance...';
+  }
+
+  try{
+    const quickRecords = await StudentAttendanceData.getQuickAttendanceData({
+      api: API,
+      resolvedSession,
+      resolvedClass,
+      studentIdKeys,
+      studentRollKeys
+    });
+    if(quickRecords.length){
+      const count = renderRows(quickRecords);
+      statusMsg.textContent = `Quick entries loaded (${count}). Syncing full data...`;
+    }
+  }catch(e){}
+
+  const {records, source} = await StudentAttendanceData.getAttendanceData({
+    api: API,
+    studentId,
+    resolvedSession,
+    resolvedClass,
+    studentIdKeys,
+    studentRollKeys,
+    maxCacheMs: 15*60*1000
+  });
+  const count = renderRows(records);
+  statusMsg.textContent = count ? `Showing only marked days (${count} entries) (${source})` : 'No attendance marked yet';
+}
+
+fetch(`${API}/portal/student/${studentId}`)
+.then(r=>r.json())
+.then(d=>{
+  if(!d.success) throw new Error('Invalid session');
+  const s=d.student;
+  const photo=s.photo_url||'images/default.png';
+  headerPhoto.src=photo;
+  headerName.textContent=s.name||'Student';
+  resolvedClass=s.class_name||fallbackClass;
+  resolvedSession=s.session||fallbackSession;
+  studentIdKeys=[studentId,s._id,s.id,s.student_id].filter(Boolean).map(StudentAttendanceData.normalizedId);
+  studentRollKeys=[s.roll,localStorage.getItem('rollno'),localStorage.getItem('roll')].filter(Boolean).map(v=>String(v).trim());
+  if(!resolvedClass || !resolvedSession) throw new Error('Missing class/session');
+  loadDaily();
+}).catch(()=>{ alert('Session expired. Please login again.'); logout(); });
+
+function openMenu(){ sidebar.style.left='0'; overlay.style.display='block'; }
+function closeMenu(){ sidebar.style.left='-280px'; overlay.style.display='none'; }
+function openPage(p){ location.href=p; }
+function logout(){ localStorage.clear(); location.href='index.html'; }
+</script>
+  <script src="student_photo_sync.js"></script>
+</body>
+</html>

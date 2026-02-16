@@ -1,392 +1,208 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Student Attendance</title>
-
+<title>Student Attendance Summary</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+<link rel="stylesheet" href="student_mobile.css">
 <style>
-:root{
-    --primary:#4e73df;
-    --bg:#f5f7fb;
-    --card:#ffffff;
-    --text:#333;
-}
-body{
-    margin:0;
-    font-family:Poppins,system-ui,sans-serif;
-    background:var(--bg);
-    color:var(--text);
-}
-
-/* HEADER */
-header{
-    background:var(--primary);
-    color:#fff;
-    padding:10px 20px;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-}
-.left{display:flex;align-items:center;gap:10px;}
-.menu-btn{font-size:26px;cursor:pointer;}
-.student-info{display:flex;align-items:center;gap:10px;}
-.student-info img{
-    width:38px;height:38px;border-radius:50%;
-    border:2px solid #fff;object-fit:cover;
-}
-.logout{
-    background:rgba(255,255,255,.25);
-    border:none;color:white;
-    padding:6px 12px;border-radius:20px;
-    cursor:pointer;
-}
-
-/* SIDEBAR */
-.sidebar{
-    position:fixed;top:0;left:-280px;
-    width:260px;height:100%;
-    background:#fff;
-    box-shadow:2px 0 15px rgba(0,0,0,.2);
-    padding:20px;transition:.3s;z-index:1001;
-}
-.sidebar h2{color:var(--primary);}
-.sidebar a{
-    display:block;padding:12px 0;
-    color:#333;text-decoration:none;
-    border-bottom:1px solid #eee;
-}
-.sidebar a:hover{color:var(--primary);}
-
-/* OVERLAY */
-.overlay{
-    position:fixed;inset:0;
-    background:rgba(0,0,0,.4);
-    display:none;z-index:1000;
-}
-
-/* MAIN */
-.container{max-width:1000px;margin:auto;padding:20px;}
-
-/* PROFILE */
-.profile{
-    background:#fff;border-radius:16px;
-    padding:20px;display:flex;gap:20px;
-    align-items:center;
-    box-shadow:0 8px 20px rgba(0,0,0,.06);
-    margin-bottom:25px;
-}
-.profile img{
-    width:100px;height:100px;
-    border-radius:18%;
-    border:3px solid var(--primary);
-    object-fit:cover;
-}
-
-/* CARD */
-.card{
-    background:#fff;border-radius:14px;
-    padding:18px;
-    box-shadow:0 6px 15px rgba(0,0,0,.06);
-    margin-bottom:20px;
-}
-
-/* SUMMARY */
-.summary{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
-    gap:12px;
-}
-.box{
-    padding:12px;border-radius:12px;
-    color:white;text-align:center;
-}
-.present{background:#22c55e;}
-.absent{background:#ef4444;}
-.leave{background:#f59e0b;}
-.total{background:#3b82f6;}
-
-/* TABLE */
-table{width:100%;border-collapse:collapse;margin-top:15px;}
-th,td{
-    padding:10px;text-align:center;
-    border-bottom:1px solid #ddd;
-}
-th{background:#f3f4f6;}
-td.present{color:#16a34a;font-weight:600;}
-td.absent{color:#dc2626;font-weight:600;}
-td.leave{color:#d97706;font-weight:600;}
+:root{--primary:#4e73df;--bg:#f5f7fb;--card:#ffffff;--text:#333}
+body{margin:0;font-family:Poppins,system-ui,sans-serif;background:var(--bg);color:var(--text)}
+header{background:var(--primary);color:#fff;padding:10px 20px;display:flex;justify-content:space-between;align-items:center}
+.left{display:flex;align-items:center;gap:10px}.menu-btn{font-size:26px;cursor:pointer}
+.student-info{display:flex;align-items:center;gap:10px}.student-info img{width:38px;height:38px;border-radius:50%;border:2px solid #fff;object-fit:cover}
+.logout{background:rgba(255,255,255,.25);border:none;color:#fff;padding:6px 12px;border-radius:20px;cursor:pointer}
+.sidebar{position:fixed;top:0;left:-280px;width:260px;height:100%;background:#fff;box-shadow:2px 0 15px rgba(0,0,0,.2);padding:20px;transition:.3s;z-index:1001}
+.sidebar h2{color:var(--primary)}.sidebar a{display:block;padding:12px 0;color:#333;text-decoration:none;border-bottom:1px solid #eee}.sidebar a:hover{color:var(--primary)}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;z-index:1000}
+.container{max-width:1000px;margin:auto;padding:20px}
+.profile,.card{background:#fff;border-radius:14px;padding:18px;box-shadow:0 6px 15px rgba(0,0,0,.06);margin-bottom:20px}
+.profile{display:flex;gap:20px;align-items:center}
+.profile img{width:100px;height:100px;border-radius:18%;border:3px solid var(--primary);object-fit:cover}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+.box{padding:12px;border-radius:12px;color:#fff;text-align:center}.present{background:#22c55e}.absent{background:#ef4444}.leave{background:#f59e0b}.total{background:#3b82f6}
+button.primary{margin-top:10px;width:100%;max-width:300px;padding:11px;background:#4f46e5;color:#fff;border:none;font-size:15px;border-radius:8px;cursor:pointer}
+#loadingText{font-size:13px;color:#6b7280}
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:center}
+.chart-box{min-height:220px}
+#chartStatus{font-size:12px;color:#6b7280;margin:8px 0 0;text-align:center}
+@media(max-width:700px){.chart-grid{grid-template-columns:1fr}}
 </style>
-<link rel="stylesheet" href="student_mobile.css"></head>
-
+</head>
 <body>
-
 <div class="overlay" id="overlay" onclick="closeMenu()"></div>
-
 <div class="sidebar" id="sidebar">
-    <h2>Student Menu</h2>
-    <a onclick="openPage('student_portal.html')">Dashboard</a>
-    <a onclick="openPage('student_results.html')">Results</a>
-    <a onclick="openPage('student_timetable.html')">Timetable</a>
-    <a onclick="openPage('student_exams.html')">Exams</a>
-    <a onclick="openPage('student_hall_ticket.html')">Hall Ticket</a>
-    <a onclick="openPage('student_attendance.html')">Attendance</a>
-            <a onclick="openPage('student_notices.html')">Notices</a>
-        <a onclick="openPage('student_academic_calendar.html')">Academic Calendar</a>
-    <hr>
+  <h2>Student Menu</h2>
+  <a onclick="openPage('student_portal.html')">Dashboard</a>
+  <a onclick="openPage('student_results.html')">Results</a>
+  <a onclick="openPage('student_timetable.html')">Timetable</a>
+  <a onclick="openPage('student_exams.html')">Exams</a>
+  <a onclick="openPage('student_hall_ticket.html')">Hall Ticket</a>
+  <a onclick="openPage('student_attendance.html')">Attendance Summary</a>
+  <a onclick="openPage('student_daily_attendance.html')">Daily Attendance</a>
+  <a onclick="openPage('student_notices.html')">Notices</a>
+  <a onclick="openPage('student_academic_calendar.html')">Academic Calendar</a>
+  <hr>
 </div>
-
 <header>
-    <div class="left">
-        <span class="menu-btn" onclick="openMenu()">☰</span>
-        <h1>Attendance</h1>
-    </div>
-    <div class="student-info">
-        <img id="headerPhoto" src="images/default.png">
-        <span id="headerName">Student</span>
-        <button class="logout" onclick="logout()">Logout</button>
-    </div>
+  <div class="left"><span class="menu-btn" onclick="openMenu()">&#9776;</span><h1>Attendance Summary</h1></div>
+  <div class="student-info"><img id="headerPhoto" src="images/default.png"><span id="headerName">Student</span><button class="logout" onclick="logout()">Logout</button></div>
 </header>
-
 <div class="container">
-
-<div class="profile">
+  <div class="profile">
     <img id="dashPhoto" src="images/default.png">
-    <div>
-        <h2 id="dashName">Student Name</h2>
-        <p id="dashClass">Class - Section</p>
-        <p id="dashRoll">Roll No</p>
-    </div>
-</div>
+    <div><h2 id="dashName">Student Name</h2><p id="dashClass">Class - Section</p><p id="dashRoll">Roll No</p><p id="loadingText">Loading attendance...</p></div>
+  </div>
 
-<div class="card">
-    <label><b>Select Month</b></label><br>
-    <input type="month" id="monthPicker">
-</div>
-
-<div class="summary card">
-    <div class="box total"><h3 id="totalDays">0</h3><p>Total</p></div>
+  <div class="summary card">
+    <div class="box total"><h3 id="totalDays">0</h3><p>Total Marked Days</p></div>
     <div class="box present"><h3 id="presentDays">0</h3><p>Present</p></div>
     <div class="box absent"><h3 id="absentDays">0</h3><p>Absent</p></div>
     <div class="box leave"><h3 id="leaveDays">0</h3><p>Leave</p></div>
-</div>
+  </div>
 
-<!-- SMALL FIXED GRAPH -->
-<div class="card">
+  <div class="card">
     <h3>Attendance Overview</h3>
-    <div style="height:180px; max-width:260px; margin:auto;">
-        <canvas id="attendanceChart"></canvas>
+    <div class="chart-grid">
+      <div class="chart-box"><canvas id="attendanceChart"></canvas></div>
+      <div class="chart-box"><canvas id="attendanceBarChart"></canvas></div>
     </div>
+    <p id="chartStatus">Charts will render after totals are loaded.</p>
+  </div>
+
+  <div class="card" style="text-align:center;">
+    <h3>Need Day-wise Attendance?</h3>
+    <button class="primary" onclick="openPage('student_daily_attendance.html')">See Daily Attendance</button>
+  </div>
 </div>
 
-<div class="card">
-    <h3>Daily Attendance</h3>
-    <table>
-        <thead>
-            <tr><th>Date</th><th>Status</th></tr>
-        </thead>
-        <tbody id="attendanceBody"></tbody>
-    </table>
-</div>
-
-</div>
+<script src="student_attendance_data.js"></script>
 <script>
-/* ---------- AUTH ---------- */
-if(localStorage.getItem("role")!=="student"){
-    location.href="index.html";
+if(localStorage.getItem('role')!=='student') location.href='index.html';
+const API='https://exam-backend-ko0t.onrender.com';
+const studentId=localStorage.getItem('student_id');
+if(!studentId) location.href='index.html';
+
+const fallbackClass=localStorage.getItem('class')||'';
+const fallbackSession=localStorage.getItem('session')||'';
+let resolvedClass='';
+let resolvedSession='';
+let studentIdKeys=[];
+let studentRollKeys=[];
+let attendanceChart=null;
+let attendanceBarChart=null;
+
+function drawCharts(p,a,l){
+  const donutCtx=document.getElementById('attendanceChart').getContext('2d');
+  const barCtx=document.getElementById('attendanceBarChart').getContext('2d');
+
+  if(attendanceChart) attendanceChart.destroy();
+  if(attendanceBarChart) attendanceBarChart.destroy();
+
+  attendanceChart=new Chart(donutCtx,{
+    type:'doughnut',
+    data:{labels:['Present','Absent','Leave'],datasets:[{data:[p,a,l],backgroundColor:['#22c55e','#ef4444','#f59e0b']}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{position:'bottom'}}}
+  });
+
+  attendanceBarChart=new Chart(barCtx,{
+    type:'bar',
+    data:{labels:['Present','Absent','Leave'],datasets:[{label:'Days',data:[p,a,l],backgroundColor:['#22c55e','#ef4444','#f59e0b'],borderRadius:8}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
+  });
 }
 
-const API = "https://exam-backend-ko0t.onrender.com";
-const studentId = localStorage.getItem("student_id");
-
-if(!studentId){
-    location.href="index.html";
+function scheduleChartRender(p,a,l){
+  chartStatus.textContent = 'Totals loaded. Rendering charts...';
+  setTimeout(()=>{
+    drawCharts(p,a,l);
+    chartStatus.textContent = 'Charts updated.';
+  }, 0);
 }
 
-const fallbackClass = localStorage.getItem("class") || "";
-const fallbackSession = localStorage.getItem("session") || "";
-let resolvedClass = "";
-let resolvedSession = "";
-let studentIdKeys = [];
-let studentRollKeys = [];
+function renderSummary(records){
+  const byDate = StudentAttendanceData.aggregateByDate(records);
+  let p=0,a=0,l=0;
+  Object.values(byDate).forEach(st=>{ if(st==='present') p++; else if(st==='absent') a++; else if(st==='leave') l++; });
+  const total = p+a+l;
+  totalDays.textContent=total;
+  presentDays.textContent=p;
+  absentDays.textContent=a;
+  leaveDays.textContent=l;
+  scheduleChartRender(p,a,l);
+  return total;
+}
 
-function normalizedId(raw){
-    if(raw == null) return "";
-    if(typeof raw === "string") return raw.trim();
-    if(typeof raw === "object"){
-        if(typeof raw.$oid === "string") return raw.$oid.trim();
-        if(typeof raw.oid === "string") return raw.oid.trim();
-        if(typeof raw.id === "string") return raw.id.trim();
+async function loadSummary(){
+  if(!resolvedClass||!resolvedSession) return;
+
+  // 1) Show cache instantly (fresh or stale)
+  const cached = StudentAttendanceData.getCachedAttendanceData({
+    studentId,
+    resolvedSession,
+    resolvedClass,
+    maxCacheMs: 15*60*1000
+  });
+  if(cached.records && cached.records.length){
+    const total = renderSummary(cached.records);
+    loadingText.textContent = `Showing cached data (${cached.source})...`;
+  }else{
+    loadingText.textContent='Loading attendance...';
+  }
+
+  // 2) Quick recent fetch (last 2 months) for immediate update
+  try{
+    const quickRecords = await StudentAttendanceData.getQuickAttendanceData({
+      api: API,
+      resolvedSession,
+      resolvedClass,
+      studentIdKeys,
+      studentRollKeys
+    });
+    if(quickRecords.length){
+      const total = renderSummary(quickRecords);
+      loadingText.textContent = `Quick data loaded (${total} days). Syncing full data...`;
     }
-    return String(raw).trim();
+  }catch(e){}
+
+  // 3) Full fetch/update in background
+  const {records, source} = await StudentAttendanceData.getAttendanceData({
+    api: API,
+    studentId,
+    resolvedSession,
+    resolvedClass,
+    studentIdKeys,
+    studentRollKeys,
+    maxCacheMs: 15*60*1000
+  });
+  const total = renderSummary(records);
+  loadingText.textContent = total ? `Updated from ${total} marked day(s) (${source})` : 'No attendance marked yet';
 }
 
-let attendanceChart = null;
-
-/* ---------- LOAD STUDENT (SAME AS TIMETABLE) ---------- */
 fetch(`${API}/portal/student/${studentId}`)
 .then(r=>r.json())
 .then(d=>{
-    if(!d.success) throw "Invalid session";
+  if(!d.success) throw new Error('Invalid session');
+  const s=d.student;
+  const photo=s.photo_url||'images/default.png';
+  headerPhoto.src=photo; dashPhoto.src=photo;
+  headerName.textContent=s.name||'Student'; dashName.textContent=s.name||'Student';
+  dashClass.textContent=`Class: ${s.class_name||fallbackClass} - ${s.section||''}`;
+  dashRoll.textContent=`Roll No: ${s.roll||localStorage.getItem('rollno')||'N/A'}`;
+  resolvedClass=s.class_name||fallbackClass;
+  resolvedSession=s.session||fallbackSession;
+  studentIdKeys=[studentId,s._id,s.id,s.student_id].filter(Boolean).map(StudentAttendanceData.normalizedId);
+  studentRollKeys=[s.roll,localStorage.getItem('rollno'),localStorage.getItem('roll')].filter(Boolean).map(v=>String(v).trim());
+  if(!resolvedClass||!resolvedSession) throw new Error('Missing class/session');
+  loadSummary();
+}).catch(()=>{ alert('Session expired. Please login again.'); logout(); });
 
-    const s = d.student;
-    const photo = s.photo_url || "images/default.png";
-
-    // HEADER
-    headerPhoto.src = photo;
-    headerName.innerText = s.name;
-
-    // PROFILE
-    dashPhoto.src = photo;
-    dashName.innerText = s.name;
-    dashClass.innerText = `Class: ${s.class_name} - ${s.section}`;
-    dashRoll.innerText = `Roll No: ${s.roll || "N/A"}`;
-
-    resolvedClass = s.class_name || fallbackClass;
-    resolvedSession = s.session || fallbackSession;
-    studentIdKeys = [studentId, s._id, s.id, s.student_id]
-        .filter(Boolean)
-        .map(v => normalizedId(v))
-        .filter(Boolean);
-    studentRollKeys = [s.roll, localStorage.getItem("rollno"), localStorage.getItem("roll")]
-        .filter(Boolean)
-        .map(v => String(v).trim());
-
-    if(!resolvedClass || !resolvedSession){
-        throw "Missing class/session";
-    }
-
-    loadAttendance();
-
-    headerPhoto.onerror = dashPhoto.onerror =
-        ()=>{ headerPhoto.src = dashPhoto.src = "images/default.png"; };
-})
-.catch(()=>{
-    alert("Session expired. Please login again.");
-    logout();
-});
-
-/* ---------- MONTH ---------- */
-monthPicker.value = new Date().toISOString().slice(0,7);
-monthPicker.addEventListener("change", loadAttendance);
-
-/* ---------- LOAD ATTENDANCE ---------- */
-async function loadAttendance(){
-    if(!resolvedClass || !resolvedSession) return;
-    const sessionCandidates = Array.from(new Set([
-        resolvedSession,
-        String(resolvedSession).replace(/_/g, "-"),
-        String(resolvedSession).replace(/-/g, "_")
-    ].filter(Boolean)));
-
-    const [y,m] = monthPicker.value.split("-");
-    const days = new Date(y,m,0).getDate();
-
-    let p=0,a=0,l=0, rows="";
-
-    for(let d=1; d<=days; d++){
-        const date = `${y}-${m}-${String(d).padStart(2,"0")}`;
-        let status="-";
-
-        try{
-            let rec = null;
-            for(const sess of sessionCandidates){
-                const r = await fetch(
-                    `${API}/attendance/list?session=${encodeURIComponent(sess)}&class_name=${encodeURIComponent(resolvedClass)}&date=${encodeURIComponent(date)}`
-                );
-                const j = await r.json();
-                rec = j.attendance?.find(x=>{
-                    const sid = normalizedId(x.student_id);
-                    const sroll = String(x.student_roll || "").trim();
-                    return studentIdKeys.includes(sid) || (sroll && studentRollKeys.includes(sroll));
-                }) || null;
-                if(rec) break;
-            }
-
-            if(rec){
-                status = rec.status;
-                if(status==="present") p++;
-                else if(status==="absent") a++;
-                else if(status==="leave") l++;
-            }
-        }catch(e){}
-
-        rows += `<tr>
-            <td>${date}</td>
-            <td class="${status}">${status}</td>
-        </tr>`;
-    }
-
-    attendanceBody.innerHTML = rows;
-    totalDays.innerText = days;
-    presentDays.innerText = p;
-    absentDays.innerText = a;
-    leaveDays.innerText = l;
-
-    drawChart(p,a,l);
-}
-
-/* ---------- GRAPH ---------- */
-function drawChart(p,a,l){
-    const ctx = attendanceChartEl.getContext("2d");
-    if(attendanceChart) attendanceChart.destroy();
-
-    attendanceChart = new Chart(ctx,{
-        type:"doughnut",
-        data:{
-            labels:["Present","Absent","Leave"],
-            datasets:[{
-                data:[p,a,l],
-                backgroundColor:["#22c55e","#ef4444","#f59e0b"]
-            }]
-        },
-        options:{
-            responsive:true,
-            maintainAspectRatio:false,
-            cutout:"70%",
-            plugins:{
-                legend:{
-                    position:"bottom",
-                    labels:{
-                        boxWidth:10,
-                        padding:6,
-                        font:{size:10}
-                    }
-                }
-            }
-        }
-    });
-}
-
-/* ---------- MENU ---------- */
-function openMenu(){
-    sidebar.style.left="0";
-    overlay.style.display="block";
-}
-function closeMenu(){
-    sidebar.style.left="-280px";
-    overlay.style.display="none";
-}
-function openPage(p){location.href=p;}
-function logout(){
-    localStorage.clear();
-    location.href="index.html";
-}
-
-/* ---------- FIX CANVAS REF ---------- */
-const attendanceChartEl = document.getElementById("attendanceChart");
+function openMenu(){ sidebar.style.left='0'; overlay.style.display='block'; }
+function closeMenu(){ sidebar.style.left='-280px'; overlay.style.display='none'; }
+function openPage(p){ location.href=p; }
+function logout(){ localStorage.clear(); location.href='index.html'; }
 </script>
-
-
+  <script src="student_photo_sync.js"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
