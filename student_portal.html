@@ -222,7 +222,7 @@ header{
             <h2 id="dashName">Student Name</h2>
             <p id="dashClass">Class - Section</p>
             <p id="dashRoll">Roll No</p>
-            <p id="eligibilityMsg" style="margin-top:8px;color:#b91c1c;font-weight:600;"></p>
+            <p id="eligibilityMsg" style="margin-top:8px;color:#fff;font-weight:600;"></p>
         </div>
     </div>
      <!-- LATEST NOTICES -->
@@ -239,19 +239,21 @@ header{
 
 </div>
 
+<script src="student_attendance_data.js"></script>
 <script>
 /* AUTH CHECK */
 if(localStorage.getItem("role")!=="student"){
     location.href="index.html";
 }
 
+const EXAM_API = "https://exam-backend-ko0t.onrender.com";
 const studentId = localStorage.getItem("student_id");
 if(!studentId){
     location.href="index.html";
 }
 
 /* FETCH STUDENT FROM YOUR BACKEND */
-fetch(`https://exam-backend-ko0t.onrender.com/portal/student/${studentId}`)
+fetch(`${EXAM_API}/portal/student/${studentId}`)
 .then(res=>res.json())
 .then(data=>{
     if(!data.success) throw "Invalid";
@@ -277,6 +279,8 @@ fetch(`https://exam-backend-ko0t.onrender.com/portal/student/${studentId}`)
     headerPhoto.onerror = dashPhoto.onerror = ()=>{
         headerPhoto.src = dashPhoto.src = "images/default.png";
     };
+
+    preloadAttendanceCache(s);
 })
 .catch(()=>{
     alert("Session expired. Login again.");
@@ -284,7 +288,7 @@ fetch(`https://exam-backend-ko0t.onrender.com/portal/student/${studentId}`)
 });
 
 /* LOAD LATEST 2 NOTICES */
-fetch("https://exam-backend-ko0t.onrender.com/notice/list?role=student")
+fetch(`${EXAM_API}/notice/list?role=student`)
 .then(res => res.json())
 .then(data => {
     const box = document.getElementById("latestNoticeList");
@@ -322,12 +326,45 @@ function closeMenu(){
     overlay.style.display="none";
 }
 function openPage(p){location.href=p;}
+function preloadAttendanceCache(student){
+    try{
+        if(typeof StudentAttendanceData === "undefined") return;
+
+        const resolvedClass = (student && student.class_name) || localStorage.getItem("class") || "";
+        const resolvedSession = (student && student.session) || localStorage.getItem("session") || "";
+        if(!resolvedClass || !resolvedSession) return;
+
+        const studentIdKeys = [studentId, student?._id, student?.id, student?.student_id]
+            .filter(Boolean)
+            .map(StudentAttendanceData.normalizedId);
+
+        const studentRollKeys = [
+            student?.roll,
+            localStorage.getItem("rollno"),
+            localStorage.getItem("roll")
+        ].filter(Boolean).map(v => String(v).trim());
+
+        // immediate non-blocking fetch + cache warmup (15 min)
+        setTimeout(() => {
+            StudentAttendanceData.getAttendanceData({
+                api: EXAM_API,
+                studentId,
+                resolvedSession,
+                resolvedClass,
+                studentIdKeys,
+                studentRollKeys,
+                maxCacheMs: 15 * 60 * 1000
+            }).catch(() => {});
+        }, 0);
+    }catch(e){}
+}
 function logout(){
     localStorage.clear();
     location.href="index.html";
 }
 </script>
 
+  <script src="student_sidebar_shared.js"></script>
 </body>
 </html>
 
