@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -114,7 +114,7 @@ header{
 
 <header>
     <div class="left">
-        <span class="menu-btn" onclick="openMenu()">☰</span>
+        <span class="menu-btn" onclick="openMenu()">?</span>
         <h1>Academic Calendar</h1>
     </div>
     <div class="student-info">
@@ -147,7 +147,7 @@ const studentId = localStorage.getItem("student_id");
 if(!studentId) location.href="index.html";
 
 /* STUDENT INFO */
-fetch(`https://exam-backend-ko0t.onrender.com/portal/student/${studentId}`)
+fetch(`https://exam-backend-117372286918.asia-south1.run.app//portal/student/${studentId}`)
 .then(r=>r.json())
 .then(d=>{
     if(!d.success) throw "";
@@ -163,7 +163,7 @@ function openPage(p){location.href=p;}
 function logout(){localStorage.clear();location.href="index.html";}
 
 /* CALENDAR LOGIC */
-const API="https://exam-backend-ko0t.onrender.com";
+const API="https://exam-backend-117372286918.asia-south1.run.app/";
 const calendarEl=document.getElementById("calendar");
 const sessionTitle=document.getElementById("sessionTitle");
 const days=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];

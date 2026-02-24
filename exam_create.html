@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -144,12 +144,12 @@ button:hover {
 
 </div>
 <script>
-const EXAM_API = "https://exam-backend-ko0t.onrender.com";
+const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/";
 
 /* LOAD CURRENT SESSION ONLY */
 async function loadCurrentSession() {
   try {
-    const res = await fetch("https://exam-backend-ko0t.onrender.com/session/list");
+    const res = await fetch("https://exam-backend-117372286918.asia-south1.run.app//session/list");
     const data = await res.json();
 
     // Assuming current session is last in the list, or pick with some property

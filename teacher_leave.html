@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -107,7 +107,7 @@
 </style>
 </head>
 <body>
-<div id="hamburger" onclick="toggleSidebar()">☰</div>
+<div id="hamburger" onclick="toggleSidebar()">?</div>
 
 <div class="sidebar">
   <h2>School ERP</h2>
@@ -211,7 +211,7 @@
 /* ----------------------
    Configuration
    ---------------------- */
-const BACKEND = "https://exam-backend-ko0t.onrender.com";
+const BACKEND = "https://exam-backend-117372286918.asia-south1.run.app/";
 
 /* ----------------------
    Helper: Teacher info
@@ -317,7 +317,7 @@ leaveForm.addEventListener("submit", async (ev) => {
   if (new Date(sd) > new Date(ed)) return showMessage("Start Date cannot be after End Date.", "error");
 
   submitBtn.disabled = true;
-  submitBtn.textContent = "Submittingâ€¦";
+  submitBtn.textContent = "Submitting…";
 
   try {
     const fd = new FormData();
@@ -355,7 +355,7 @@ fd.append("reason", note);
    Load leaves (show admin reply)
    ---------------------- */
 async function loadLeaves(limit=20){
-  leaveList.innerHTML = `<div class="center small-muted">Loadingâ€¦</div>`;
+  leaveList.innerHTML = `<div class="center small-muted">Loading…</div>`;
   try {
     const res = await fetch(`${BACKEND}/leave/teacher/${encodeURIComponent(teacher.id)}`);
     const data = await res.json();
@@ -380,7 +380,7 @@ async function loadLeaves(limit=20){
       const left = document.createElement("div");
       left.className = "leave-left";
 
-      let infoHtml = `<div style="font-weight:700">${sess} â€¢ ${st} â†’ ${en}</div>
+      let infoHtml = `<div style="font-weight:700">${sess} • ${st} → ${en}</div>
                       <div class="meta small-muted">${escapeHtml(rsn)}</div>`;
       if (adminMsg) {
         infoHtml += `<div class="meta small-muted" style="color:var(--accent-2);margin-top:4px"><strong>Admin:</strong> ${escapeHtml(adminMsg)}</div>`;
