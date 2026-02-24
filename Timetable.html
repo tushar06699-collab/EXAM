@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -70,7 +70,7 @@ button:hover { background:#233465; }
 
 <script>
 const EXAM_API = "https://exam-backend-ko0t.onrender.com"; 
-const STUDENT_API = "https://students-backend-8mup.onrender.com";
+const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app/";
 
 let classes = [];
 let subjectsByClass = {};
@@ -292,7 +292,7 @@ async function generateRows(existing=[]) {
         
             let subjectClass = this.value;
         
-            // MAP COMBINED â†’ REAL CLASS
+            // MAP COMBINED → REAL CLASS
             const match = this.value.match(/^(\d+)/);
 if(this.value.includes("COMBINED") && match){
     subjectClass = classes.find(c =>

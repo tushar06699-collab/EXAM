@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -95,7 +95,7 @@ body{margin:0;font-family:Poppins,sans-serif;background:#eef1f6;display:flex;}
 </div>
 
 <script>
-const STUDENT_API = "https://students-backend-8mup.onrender.com";
+const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app/";
 const EXAM_API = "https://exam-backend-ko0t.onrender.com";
 const LEAVE_API = EXAM_API;
 
@@ -203,7 +203,7 @@ async function loadLeaveRequests(){
     d.leaves.slice(0,5).forEach(l=>{
         html += `<tr>
             <td>${l.teacher_name}</td>
-            <td>${l.start_date} â†’ ${l.end_date}</td>
+            <td>${l.start_date} → ${l.end_date}</td>
             <td>${l.reason}</td>
             <td><span>${l.status}</span></td>
         </tr>`;
