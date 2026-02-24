@@ -103,19 +103,34 @@ const userInput = document.getElementById("user");
 const passInput = document.getElementById("pass");
 const errDiv = document.getElementById("err");
 
-/* ---------- DOB NORMALIZER (STUDENT ONLY) ---------- */
-function normalizeDOB(input){
+/* ---------- DOB CANDIDATES (STUDENT ONLY) ---------- */
+function getDOBCandidates(input){
     const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    input = input.trim();
+    const out = [];
+    const raw = String(input || "").trim();
 
-    if (/^\d{8}$/.test(input)) {
-        const d = input.slice(0,2);
-        const m = input.slice(2,4);
-        const y = input.slice(4,8);
-        if (+m < 1 || +m > 12) return "";
-        return `${months[m-1]} ${d}, ${y}`;
+    // Accept DDMMYYYY from login input
+    if (/^\d{8}$/.test(raw)) {
+        const d = parseInt(raw.slice(0,2), 10);
+        const m = parseInt(raw.slice(2,4), 10);
+        const y = parseInt(raw.slice(4,8), 10);
+        if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+            const dd = String(d).padStart(2, "0");
+            const mm = String(m).padStart(2, "0");
+            const mmm = months[m - 1];
+            out.push(`${mmm} ${dd}, ${y}`); // Dec 29, 2018
+            out.push(`${mmm} ${d}, ${y}`);  // Dec 9, 2018
+            out.push(`${y}-${mm}-${dd}`);   // 2018-12-29
+            out.push(`${dd}-${mm}-${y}`);   // 29-12-2018
+            out.push(`${dd}/${mm}/${y}`);   // 29/12/2018
+        }
     }
-    return "";
+
+    // If user already types a date-like value, try it directly too.
+    if (raw) out.push(raw);
+
+    // Unique, keep order
+    return [...new Set(out)];
 }
 
 /* ---------- LOGIN ---------- */
@@ -148,22 +163,30 @@ async function login(){
 
     let res = await response.json();
 
-    // STEP 2 - IF FAILED, TRY STUDENT DOB LOGIN
+    // STEP 2 - IF FAILED, TRY STUDENT DOB LOGIN (multiple date formats)
     if(!res.success){
-        const dob = normalizeDOB(rawPassword);
-        if(!dob){
+        const dobCandidates = getDOBCandidates(rawPassword);
+        if(!dobCandidates.length){
             errDiv.innerText = res.message || "Invalid credentials";
             return;
         }
 
-        response = await fetch(API + "/login", {
-            method:"POST",
-            headers:{ "Content-Type":"application/json" },
-            body: JSON.stringify({ username, password: dob })
-        });
+        let loggedIn = false;
+        for (const dob of dobCandidates) {
+            response = await fetch(API + "/login", {
+                method:"POST",
+                headers:{ "Content-Type":"application/json" },
+                body: JSON.stringify({ username, password: dob })
+            });
 
-        res = await response.json();
-        if(!res.success){
+            res = await response.json();
+            if (res.success) {
+                loggedIn = true;
+                break;
+            }
+        }
+
+        if(!loggedIn){
             errDiv.innerText = res.message || "Login failed";
             return;
         }
