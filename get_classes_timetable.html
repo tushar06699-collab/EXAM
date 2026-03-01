@@ -42,6 +42,7 @@ tr:nth-child(even){ background:#f2f4f7; }
 
 .timetable-cell { display:flex; flex-direction:column; gap:2px; font-size:13px; }
 .timetable-cell span { display:block; }
+.status-note{margin:8px 0 14px;text-align:center;font-size:13px;color:#233465;font-weight:600}
 </style>
 </head>
 
@@ -68,9 +69,14 @@ tr:nth-child(even){ background:#f2f4f7; }
         </div>
         <div>
             <label>&nbsp;</label>
+            <button onclick="autoAssignIncharge()">Auto Assign Incharge (Period 1)</button>
+        </div>
+        <div>
+            <label>&nbsp;</label>
             <button onclick="downloadPDF()">Download PDF</button>
         </div>
     </div>
+    <div id="statusNote" class="status-note"></div>
 
     <table>
         <thead>
@@ -103,15 +109,43 @@ const weekDays = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
 const sessionSelect = document.getElementById("sessionSelect");
 const theadRow = document.getElementById("theadRow");
 const timetableBody = document.getElementById("timetableBody");
+const statusNote = document.getElementById("statusNote");
 
 let classes = [];
 let timetableData = {};
+
+function normalizeClassName(raw){
+    return String(raw || "").trim().replace(/\s+/g, " ");
+}
+
+function normalizeSessionList(raw){
+    const arr = Array.isArray(raw) ? raw : [];
+    return arr.map(s => {
+        if (typeof s === "string") return s;
+        if (s && typeof s === "object") return String(s.name || s.session || "").trim();
+        return "";
+    }).filter(Boolean);
+}
+
+function pickTeacherFromPeriod1Rows(rows){
+    if (!Array.isArray(rows) || !rows.length) return "";
+    for (const row of rows) {
+        for (const d of weekDays) {
+            const v = String(row?.[d] || "").trim();
+            if (!v || !v.includes(" - ")) continue;
+            const teacher = String(v.split(" - ")[0] || "").trim();
+            if (teacher) return teacher;
+        }
+    }
+    return "";
+}
 
 // LOAD SESSIONS
 async function loadSessions() {
     const res = await fetch(`${EXAM_API}/session/list`);
     const data = await res.json();
-    sessionSelect.innerHTML = data.sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
+    const sessions = normalizeSessionList(data.sessions);
+    sessionSelect.innerHTML = sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
 }
 
 // LOAD CLASSES
@@ -164,6 +198,55 @@ async function loadTimetable() {
         }
     });
     await Promise.all(jobs);
+}
+
+async function autoAssignIncharge(){
+    const session = sessionSelect.value;
+    if (!session) {
+        alert("Select session first");
+        return;
+    }
+    if (!classes.length) {
+        alert("No classes loaded");
+        return;
+    }
+
+    statusNote.textContent = "Assigning incharge from Period 1...";
+
+    let success = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    for (const cls of classes) {
+        const rows = Array.isArray(timetableData[cls]) ? timetableData[cls] : [];
+        const period1Rows = rows.filter(item => Number(item.period) === 1);
+        const teacher = pickTeacherFromPeriod1Rows(period1Rows);
+        if (!teacher) {
+            skipped += 1;
+            continue;
+        }
+
+        // Save against normalized class key so class_list page can show it reliably.
+        const classKey = normalizeClassName(cls);
+        try{
+            const res = await fetch(`${EXAM_API}/incharge/set`, {
+                method: "POST",
+                headers: { "Content-Type":"application/json" },
+                body: JSON.stringify({
+                    session,
+                    class_name: classKey,
+                    incharge: teacher
+                })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data?.success !== false) success += 1;
+            else failed += 1;
+        }catch(_){
+            failed += 1;
+        }
+    }
+
+    statusNote.textContent = `Auto-assign complete: Saved ${success}, Skipped ${skipped}, Failed ${failed}`;
 }
 
 // RENDER TABLE

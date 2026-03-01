@@ -73,6 +73,10 @@ header{
     display:grid;grid-template-columns:repeat(7,1fr);
     gap:8px;padding:15px;
 }
+.calendar-grid-scroll{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+}
 .day-name{text-align:center;font-weight:600;color:#555;}
 .day{
     background:#f8fafc;padding:10px;border-radius:8px;
@@ -241,7 +245,10 @@ async function generateCalendar(startYear,endYear){
             grid.appendChild(div);
         }
 
-        box.appendChild(grid);
+        const gridWrap = document.createElement("div");
+        gridWrap.className = "calendar-grid-scroll";
+        gridWrap.appendChild(grid);
+        box.appendChild(gridWrap);
         calendarEl.appendChild(box);
     });
 

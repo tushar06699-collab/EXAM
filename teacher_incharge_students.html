@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Incharge Students</title>
+<style>
+body{
+    margin:0;
+    font-family:Poppins,sans-serif;
+    background:#eef1f6;
+}
+.topbar{
+    background:#233465;
+    color:#fff;
+    padding:18px 25px;
+}
+.main{
+    max-width:1280px;
+    margin:18px auto;
+    padding:0 12px 24px;
+}
+.card{
+    background:#fff;
+    border-radius:12px;
+    padding:14px;
+    box-shadow:0 4px 12px rgba(0,0,0,.08);
+    margin-bottom:14px;
+}
+.title{
+    font-size:22px;
+    margin:0 0 6px;
+}
+.muted{
+    color:#5b6783;
+    font-size:14px;
+}
+.filters{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+    margin-top:10px;
+}
+select,input{
+    padding:8px 10px;
+    border:1px solid #ced6ea;
+    border-radius:8px;
+    font-size:14px;
+}
+.grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(320px,1fr));
+    gap:12px;
+}
+.student{
+    background:#fff;
+    border:1px solid #dce3f2;
+    border-radius:12px;
+    padding:12px;
+}
+.head{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    margin-bottom:10px;
+}
+.photo{
+    width:72px;
+    height:72px;
+    border-radius:10px;
+    object-fit:cover;
+    border:2px solid #d7dff2;
+    background:#f2f5fb;
+}
+.name{
+    margin:0;
+    font-size:18px;
+}
+.class{
+    margin:2px 0 0;
+    color:#465374;
+    font-size:13px;
+}
+.details{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:6px 10px;
+    font-size:13px;
+}
+.row b{
+    color:#243762;
+}
+.empty{
+    text-align:center;
+    padding:24px;
+    color:#5b6783;
+}
+@media(max-width:700px){
+    .details{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <h2 style="margin:0;">My Incharge Students</h2>
+</div>
+
+<div class="sidebar" id="sidebar"></div>
+<div id="overlay"></div>
+
+<main class="main">
+    <section class="card">
+        <h3 class="title">Class-wise Student Profiles</h3>
+        <div class="muted">Photo + full details for classes where you are class incharge.</div>
+        <div id="summary" class="muted" style="margin-top:8px;">Loading...</div>
+        <div class="filters">
+            <label for="classFilter">Class:</label>
+            <select id="classFilter"></select>
+            <input id="nameSearch" type="text" placeholder="Search student name / admission no">
+        </div>
+    </section>
+
+    <section id="studentsGrid" class="grid"></section>
+</main>
+
+<script>
+const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app";
+const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app";
+
+const teacherName = localStorage.getItem("teacher_name");
+const session = localStorage.getItem("session");
+
+if(!teacherName || !session){
+    alert("Login expired. Please login again.");
+    location.href = "index.html";
+}
+
+const classFilter = document.getElementById("classFilter");
+const nameSearch = document.getElementById("nameSearch");
+const studentsGrid = document.getElementById("studentsGrid");
+const summary = document.getElementById("summary");
+
+let assignedClasses = [];
+let students = [];
+
+function normalize(v){
+    return String(v || "").trim().replace(/\s+/g, " ").toUpperCase();
+}
+
+function getPhoto(s){
+    return s.photo_url || s.photo || s.student_photo || "images/default.png";
+}
+
+function studentName(s){
+    return s.student_name || s.name || "-";
+}
+
+function studentPhone(s){
+    return s.parent_mobile || s.phone || s.mobile || s.father_phone || s.guardian_phone || s.contact_no || s.contact || "-";
+}
+
+function renderClassFilter(){
+    const options = ['<option value="">All Incharge Classes</option>']
+        .concat(assignedClasses.map(c => `<option value="${c}">${c}</option>`));
+    classFilter.innerHTML = options.join("");
+}
+
+function renderStudents(){
+    const selectedClass = classFilter.value;
+    const q = normalize(nameSearch.value);
+
+    let list = students.filter(s => {
+        const cls = String(s.class_name || s.class || "").trim();
+        if (selectedClass && cls !== selectedClass) return false;
+        if (!q) return true;
+        const blob = normalize([
+            studentName(s), s.admission_no, s.roll, s.rollno, s.father_name, s.mother_name
+        ].join(" "));
+        return blob.includes(q);
+    });
+
+    summary.textContent = `Teacher: ${teacherName} | Session: ${session} | Incharge Classes: ${assignedClasses.join(", ") || "None"} | Students: ${list.length}`;
+
+    if(!list.length){
+        studentsGrid.innerHTML = `<div class="empty card">No students found.</div>`;
+        return;
+    }
+
+    studentsGrid.innerHTML = list.map(s => `
+        <article class="student">
+            <div class="head">
+                <img class="photo" src="${getPhoto(s)}" onerror="this.src='images/default.png'" alt="Student">
+                <div>
+                    <h4 class="name">${studentName(s)}</h4>
+                    <div class="class">${s.class_name || s.class || "-"} | Roll: ${s.roll || s.rollno || "-"}</div>
+                </div>
+            </div>
+            <div class="details">
+                <div class="row"><b>Admission:</b> ${s.admission_no || "-"}</div>
+                <div class="row"><b>Gender:</b> ${s.gender || s.sex || "-"}</div>
+                <div class="row"><b>Father:</b> ${s.father_name || "-"}</div>
+                <div class="row"><b>Mother:</b> ${s.mother_name || "-"}</div>
+                <div class="row"><b>DOB:</b> ${s.dob || s.date_of_birth || "-"}</div>
+                <div class="row"><b>Aadhar:</b> ${s.aadharno || s.aadhar_no || "-"}</div>
+                <div class="row"><b>Phone:</b> ${studentPhone(s)}</div>
+                <div class="row"><b>Session:</b> ${s.session || "-"}</div>
+                <div class="row" style="grid-column:1/-1"><b>Address:</b> ${s.address || "-"}</div>
+            </div>
+        </article>
+    `).join("");
+}
+
+async function loadData(){
+    try{
+        const [inchargeRes, studentsRes] = await Promise.all([
+            fetch(`${EXAM_API}/incharge/get?session=${encodeURIComponent(session)}`),
+            fetch(`${STUDENT_API}/students?session=${encodeURIComponent(session)}`)
+        ]);
+
+        const inchargeData = await inchargeRes.json().catch(() => ({}));
+        const studentsData = await studentsRes.json().catch(() => ({}));
+
+        const inchargeMap = inchargeData?.incharge || {};
+        const allStudents = Array.isArray(studentsData) ? studentsData : (Array.isArray(studentsData?.students) ? studentsData.students : []);
+        const my = normalize(teacherName);
+
+        assignedClasses = Object.entries(inchargeMap)
+            .filter(([, t]) => normalize(t) === my)
+            .map(([cls]) => String(cls).trim());
+
+        const classSet = new Set(assignedClasses.map(c => normalize(c)));
+        students = allStudents.filter(s => classSet.has(normalize(s.class_name || s.class)));
+
+        renderClassFilter();
+        renderStudents();
+    }catch(e){
+        console.error(e);
+        summary.textContent = "Failed to load incharge students.";
+        studentsGrid.innerHTML = `<div class="empty card">Error while loading data.</div>`;
+    }
+}
+
+classFilter.addEventListener("change", renderStudents);
+nameSearch.addEventListener("input", renderStudents);
+
+loadData();
+</script>
+
+<script src="teacher_sidebar_shared.js"></script>
+</body>
+</html>

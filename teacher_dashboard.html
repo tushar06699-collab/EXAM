@@ -94,6 +94,42 @@ body{
     margin-top:10px;
     font-size:16px;
 }
+.stats{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:12px;
+    margin-top:14px;
+}
+.stat-box{
+    background:#f7f9ff;
+    border:1px solid #d7def0;
+    border-radius:10px;
+    padding:12px;
+}
+.stat-title{
+    font-size:13px;
+    color:#4d5a7a;
+    margin-bottom:6px;
+}
+.stat-value{
+    font-size:24px;
+    font-weight:700;
+    color:#1c2f62;
+}
+.clickable{
+    cursor:pointer;
+    transition:0.2s;
+}
+.clickable:hover{
+    background:#ecf1ff;
+}
+.student-panel{
+    display:none;
+}
+.muted{
+    color:#5f6d8a;
+    font-size:13px;
+}
 
 /* SCHOOL IMAGE */
 .school-image {
@@ -162,6 +198,7 @@ body{
         <div class="info-box">
             Session: <b id="session"></b>
         </div>
+        <div id="teacherStats" style="margin-top:12px;"></div>
     </div>
 
     <!-- School Image -->
@@ -172,6 +209,9 @@ body{
 </div>
 
 <script>
+const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app";
+const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app";
+
 /* MENU OPEN/CLOSE */
 function toggleMenu() {
     const sidebar = document.getElementById("sidebar");
@@ -193,11 +233,92 @@ if(!teacherName){
 document.getElementById("teacherName").textContent = teacherName;
 document.getElementById("session").textContent = teacherSession;
 
+function normalizeText(v){
+    return String(v || "").trim().replace(/\s+/g, " ").toUpperCase();
+}
+
+function isMale(v){
+    const t = normalizeText(v);
+    return t === "MALE" || t === "M";
+}
+
+function isFemale(v){
+    const t = normalizeText(v);
+    return t === "FEMALE" || t === "F";
+}
+
+let assignedClasses = [];
+let classStudents = [];
+
+function renderStats(){
+    const classLabel = assignedClasses.length ? assignedClasses.join(", ") : "Not Assigned";
+    const total = classStudents.length;
+    const male = classStudents.filter(s => isMale(s.gender || s.sex)).length;
+    const female = classStudents.filter(s => isFemale(s.gender || s.sex)).length;
+
+    const statsHtml = `
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-title">Incharge Class</div>
+                <div class="stat-value" style="font-size:18px">${classLabel}</div>
+            </div>
+            <div class="stat-box clickable" id="totalStudentsBox">
+                <div class="stat-title">Total Students (Open Full List Page)</div>
+                <div class="stat-value">${total}</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-title">Male Students</div>
+                <div class="stat-value">${male}</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-title">Female Students</div>
+                <div class="stat-value">${female}</div>
+            </div>
+        </div>
+    `;
+
+    const host = document.getElementById("teacherStats");
+    host.innerHTML = statsHtml;
+
+    document.getElementById("totalStudentsBox").onclick = () => {
+        window.location.href = "teacher_incharge_students.html";
+    };
+}
+
+async function loadTeacherClassStats(){
+    try{
+        const [incRes, stuRes] = await Promise.all([
+            fetch(`${EXAM_API}/incharge/get?session=${encodeURIComponent(teacherSession || "")}`),
+            fetch(`${STUDENT_API}/students?session=${encodeURIComponent(teacherSession || "")}`)
+        ]);
+
+        const incData = await incRes.json().catch(() => ({}));
+        const stuData = await stuRes.json().catch(() => ({}));
+
+        const inchargeMap = incData?.incharge || {};
+        const allStudents = Array.isArray(stuData) ? stuData : (Array.isArray(stuData?.students) ? stuData.students : []);
+
+        const myName = normalizeText(teacherName);
+        assignedClasses = Object.entries(inchargeMap)
+            .filter(([, t]) => normalizeText(t) === myName)
+            .map(([cls]) => cls);
+
+        const assignedSet = new Set(assignedClasses.map(c => normalizeText(c)));
+        classStudents = allStudents.filter(s => assignedSet.has(normalizeText(s.class_name || s.class)));
+        renderStats();
+    }catch(e){
+        console.error("Failed to load teacher dashboard stats", e);
+        document.getElementById("teacherStats").innerHTML = `<div class="muted">Unable to load incharge class statistics.</div>`;
+    }
+}
+
 /* LOGOUT */
 function logout(){
     localStorage.clear();
     window.location.href = "index.html";
 }
+
+loadTeacherClassStats();
 </script>
 
   <script src="teacher_sidebar_shared.js"></script>

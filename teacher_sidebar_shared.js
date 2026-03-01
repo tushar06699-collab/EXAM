@@ -39,7 +39,8 @@
     { href: 'teacher_papers.html', label: 'Question Papers' },
     { href: 'teacher_internal_marks_upload.html', label: 'Upload Internal Marks' },
     { href: 'teacher_marks_upload.html', label: 'Upload External Marks' },
-    { href: 'teacher_leave.html', label: 'Leave Permission' }
+    { href: 'teacher_leave.html', label: 'Leave Permission' },
+    { href: 'teacher_incharge_students.html', label: 'My Incharge Students' }
   ];
 
   var current = (location.pathname.split('/').pop() || '').toLowerCase();

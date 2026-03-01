@@ -82,6 +82,36 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  /* Academic calendar: keep day cells readable instead of compressing text */
+  .month .grid{
+    grid-template-columns: repeat(7, minmax(76px, 1fr)) !important;
+    min-width: 560px !important;
+    gap: 6px !important;
+    padding: 10px !important;
+  }
+
+  .calendar-grid-scroll{
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 6px !important;
+  }
+
+  .day{
+    min-height: 64px !important;
+    padding: 7px !important;
+    font-size: 12px !important;
+  }
+
+  .day-name{
+    font-size: 12px !important;
+  }
+
+  .day .label{
+    white-space: normal !important;
+    word-break: break-word !important;
+    line-height: 1.2 !important;
+  }
+
   th, td{
     font-size: 12px !important;
     padding: 8px !important;

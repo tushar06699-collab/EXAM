@@ -83,6 +83,10 @@ const timetableBody = document.getElementById("timetableBody");
 const sessionSelect = document.getElementById("sessionSelect");
 const teacherSelect = document.getElementById("teacherSelect");
 
+function normalizeClassName(raw){
+    return String(raw || "").trim().replace(/\s+/g, " ");
+}
+
 function isSeniorCombined(className){
     return /^(11|12)\s*COMBINED/i.test(className);
 }
@@ -339,6 +343,8 @@ document.getElementById("saveBtn").onclick = async ()=>{
     const teacherId = teacherSelect.value;
     const session = sessionSelect.value;
     const timetable = [];
+    const periodOneClasses = new Set();
+    const teacherName = teacherSelect.options[teacherSelect.selectedIndex]?.text?.trim() || "";
 
     document.querySelectorAll('tbody tr[data-period]').forEach(row=>{
     const periodText = row.children[0].textContent.trim();
@@ -371,6 +377,9 @@ if(selClass.value.includes("COMBINED") && match){
             periodData[day] = (idx+1>=startDay && idx+1<=endDay) ? subjSel.value : "";
         });
         timetable.push(periodData);
+        if (periodNum === 1) {
+            periodOneClasses.add(normalizeClassName(className));
+        }
     });
 });
     
@@ -382,6 +391,18 @@ if(selClass.value.includes("COMBINED") && match){
             body:JSON.stringify({session, teacher_id:teacherId, timetable})
         });
         const data = await res.json();
+        if (res.ok && teacherName && periodOneClasses.size) {
+            const jobs = [...periodOneClasses].map(className => fetch(`${EXAM_API}/incharge/set`, {
+                method: "POST",
+                headers: {"Content-Type":"application/json"},
+                body: JSON.stringify({
+                    session,
+                    class_name: className,
+                    incharge: teacherName
+                })
+            }).catch(() => null));
+            await Promise.all(jobs);
+        }
         alert(data.message || "Saved successfully!");
         const existing = await loadExistingTimetable();
         await generateRows(existing);

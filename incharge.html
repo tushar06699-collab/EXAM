@@ -95,14 +95,13 @@ tr:nth-child(even){
         <thead>
             <tr>
                 <th>Class</th>
-                <th>Current Incharge</th>
-                <th>Change</th>
+                <th>Teacher Selector</th>
                 <th>Save</th>
             </tr>
         </thead>
 
         <tbody id="inchargeTable">
-            <tr><td colspan="4" style="text-align:center;">Loading...</td></tr>
+            <tr><td colspan="3" style="text-align:center;">Loading...</td></tr>
         </tbody>
     </table>
 </div>
@@ -111,17 +110,41 @@ tr:nth-child(even){
 const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app/";
 const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/";
 
+function escapeHtml(s){
+    return String(s || "").replace(/[&<>"']/g, c => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+    }[c]));
+}
+
+function normalizeClassName(raw){
+    return String(raw || "").trim().replace(/\s+/g, " ");
+}
+
+function legacyNormalizeClassName(raw){
+    return normalizeClassName(raw).replace(/\s+[AB]$/i, "");
+}
+
+function normalizeSessionList(raw){
+    const arr = Array.isArray(raw) ? raw : [];
+    return arr.map(s => {
+        if (typeof s === "string") return s;
+        if (s && typeof s === "object") return String(s.name || s.session || "").trim();
+        return "";
+    }).filter(Boolean);
+}
+
 /* --------------------------
    LOAD SESSIONS
 --------------------------- */
 async function loadSessions() {
     let res = await fetch(`${EXAM_API}/session/list`);
     let data = await res.json();
+    const sessions = normalizeSessionList(data.sessions);
 
     let sel = document.getElementById("sessionSelect");
     sel.innerHTML = "";
 
-    data.sessions.forEach(s => {
+    sessions.forEach(s => {
         let opt = document.createElement("option");
         opt.value = s;
         opt.innerText = s;
@@ -129,7 +152,7 @@ async function loadSessions() {
     });
 
     let saved = localStorage.getItem("session");
-    if (saved && data.sessions.includes(saved)) sel.value = saved;
+    if (saved && sessions.includes(saved)) sel.value = saved;
 
     loadPage();
 }
@@ -142,9 +165,21 @@ async function loadPage() {
     localStorage.setItem("session", session);
 
     const tbody = document.getElementById("inchargeTable");
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">Loading...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Loading...</td></tr>`;
 
     try {
+        // Fetch teacher list for selector
+        let teacherNames = [];
+        try{
+            const resTeachers = await fetch(`${EXAM_API}/teacher/list?session=${encodeURIComponent(session)}`);
+            const tData = await resTeachers.json().catch(() => ({}));
+            const tRows = Array.isArray(tData?.teachers) ? tData.teachers : (Array.isArray(tData) ? tData : []);
+            teacherNames = [...new Set(tRows.map(t => String(t.name || t.teacher_name || "").trim()).filter(Boolean))];
+            teacherNames.sort((a,b) => a.localeCompare(b, undefined, { sensitivity:"base" }));
+        }catch(_){
+            teacherNames = [];
+        }
+
         // Fetch students for session
         let resStudents = await fetch(`${STUDENT_API}/students?session=${session}`);
         let students = await resStudents.json();
@@ -152,7 +187,7 @@ async function loadPage() {
         if(!Array.isArray(students)) students = students.students || students || [];
 
         // Extract unique classes
-        const classes = [...new Set(students.map(s => s.class_name ?? s.class).filter(c => c))];
+        const classes = [...new Set(students.map(s => normalizeClassName(s.class_name ?? s.class)).filter(Boolean))];
         classes.sort((a,b) => {
             let numA = parseInt(a.match(/\d+/)?.[0] ?? 0);
             let numB = parseInt(b.match(/\d+/)?.[0] ?? 0);
@@ -167,20 +202,29 @@ async function loadPage() {
         tbody.innerHTML = "";
 
         if(classes.length === 0){
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">No classes found</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">No classes found</td></tr>`;
             return;
         }
 
         classes.forEach(cls => {
             let safeCls = cls.replace(/\s+/g, "_");
-            let savedName = inchargeMap[cls] || "";
+            let savedName = inchargeMap[cls] || inchargeMap[normalizeClassName(cls)] || inchargeMap[legacyNormalizeClassName(cls)] || "";
+            let options = `<option value="">Select Teacher</option>`;
+            if (savedName && !teacherNames.includes(savedName)) {
+                options += `<option value="${escapeHtml(savedName)}" selected>${escapeHtml(savedName)} (Current)</option>`;
+            }
+            options += teacherNames.map(name => {
+                const selected = name === savedName ? "selected" : "";
+                return `<option value="${escapeHtml(name)}" ${selected}>${escapeHtml(name)}</option>`;
+            }).join("");
 
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td>${cls}</td>
-                <td>${savedName || "Not Assigned"}</td>
                 <td>
-                    <input type="text" id="t_${safeCls}" placeholder="Enter name" class="selectTeacher" value="${savedName}">
+                    <select id="t_${safeCls}" class="selectTeacher">
+                        ${options}
+                    </select>
                 </td>
                 <td>
                     <button class="btn" onclick="saveIncharge('${cls}')">Save</button>
@@ -191,7 +235,7 @@ async function loadPage() {
 
     } catch(err){
         console.error("Error loading page:", err);
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:red;">Error loading</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:red;">Error loading</td></tr>`;
     }
 }
 
@@ -203,8 +247,8 @@ async function saveIncharge(cls){
     let safeCls = cls.replace(/\s+/g, "_");
     let teacher = document.getElementById("t_" + safeCls).value.trim();
 
-    if(teacher.length < 3){
-        alert("Enter valid teacher name");
+    if(!teacher){
+        alert("Select teacher name");
         return;
     }
 
@@ -214,7 +258,7 @@ async function saveIncharge(cls){
             headers:{"Content-Type":"application/json"},
             body: JSON.stringify({
                 session: session,
-                class_name: cls,
+                class_name: normalizeClassName(cls),
                 incharge: teacher
             })
         });

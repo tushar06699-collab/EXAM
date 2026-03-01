@@ -94,24 +94,40 @@ tr:nth-child(even){
 </div>
 
 <script>
-const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app/";
-const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/";
+const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app";
+const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app";
 
 let CURRENT_SESSION = "";
+const DEFAULT_CLASSES = [
+    "1st","2nd","3rd","4th","5th","6th","7th","8th","9th","10th",
+    "11th Arts","11th Commerce","11th Medical",
+    "12th Arts","12th Commerce","12th Medical"
+];
+const WEEK_DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+function normalizeSessionList(raw){
+    const arr = Array.isArray(raw) ? raw : [];
+    return arr.map(s => {
+        if (typeof s === "string") return s;
+        if (s && typeof s === "object") return String(s.name || s.session || "").trim();
+        return "";
+    }).filter(Boolean);
+}
 
 /* LOAD ONLY CURRENT SESSION */
 async function loadSession() {
     try {
         let res = await fetch(`${EXAM_API}/session/list`);
+        if (!res.ok) throw new Error(`Session API failed (${res.status})`);
         let data = await res.json();
-
-        if (!data.sessions.length) {
+        const sessions = normalizeSessionList(data.sessions);
+        if (!sessions.length) {
             document.getElementById("currentSession").innerText = "No sessions found!";
             return;
         }
 
         // Use LAST session (latest added)
-        CURRENT_SESSION = data.sessions[data.sessions.length - 1];
+        CURRENT_SESSION = sessions[sessions.length - 1];
 
         document.getElementById("currentSession").innerText =
             "Current Session: " + CURRENT_SESSION;
@@ -130,16 +146,39 @@ async function loadClasses() {
     tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;">Loading...</td></tr>`;
 
     try {
-        let res = await fetch(`${STUDENT_API}/students?session=${CURRENT_SESSION}`);
-        let students = await res.json();
+        const safeJson = async (res) => {
+            const txt = await res.text();
+            try { return JSON.parse(txt); } catch (e) { return null; }
+        };
 
-        if (!Array.isArray(students)) {
-            students = students.students || [];
+        let students = [];
+        let res = await fetch(`${STUDENT_API}/students?session=${encodeURIComponent(CURRENT_SESSION)}`);
+        if (res.ok) {
+            let data = await safeJson(res);
+            students = Array.isArray(data) ? data : (Array.isArray(data?.students) ? data.students : []);
         }
 
-        const uniqueClasses = [...new Set(
-            students.map(s => s.class_name ?? s.class).filter(Boolean)
+        // Fallback: if session-wise call returns empty/fails, load all students
+        if (!students.length) {
+            const allRes = await fetch(`${STUDENT_API}/students`);
+            if (allRes.ok) {
+                const allData = await safeJson(allRes);
+                students = Array.isArray(allData) ? allData : (Array.isArray(allData?.students) ? allData.students : []);
+            }
+        }
+
+        if (!Array.isArray(students)) students = [];
+
+        const normalizeClass = (raw) => String(raw || "").trim().replace(/\s+/g, " ");
+        const legacyNormalizeClass = (raw) => normalizeClass(raw).replace(/\s+[AB]$/i, "");
+        let uniqueClasses = [...new Set(
+            students.map(s => normalizeClass(s.class_name ?? s.class)).filter(Boolean)
         )];
+
+        // Final fallback if student API returns empty
+        if (!uniqueClasses.length) {
+            uniqueClasses = [...DEFAULT_CLASSES];
+        }
 
         uniqueClasses.sort((a, b) => {
             let n1 = parseInt(a.match(/\d+/)?.[0] ?? 0);
@@ -148,22 +187,92 @@ async function loadClasses() {
         });
 
         // Load Incharge
-        let resInc = await fetch(`${EXAM_API}/incharge/get?session=${CURRENT_SESSION}`);
-        let incData = await resInc.json();
-
-        let map = incData.incharge || {};
-
-        tbody.innerHTML = "";
-        if (uniqueClasses.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;">No classes found</td></tr>`;
-            return;
+        let map = {};
+        try{
+            let resInc = await fetch(`${EXAM_API}/incharge/get?session=${encodeURIComponent(CURRENT_SESSION)}`);
+            if (resInc.ok) {
+                let incData = await safeJson(resInc);
+                map = incData.incharge || {};
+            }
+        }catch(e){
+            console.warn("Incharge fetch failed:", e);
         }
 
-        uniqueClasses.forEach(cls => {
+        const pickTeacherFromPeriod1Rows = (rows) => {
+            if (!Array.isArray(rows) || !rows.length) return "";
+            for (const row of rows) {
+                for (const d of WEEK_DAYS) {
+                    const v = String(row?.[d] || "").trim();
+                    if (!v || !v.includes(" - ")) continue;
+                    const teacher = String(v.split(" - ")[0] || "").trim();
+                    if (teacher) return teacher;
+                }
+            }
+            return "";
+        };
+
+        const getMappedTeacher = (cls) => {
+            const direct = map[cls];
+            if (direct) return direct;
+            const normalized = normalizeClass(cls);
+            if (map[normalized]) return map[normalized];
+            const legacy = legacyNormalizeClass(cls);
+            return map[legacy] || "";
+        };
+
+        const fetchTeacherFromTimetable = async (cls) => {
+            const variants = [...new Set([String(cls || "").trim(), normalizeClass(cls), legacyNormalizeClass(cls)])].filter(Boolean);
+            for (const className of variants) {
+                try {
+                    const tRes = await fetch(`${EXAM_API}/timetable/classwise?session=${encodeURIComponent(CURRENT_SESSION)}&class_name=${encodeURIComponent(className)}`);
+                    if (!tRes.ok) continue;
+                    const tData = await safeJson(tRes);
+                    const rows = Array.isArray(tData?.timetable) ? tData.timetable : [];
+                    const period1Rows = rows.filter(item => Number(item?.period) === 1);
+                    const teacher = pickTeacherFromPeriod1Rows(period1Rows);
+                    if (teacher) return teacher;
+                } catch (_e) {
+                    // try next variant
+                }
+            }
+            return "";
+        };
+
+        const resolvedTeachers = await Promise.all(uniqueClasses.map(async (cls) => {
+            const normalized = normalizeClass(cls);
+            const mappedTeacher = getMappedTeacher(cls);
+            const timetableTeacher = await fetchTeacherFromTimetable(cls);
+
+            // Prefer timetable-derived teacher so stale manual entries get corrected.
+            const teacher = timetableTeacher || mappedTeacher;
+            if (!teacher) return "Not Assigned";
+
+            // Persist/refresh when derived value differs from stored map.
+            if (timetableTeacher && timetableTeacher !== mappedTeacher) {
+                map[normalized] = timetableTeacher;
+                try {
+                    await fetch(`${EXAM_API}/incharge/set`, {
+                        method: "POST",
+                        headers: { "Content-Type":"application/json" },
+                        body: JSON.stringify({
+                            session: CURRENT_SESSION,
+                            class_name: normalized,
+                            incharge: timetableTeacher
+                        })
+                    });
+                } catch (_e) {
+                    // no-op: UI still shows resolved teacher
+                }
+            }
+            return teacher;
+        }));
+
+        tbody.innerHTML = "";
+        uniqueClasses.forEach((cls, idx) => {
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td>${cls}</td>
-                <td>${map[cls] || "Not Assigned"}</td>
+                <td>${resolvedTeachers[idx] || "Not Assigned"}</td>
             `;
             tbody.appendChild(tr);
         });
