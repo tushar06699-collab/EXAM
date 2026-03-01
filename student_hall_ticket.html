@@ -141,6 +141,51 @@ th{background:#eef2ff;color:#1e3a8a;}
   font-weight:600;
 }
 
+/* Force desktop look while generating PDF from mobile */
+.pdf-desktop{
+  width:1120px;
+  max-width:none;
+  margin:0;
+}
+.pdf-desktop .ticket{
+  width:1120px !important;
+  max-width:none !important;
+  margin:0 !important;
+}
+.pdf-desktop .ticket-head{
+  grid-template-columns:90px 1fr 110px !important;
+  text-align:initial !important;
+  padding:14px !important;
+}
+.pdf-desktop .ticket-head img.logo{justify-self:start !important;}
+.pdf-desktop .ticket-head img.photo{justify-self:end !important;}
+.pdf-desktop .meta{
+  grid-template-columns:1fr 1fr !important;
+  gap:8px 18px !important;
+  padding:14px !important;
+}
+.pdf-desktop table{
+  display:table !important;
+  width:100% !important;
+  table-layout:auto !important;
+}
+.pdf-desktop th,.pdf-desktop td{
+  white-space:normal !important;
+  word-break:normal !important;
+  font-size:14px !important;
+  padding:10px !important;
+}
+.pdf-desktop .sign{
+  flex-direction:row !important;
+  align-items:stretch !important;
+  justify-content:space-between !important;
+  padding:18px 14px 14px !important;
+  gap:10px !important;
+}
+.pdf-desktop .sig-box{
+  width:220px !important;
+}
+
 @media (max-width:760px){
   .container{
     padding:0 8px;
@@ -266,6 +311,9 @@ th{background:#eef2ff;color:#1e3a8a;}
       <div>
         <button onclick="downloadHallTicketPDF()">Download PDF</button>
       </div>
+    </div>
+    <div style="font-size:12px;color:#475569;margin-top:-6px;margin-bottom:10px;">
+      PDF download always uses desktop layout for professional print.
     </div>
 
     <div id="statusNote" class="status-note"></div>
@@ -488,6 +536,22 @@ function downloadHallTicketPDF(){
   const exam = currentExamName || "hall_ticket";
   const cls = profile?.class_name || "class";
   const roll = profile?.roll || "student";
+
+  // Create an offscreen desktop-layout clone so mobile download looks like PC.
+  const host = document.createElement("div");
+  host.style.position = "fixed";
+  host.style.left = "-99999px";
+  host.style.top = "0";
+  host.style.background = "#fff";
+  host.style.padding = "0";
+  host.style.margin = "0";
+  host.className = "pdf-desktop";
+
+  const clone = ticketCard.cloneNode(true);
+  clone.style.display = "block";
+  host.appendChild(clone);
+  document.body.appendChild(host);
+
   const opt = {
     margin: 5,
     filename: `${cls}_${roll}_${exam}_hall_ticket.pdf`,
@@ -496,7 +560,13 @@ function downloadHallTicketPDF(){
     jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
     pagebreak: { mode: ["css", "legacy"] }
   };
-  html2pdf().set(opt).from(ticketCard).save();
+  html2pdf()
+    .set(opt)
+    .from(host)
+    .save()
+    .finally(() => {
+      if(host.parentNode) host.parentNode.removeChild(host);
+    });
 }
 
 init();
