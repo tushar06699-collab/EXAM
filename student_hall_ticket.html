@@ -17,6 +17,7 @@ body{
   font-family:Poppins,system-ui,sans-serif;
   background:var(--bg);
   color:#0f172a;
+  overflow-x:hidden;
 }
 header{
   background:#4e73df;
@@ -174,16 +175,21 @@ th{background:#eef2ff;color:#1e3a8a;}
     font-size:13px;
     word-break:break-word;
   }
-  table{
-    display:block;
+  .ticket{
     width:100%;
-    overflow-x:auto;
-    -webkit-overflow-scrolling:touch;
+    max-width:100%;
+    margin:0 auto;
+  }
+  table{
+    display:table;
+    width:100%;
+    table-layout:fixed;
   }
   th,td{
     font-size:12px;
     padding:7px;
-    white-space:nowrap;
+    white-space:normal;
+    word-break:break-word;
   }
   .instructions{
     padding:10px;
