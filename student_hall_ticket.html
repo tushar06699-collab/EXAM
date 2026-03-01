@@ -51,17 +51,21 @@ header{
 }
 .controls{
   display:grid;
-  grid-template-columns:1.2fr 1fr 140px 140px;
+  grid-template-columns:1fr 1fr 140px 140px;
   gap:12px;
   align-items:end;
   margin-bottom:16px;
 }
 label{font-weight:600;font-size:14px;display:block;margin-bottom:6px;}
-select,button{
+select,button,.readonly{
   width:100%;
   padding:10px;
   border:1px solid #cbd5e1;
   border-radius:8px;
+}
+.readonly{
+  background:#f8fafc;
+  font-size:14px;
 }
 button{
   border:none;
@@ -119,6 +123,7 @@ th{background:#eef2ff;color:#1e3a8a;}
   display:flex;
   justify-content:space-between;
   padding:18px 14px 14px;
+  gap:10px;
 }
 .sig-box{
   width:220px;
@@ -136,10 +141,65 @@ th{background:#eef2ff;color:#1e3a8a;}
 }
 
 @media (max-width:760px){
-  .controls{grid-template-columns:1fr;}
-  .ticket-head{grid-template-columns:1fr; text-align:center;}
-  .ticket-head img.logo,.ticket-head img.photo{justify-self:center;}
-  .meta{grid-template-columns:1fr;}
+  .container{
+    padding:0 8px;
+  }
+  .panel{
+    padding:10px;
+  }
+  .controls{
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+  .ticket-head{
+    grid-template-columns:1fr;
+    text-align:center;
+    padding:10px;
+  }
+  .ticket-head img.logo,.ticket-head img.photo{
+    justify-self:center;
+  }
+  .school-title h1{
+    font-size:20px;
+  }
+  .school-title h2{
+    font-size:17px;
+  }
+  .meta{
+    grid-template-columns:1fr;
+    gap:6px;
+    padding:10px;
+  }
+  .meta div{
+    font-size:13px;
+    word-break:break-word;
+  }
+  table{
+    display:block;
+    width:100%;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  th,td{
+    font-size:12px;
+    padding:7px;
+    white-space:nowrap;
+  }
+  .instructions{
+    padding:10px;
+  }
+  .instructions li{
+    font-size:12px;
+  }
+  .sign{
+    flex-direction:column;
+    align-items:stretch;
+    padding:12px 10px 10px;
+    gap:10px;
+  }
+  .sig-box{
+    width:100%;
+  }
 }
 
 @page{
@@ -187,12 +247,12 @@ th{background:#eef2ff;color:#1e3a8a;}
   <div class="panel">
     <div class="controls">
       <div>
-        <label>Select Exam</label>
-        <select id="examSelect"></select>
+        <label>Latest Exam</label>
+        <div id="examView" class="readonly">Loading...</div>
       </div>
       <div>
         <label>Session</label>
-        <select id="sessionSelect"></select>
+        <div id="sessionView" class="readonly">Loading...</div>
       </div>
       <div>
         <button class="print-btn" onclick="window.print()">Print</button>
@@ -269,9 +329,10 @@ const studentId = localStorage.getItem("student_id");
 if(!studentId) location.href = "index.html";
 
 let profile = null;
-let exams = [];
-const examSelect = document.getElementById("examSelect");
-const sessionSelect = document.getElementById("sessionSelect");
+let currentSession = "";
+let currentExamName = "";
+const examView = document.getElementById("examView");
+const sessionView = document.getElementById("sessionView");
 const statusNote = document.getElementById("statusNote");
 const ticketCard = document.getElementById("ticketCard");
 const datesheetBody = document.getElementById("datesheetBody");
@@ -291,11 +352,15 @@ const examTitle = document.getElementById("examTitle");
 const sidebar = document.getElementById("sidebar");
 const overlay = document.getElementById("overlay");
 
+function normSession(v){
+  return String(v || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 async function init(){
   await loadProfile();
-  await loadSessions();
-  await loadExams();
-  if(examSelect.value) await renderTicket();
+  await loadSession();
+  await loadLatestExam();
+  if(currentExamName) await renderTicket();
 }
 
 async function loadProfile(){
@@ -314,33 +379,53 @@ async function loadProfile(){
   studentPhoto.onerror = ()=> studentPhoto.src = "images/default.png";
 }
 
-async function loadSessions(){
+async function loadSession(){
   const r = await fetch(`${EXAM_API}/session/list`);
   const d = await r.json();
   const list = d.sessions || [];
-  sessionSelect.innerHTML = list.map(s=>`<option value="${s}">${s}</option>`).join("");
-  if(profile && profile.session && list.includes(profile.session)){
-    sessionSelect.value = profile.session;
-  }else if(list.length){
-    sessionSelect.value = list[list.length - 1];
+  const profileSession = profile?.session || "";
+  const matched = list.find(s => normSession(s) === normSession(profileSession));
+  if(matched){
+    currentSession = matched;
+  }else if(profileSession){
+    currentSession = profileSession;
+  }else{
+    currentSession = list.length ? list[list.length - 1] : "";
   }
+  sessionView.textContent = currentSession || "-";
 }
 
-async function loadExams(){
+function examSortTime(e){
+  const raw = e?.created_at || e?.createdAt || e?.updated_at || e?.updatedAt || e?.date || e?.exam_date || "";
+  const t = Date.parse(raw);
+  return Number.isNaN(t) ? 0 : t;
+}
+
+async function loadLatestExam(){
   const r = await fetch(`${EXAM_API}/exam/list-all`);
   const d = await r.json();
-  exams = (d.exams || []).filter(e => String(e.session || "") === String(sessionSelect.value || ""));
-  examSelect.innerHTML = exams.length
-    ? exams.map(e=>`<option value="${e.exam_name}">${e.exam_name}</option>`).join("")
-    : `<option value="">No exam found</option>`;
+  const allExams = d.exams || [];
+  let filtered = allExams.filter(e => normSession(e.session) === normSession(currentSession));
+  // Fallback in case session formats are inconsistent in stored data.
+  if(!filtered.length) filtered = allExams;
+  if(!filtered.length){
+    currentExamName = "";
+    examView.textContent = "No exam found";
+    return;
+  }
+
+  filtered.sort((a,b)=> examSortTime(a) - examSortTime(b));
+  const latest = filtered[filtered.length - 1] || {};
+  currentExamName = latest.exam_name || "";
+  examView.textContent = currentExamName || "No exam found";
 }
 
 async function renderTicket(){
   statusNote.textContent = "";
   ticketCard.style.display = "none";
   datesheetBody.innerHTML = "";
-  const examName = examSelect.value;
-  const session = sessionSelect.value;
+  const examName = currentExamName;
+  const session = currentSession;
   if(!profile || !examName || !session) return;
 
   if(profile.eligible === false){
@@ -384,12 +469,6 @@ async function renderTicket(){
   ticketCard.style.display = "block";
 }
 
-sessionSelect.addEventListener("change", async ()=>{
-  await loadExams();
-  await renderTicket();
-});
-examSelect.addEventListener("change", renderTicket);
-
 function openMenu(){ sidebar.style.left = "0"; overlay.style.display = "block"; }
 function closeMenu(){ sidebar.style.left = "-280px"; overlay.style.display = "none"; }
 function openPage(p){ location.href = p; }
@@ -400,7 +479,7 @@ function downloadHallTicketPDF(){
     alert("Load hall ticket first.");
     return;
   }
-  const exam = examSelect.value || "hall_ticket";
+  const exam = currentExamName || "hall_ticket";
   const cls = profile?.class_name || "class";
   const roll = profile?.roll || "student";
   const opt = {
