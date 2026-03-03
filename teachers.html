@@ -108,6 +108,14 @@ th, td {
     border: 1px solid #ccc;
     text-align: left;
 }
+.teacher-photo{
+    width:52px;
+    height:62px;
+    object-fit:cover;
+    border-radius:6px;
+    border:1px solid #cbd5e1;
+    background:#e5e7eb;
+}
 
 .delete-btn {
     background: #e63946;
@@ -120,6 +128,20 @@ th, td {
 
 .delete-btn:hover {
     background: #c5303f;
+}
+
+.reset-btn {
+    background: #0f766e;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-right: 6px;
+}
+
+.reset-btn:hover {
+    background: #0b5f58;
 }
 
 .session-box {
@@ -165,6 +187,7 @@ th, td {
     <table>
         <thead>
             <tr>
+                <th>Photo</th>
                 <th>ID</th>
                 <th>Name</th>
                 <th>Username</th>
@@ -178,15 +201,242 @@ th, td {
 </div>
 
 <script>
-const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/";
+const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app";
+const STUDENT_API = "http://127.0.0.1:8080";
+const DEFAULT_AVATAR = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='52' height='62'%3E%3Crect width='100%25' height='100%25' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%236b7280' font-size='10'%3ENo%20Photo%3C/text%3E%3C/svg%3E";
 
 let sessions = [];
 let currentSession = localStorage.getItem("session") || "";
 
+function normalizeSession(s) {
+    return String(s || "").trim().replace("-", "_");
+}
+
+function sameSession(a, b) {
+    return normalizeSession(a) === normalizeSession(b);
+}
+
+async function parseJson(res) {
+    try { return await res.json(); } catch { return {}; }
+}
+
+async function fetchExamTeachers(session) {
+    const res = await fetch(`${EXAM_API}/teacher/list?session=${encodeURIComponent(session)}`);
+    const data = await parseJson(res);
+    const rows = Array.isArray(data.teachers) ? data.teachers : [];
+
+    const fullRows = await Promise.all(rows.map(async (t) => {
+        try {
+            const r = await fetch(`${EXAM_API}/teacher/${encodeURIComponent(t.id)}`);
+            const d = await parseJson(r);
+            return {
+                id: t.id,
+                name: t.name || d.name || "",
+                username: t.username || d.username || "",
+                teacher_id: d.teacher_id || ""
+            };
+        } catch {
+            return {
+                id: t.id,
+                name: t.name || "",
+                username: t.username || "",
+                teacher_id: ""
+            };
+        }
+    }));
+    return fullRows;
+}
+
+async function fetchStudentTeachers(session) {
+    const res = await fetch(`${STUDENT_API}/teachers?session=${encodeURIComponent(session)}`);
+    const data = await parseJson(res);
+    const rows = Array.isArray(data) ? data : (Array.isArray(data.teachers) ? data.teachers : []);
+    return rows.filter(t => sameSession(t.session, session));
+}
+
+function normalizeText(v) {
+    return String(v || "").trim().toLowerCase();
+}
+
+function normalizeCode(v) {
+    return String(v || "").replace(/\D/g, "").padStart(4, "0").slice(-4);
+}
+
+function dobToDDMMYYYY(raw) {
+    const s = String(raw || "").trim();
+    if (!s) return "";
+
+    let m = s.match(/^(\d{4})[-\/](\d{2})[-\/](\d{2})$/); // yyyy-mm-dd
+    if (m) return `${m[3]}${m[2]}${m[1]}`;
+
+    m = s.match(/^(\d{2})[-\/](\d{2})[-\/](\d{4})$/); // dd-mm-yyyy
+    if (m) return `${m[1]}${m[2]}${m[3]}`;
+
+    const digits = s.replace(/\D/g, "");
+    if (/^\d{8}$/.test(digits)) {
+        // Try ddmmyyyy first; if invalid fallback as yyyymmdd
+        const dd = parseInt(digits.slice(0, 2), 10);
+        const mm = parseInt(digits.slice(2, 4), 10);
+        if (dd >= 1 && dd <= 31 && mm >= 1 && mm <= 12) return digits;
+        return `${digits.slice(6, 8)}${digits.slice(4, 6)}${digits.slice(0, 4)}`;
+    }
+    return "";
+}
+
+function buildExamUsername(studentTeacher) {
+    const fromEmp = String(studentTeacher.employee_id || "").trim().toUpperCase().replace(/[^A-Z0-9._-]/g, "");
+    if (fromEmp) return fromEmp.slice(0, 20);
+    const nameBase = String(studentTeacher.teacher_name || "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "")
+        .slice(0, 8) || "TEACHER";
+    return `${nameBase}${normalizeCode(studentTeacher.teacher_code)}`.toUpperCase();
+}
+
+function buildExamPassword(studentTeacher) {
+    const dobPass = dobToDDMMYYYY(studentTeacher.dob);
+    if (dobPass) return dobPass;
+    const code = normalizeCode(studentTeacher.teacher_code);
+    return `T${code}@${code}`;
+}
+
+function findMatchingExamTeacher(studentTeacher, examByCode, examByUsername, examByName) {
+    const code = normalizeCode(studentTeacher.teacher_code);
+    if (code && examByCode.has(code)) return examByCode.get(code);
+
+    const emp = normalizeText(studentTeacher.employee_id);
+    if (emp && examByUsername.has(emp)) return examByUsername.get(emp);
+
+    const nm = normalizeText(studentTeacher.teacher_name);
+    if (nm && examByName.has(nm)) return examByName.get(nm);
+
+    return null;
+}
+
+async function addStudentPlaceholder(examTeacher) {
+    const codeRaw = String(examTeacher.teacher_id || "").replace(/\D/g, "");
+    const teacherCode = codeRaw.padStart(4, "0").slice(-4);
+    if (!/^\d{4}$/.test(teacherCode)) return { ok: false, message: "Invalid teacher code" };
+
+    const fd = new FormData();
+    fd.append("teacher_code", teacherCode);
+    fd.append("employee_id", examTeacher.username || "");
+    fd.append("teacher_name", examTeacher.name || "");
+    fd.append("father_name", "");
+    fd.append("mother_name", "");
+    fd.append("gender", "");
+    fd.append("dob", "");
+    fd.append("joining_date", "");
+    fd.append("qualification", "");
+    fd.append("designation", "");
+    fd.append("subject", "");
+    fd.append("mobile", "");
+    fd.append("email", "");
+    fd.append("address", "");
+    fd.append("session", currentSession);
+    fd.append("photo_url", "");
+
+    const res = await fetch(`${STUDENT_API}/teachers`, { method: "POST", body: fd });
+    const data = await parseJson(res);
+    return { ok: res.ok, data };
+}
+
+async function syncExamTeachersToStudent(session) {
+    const [examTeachers, studentTeachers] = await Promise.all([
+        fetchExamTeachers(session),
+        fetchStudentTeachers(session)
+    ]);
+
+    const existingCodes = new Set();
+    const existingEmp = new Set();
+    const existingNames = new Set();
+    studentTeachers.forEach(t => {
+        const c = normalizeCode(t.teacher_code);
+        if (/^\d{4}$/.test(c)) existingCodes.add(c);
+        const e = normalizeText(t.employee_id);
+        if (e) existingEmp.add(e);
+        const n = normalizeText(t.teacher_name);
+        if (n) existingNames.add(n);
+    });
+
+    for (const t of examTeachers) {
+        const code = normalizeCode(t.teacher_id);
+        const uname = normalizeText(t.username);
+        const nm = normalizeText(t.name);
+        if (!/^\d{4}$/.test(code)) continue;
+        if (existingCodes.has(code) || existingEmp.has(uname) || existingNames.has(nm)) continue;
+        const added = await addStudentPlaceholder(t);
+        if (added.ok) {
+            existingCodes.add(code);
+            if (uname) existingEmp.add(uname);
+            if (nm) existingNames.add(nm);
+        }
+    }
+}
+
+async function syncStudentTeachersToExam(session) {
+    const [examTeachers, studentTeachers] = await Promise.all([
+        fetchExamTeachers(session),
+        fetchStudentTeachers(session)
+    ]);
+
+    const examByCode = new Map();
+    const examByUsername = new Map();
+    const examByName = new Map();
+
+    examTeachers.forEach(t => {
+        const code = normalizeCode(t.teacher_id);
+        if (code) examByCode.set(code, t);
+        const uname = normalizeText(t.username);
+        if (uname) examByUsername.set(uname, t);
+        const nm = normalizeText(t.name);
+        if (nm) examByName.set(nm, t);
+    });
+
+    for (const st of studentTeachers) {
+        if (findMatchingExamTeacher(st, examByCode, examByUsername, examByName)) continue;
+
+        let username = buildExamUsername(st);
+        const basePassword = buildExamPassword(st);
+        const name = String(st.teacher_name || "").trim();
+        if (!name) continue;
+
+        let created = false;
+        for (let i = 0; i < 5 && !created; i++) {
+            const tryUsername = i === 0 ? username : `${username}${i}`;
+            const res = await fetch(`${EXAM_API}/teacher/add`, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    session,
+                    teacher_id: normalizeCode(st.teacher_code),
+                    name,
+                    username: tryUsername,
+                    password: basePassword
+                })
+            });
+            const data = await parseJson(res);
+            if (res.ok && data.success !== false) {
+                const newTeacher = {
+                    id: data.id || "",
+                    teacher_id: data.teacher_id || "",
+                    name,
+                    username: tryUsername.toUpperCase()
+                };
+                const code = normalizeCode(newTeacher.teacher_id);
+                if (code) examByCode.set(code, newTeacher);
+                examByUsername.set(normalizeText(tryUsername), newTeacher);
+                examByName.set(normalizeText(name), newTeacher);
+                created = true;
+            }
+        }
+    }
+}
+
 /* Load sessions first */
 async function loadSessions() {
-    const res = await fetch(EXAM_API + "/session/list");
-    const data = await res.json();
+    const res = await fetch(`${EXAM_API}/session/list`);
+    const data = await parseJson(res);
     sessions = data.sessions;
 
     if (!currentSession || !sessions.includes(currentSession)) {
@@ -200,74 +450,152 @@ async function loadSessions() {
 }
 
 /* Add teacher */
-function addTeacher() {
-    let name = document.getElementById("name").value;
-    let username = document.getElementById("username").value;
-    let password = document.getElementById("password").value;
+async function addTeacher() {
+    let name = document.getElementById("name").value.trim();
+    let username = document.getElementById("username").value.trim();
+    let password = document.getElementById("password").value.trim();
 
     if (!name || !username || !password) {
         alert("All fields required!");
         return;
     }
 
-    fetch(EXAM_API + "/teacher/add", {
+    const addRes = await fetch(`${EXAM_API}/teacher/add`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ session: currentSession, name, username, password })
-    })
-    .then(r => r.json())
-    .then(res => {
-        alert(res.message);
-        loadTeachers();
     });
-}
-
-/* Load teacher list */
-function loadTeachers() {
-    fetch(EXAM_API + `/teacher/list?session=${currentSession}`)
-    .then(r => r.json())
-    .then(res => {
-        let tbl = document.getElementById("teacherTable");
-        tbl.innerHTML = "";
-
-        if (!res.teachers || res.teachers.length === 0) {
-            tbl.innerHTML = `<tr><td colspan="5">No teachers found</td></tr>`;
-            return;
-        }
-
-        res.teachers.forEach(t => {
-            tbl.innerHTML += `
-                <tr>
-                    <td>${t.id}</td>
-                    <td>${t.name}</td>
-                    <td>${t.username}</td>
-                    <td>${currentSession}</td>
-                    <td>
-                        <button class="delete-btn" onclick="delTeacher('${t.id}')">Delete</button>
-                    </td>
-                </tr>`;
-        });
-    });
-}
-
-/* Delete teacher */
-function delTeacher(id) {
-    if (!id) {
-        alert("Invalid teacher ID");
+    const addData = await parseJson(addRes);
+    if (!addRes.ok || addData.success === false) {
+        alert(addData.message || "Failed to add teacher in exam backend");
         return;
     }
 
-    if (!confirm("Delete this teacher & full timetable?")) return;
+    const teacherCode = String(addData.teacher_id || "").replace(/\D/g, "").padStart(4, "0").slice(-4);
+    if (/^\d{4}$/.test(teacherCode)) {
+        await addStudentPlaceholder({
+            teacher_id: teacherCode,
+            name,
+            username
+        });
+    }
 
-    fetch(EXAM_API + "/teacher/delete/" + id, {
-        method: "DELETE"
-    })
-    .then(res => res.json())
-    .then(data => {
-        alert(data.message);
-        loadTeachers();
-    })
-    .catch(err => console.log("ERROR:", err));
+    alert(addData.message || "Teacher added");
+    document.getElementById("name").value = "";
+    document.getElementById("username").value = "";
+    document.getElementById("password").value = "";
+    loadTeachers();
+}
+
+/* Load teacher list */
+async function loadTeachers() {
+    let tbl = document.getElementById("teacherTable");
+    tbl.innerHTML = `<tr><td colspan="6">Loading...</td></tr>`;
+
+    try {
+        await syncExamTeachersToStudent(currentSession);
+        await syncStudentTeachersToExam(currentSession);
+        const [examTeachers, studentTeachers] = await Promise.all([
+            fetchExamTeachers(currentSession),
+            fetchStudentTeachers(currentSession)
+        ]);
+
+        const examByCode = new Map();
+        const examByUsername = new Map();
+        const examByName = new Map();
+        examTeachers.forEach(t => {
+            const code = normalizeCode(t.teacher_id);
+            if (/^\d{4}$/.test(code)) examByCode.set(code, t);
+            const uname = normalizeText(t.username);
+            if (uname) examByUsername.set(uname, t);
+            const nm = normalizeText(t.name);
+            if (nm) examByName.set(nm, t);
+        });
+
+        tbl.innerHTML = "";
+        if (!studentTeachers.length) {
+            tbl.innerHTML = `<tr><td colspan="6">No teachers found</td></tr>`;
+            return;
+        }
+
+        const seenRowKeys = new Set();
+        studentTeachers.forEach(t => {
+            const code = normalizeCode(t.teacher_code);
+            const e = findMatchingExamTeacher(t, examByCode, examByUsername, examByName);
+            const name = t.teacher_name || e?.name || "";
+            const userOrEmp = e?.username || t.employee_id || "-";
+            const studentId = t._id || "";
+            const examId = e?.id || "";
+            const resetUsername = (e?.username || t.employee_id || "").toUpperCase();
+            const photo = String(t.photo_url || "").trim();
+            const rowKey = `${code}|${normalizeText(name)}|${normalizeText(userOrEmp)}`;
+            if (seenRowKeys.has(rowKey)) return;
+            seenRowKeys.add(rowKey);
+
+            tbl.innerHTML += `
+                <tr>
+                    <td><img class="teacher-photo" src="${photo || DEFAULT_AVATAR}" onerror="this.onerror=null;this.src='${DEFAULT_AVATAR}';"></td>
+                    <td>${code || "-"}</td>
+                    <td>${name}</td>
+                    <td>${userOrEmp}</td>
+                    <td>${t.session || currentSession}</td>
+                    <td>
+                        <button class="reset-btn" onclick="resetTeacherPassword('${examId}','${code}','${resetUsername.replace(/'/g, "\\'")}')">Reset Password</button>
+                        <button class="delete-btn" onclick="delTeacher('${studentId}','${examId}')">Delete</button>
+                    </td>
+                </tr>`;
+        });
+    } catch (err) {
+        tbl.innerHTML = `<tr><td colspan="6">Failed to load teachers</td></tr>`;
+    }
+}
+
+/* Delete teacher */
+async function delTeacher(studentId, examId) {
+    if (!confirm("Delete this teacher & full timetable?")) return;
+    if (studentId) {
+        await fetch(`${STUDENT_API}/teachers/${encodeURIComponent(studentId)}`, { method: "DELETE" });
+    }
+    if (examId) {
+        await fetch(`${EXAM_API}/teacher/delete/${encodeURIComponent(examId)}`, { method: "DELETE" });
+    }
+    loadTeachers();
+}
+
+async function resetTeacherPassword(examTeacherId, teacherCode, teacherUsername) {
+    const newPassword = prompt("Enter new password:") || "";
+    const pass = newPassword.trim();
+    if (!pass) return;
+
+    if (examTeacherId) {
+        const res = await fetch(`${EXAM_API}/teacher/reset-password/${encodeURIComponent(examTeacherId)}`, {
+            method: "PUT",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ password: pass })
+        });
+        const data = await parseJson(res);
+        if (res.ok && data.success !== false) {
+            alert("Password updated successfully");
+            return;
+        }
+    }
+
+    const fallbackRes = await fetch(`${EXAM_API}/teacher/reset-password`, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            password: pass,
+            teacher_id: teacherCode || "",
+            username: (teacherUsername || "").toUpperCase(),
+            session: currentSession
+        })
+    });
+    const fallbackData = await parseJson(fallbackRes);
+    if (!fallbackRes.ok || fallbackData.success === false) {
+        alert(fallbackData.message || "Password reset failed");
+        return;
+    }
+    alert("Password updated successfully");
 }
 
 /* Initial load */
@@ -276,7 +604,6 @@ loadSessions();
 
 </body>
 </html>
-
 
 
 

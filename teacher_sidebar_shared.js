@@ -1,4 +1,129 @@
 (function(){
+  var EXAM_API = 'https://exam-backend-117372286918.asia-south1.run.app';
+  var STUDENT_API_CANDIDATES = [
+    'https://student-backend-117372286918.asia-south1.run.app',
+    'http://127.0.0.1:8080'
+  ];
+  var DEFAULT_AVATAR = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='260'%3E%3Crect width='100%25' height='100%25' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%236b7280' font-size='18'%3ENo%20Photo%3C/text%3E%3C/svg%3E";
+
+  function escHtml(v){
+    return String(v || '').replace(/[&<>"']/g, function(m){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]);
+    });
+  }
+  function norm(v){ return String(v || '').trim().toUpperCase(); }
+  function code4(v){ return String(v || '').replace(/\D/g,'').padStart(4,'0').slice(-4); }
+
+  async function fetchJson(url){
+    try{
+      var r = await fetch(url);
+      if(!r.ok) return null;
+      return await r.json();
+    }catch(_e){
+      return null;
+    }
+  }
+
+  function ensureProfileStyles(){
+    if(document.getElementById('teacher-profile-style')) return;
+    var style = document.createElement('style');
+    style.id = 'teacher-profile-style';
+    style.textContent = [
+      '.teacher-profile-strip{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:10px 16px;background:#f8fafc;border-bottom:1px solid #dbe3f0;}',
+      '.teacher-profile-strip .tp-avatar{width:42px;height:42px;border-radius:50%;object-fit:cover;border:1px solid #cbd5e1;background:#e5e7eb;}',
+      '.teacher-profile-strip .tp-meta{line-height:1.2;text-align:right;}',
+      '.teacher-profile-strip .tp-name{font-size:13px;font-weight:700;color:#1f2a44;}',
+      '.teacher-profile-strip .tp-sub{font-size:11px;color:#5b6b8a;}',
+      '.teacher-dashboard-profile{display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:center;background:#fff;border:1px solid #dbe3f0;border-radius:14px;padding:14px;box-shadow:0 6px 18px rgba(15,23,42,.08);margin:0 0 16px 0;}',
+      '.teacher-dashboard-profile .tdp-img{width:220px;height:260px;object-fit:cover;border-radius:12px;border:1px solid #cbd5e1;background:#e5e7eb;}',
+      '.teacher-dashboard-profile .tdp-name{font-size:24px;font-weight:700;color:#1f2a44;margin-bottom:6px;}',
+      '.teacher-dashboard-profile .tdp-line{font-size:14px;color:#495674;margin:4px 0;}',
+      '@media (max-width:760px){.teacher-dashboard-profile{grid-template-columns:1fr;}.teacher-dashboard-profile .tdp-img{width:100%;height:240px;}}'
+    ].join('');
+    document.head.appendChild(style);
+  }
+
+  function injectHeaderProfile(profile){
+    var host = document.querySelector('header, .topbar, .main-header');
+    if(!host) return;
+    var old = document.getElementById('teacherProfileStrip');
+    if(old) old.remove();
+    var strip = document.createElement('div');
+    strip.id = 'teacherProfileStrip';
+    strip.className = 'teacher-profile-strip';
+    strip.innerHTML =
+      '<img class="tp-avatar" src="' + escHtml(profile.photo_url || DEFAULT_AVATAR) + '" onerror="this.onerror=null;this.src=\'' + DEFAULT_AVATAR + '\';">' +
+      '<div class="tp-meta">' +
+      '<div class="tp-name">' + escHtml(profile.name || 'Teacher') + '</div>' +
+      '<div class="tp-sub">ID: ' + escHtml(profile.teacher_code || '-') + ' | Session: ' + escHtml(profile.session || '-') + '</div>' +
+      '</div>';
+    host.insertAdjacentElement('afterend', strip);
+  }
+
+  function injectDashboardProfile(profile){
+    var current = (location.pathname.split('/').pop() || '').toLowerCase();
+    if(current !== 'teacher_dashboard.html') return;
+    var main = document.querySelector('.main');
+    if(!main) return;
+    var old = document.getElementById('teacherDashboardProfile');
+    if(old) old.remove();
+    var box = document.createElement('div');
+    box.id = 'teacherDashboardProfile';
+    box.className = 'teacher-dashboard-profile';
+    box.innerHTML =
+      '<img class="tdp-img" src="' + escHtml(profile.photo_url || DEFAULT_AVATAR) + '" onerror="this.onerror=null;this.src=\'' + DEFAULT_AVATAR + '\';">' +
+      '<div>' +
+      '<div class="tdp-name">' + escHtml(profile.name || 'Teacher') + '</div>' +
+      '<div class="tdp-line"><b>Username:</b> ' + escHtml(profile.username || '-') + '</div>' +
+      '<div class="tdp-line"><b>Teacher ID:</b> ' + escHtml(profile.teacher_code || '-') + '</div>' +
+      '<div class="tdp-line"><b>Session:</b> ' + escHtml(profile.session || '-') + '</div>' +
+      '</div>';
+    main.insertBefore(box, main.firstChild);
+  }
+
+  async function resolveTeacherProfile(){
+    var teacherId = localStorage.getItem('teacher_id') || '';
+    var teacherName = localStorage.getItem('teacher_name') || 'Teacher';
+    var teacherUsername = localStorage.getItem('teacher_username') || '';
+    var teacherSession = localStorage.getItem('session') || '';
+
+    var examTeacher = null;
+    if(teacherId){
+      examTeacher = await fetchJson(EXAM_API + '/teacher/' + encodeURIComponent(teacherId));
+    }
+
+    var profile = {
+      name: (examTeacher && examTeacher.name) || teacherName,
+      username: (examTeacher && examTeacher.username) || teacherUsername,
+      session: (examTeacher && examTeacher.session) || teacherSession,
+      teacher_code: (examTeacher && examTeacher.teacher_id) || '',
+      photo_url: ''
+    };
+
+    var sCode = code4(profile.teacher_code);
+    var sUser = norm(profile.username);
+    var sName = norm(profile.name);
+
+    var rows = [];
+    for(var i=0;i<STUDENT_API_CANDIDATES.length;i++){
+      var base = STUDENT_API_CANDIDATES[i];
+      var data = await fetchJson(base + '/teachers?session=' + encodeURIComponent(profile.session || ''));
+      rows = Array.isArray(data) ? data : (data && Array.isArray(data.teachers) ? data.teachers : []);
+      if(rows.length) break;
+    }
+
+    if(rows.length){
+      var match = rows.find(function(t){ return code4(t.teacher_code) === sCode; }) ||
+                  rows.find(function(t){ return norm(t.employee_id) === sUser; }) ||
+                  rows.find(function(t){ return norm(t.teacher_name) === sName; });
+      if(match){
+        profile.photo_url = String(match.photo_url || '').trim();
+        if(!profile.teacher_code) profile.teacher_code = match.teacher_code || '';
+      }
+    }
+    return profile;
+  }
+
   var sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar');
   if(!sidebar) return;
 
@@ -99,6 +224,13 @@
   document.addEventListener('keydown', function(e){
     if(e.key === 'Escape') closeMenu();
   });
+
+  (async function(){
+    ensureProfileStyles();
+    var profile = await resolveTeacherProfile();
+    injectHeaderProfile(profile);
+    injectDashboardProfile(profile);
+  })();
 
   closeMenu();
 })();
