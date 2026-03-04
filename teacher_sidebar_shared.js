@@ -129,10 +129,10 @@
     var style = document.createElement('style');
     style.id = 'teacher-shared-sidebar-style';
     style.textContent = [
-      '.teacher-sidebar-shared{position:fixed !important;top:0 !important;left:-280px !important;width:260px !important;height:100vh !important;',
+      '.teacher-sidebar-shared{position:fixed !important;top:0 !important;left:-280px !important;right:auto !important;transform:none !important;width:260px !important;height:100vh !important;',
       'background:linear-gradient(180deg,#233465 0%,#1b2a52 100%) !important;color:#fff !important;z-index:1200 !important;',
       'padding:16px 12px !important;box-shadow:6px 0 22px rgba(15,23,42,.25) !important;overflow-y:auto !important;transition:left .25s ease !important;}',
-      '.teacher-sidebar-shared.is-open{left:0 !important;}',
+      '.teacher-sidebar-shared.is-open{left:0 !important;transform:none !important;}',
       '.teacher-sidebar-shared h2{margin:0 6px 14px !important;padding:0 0 12px !important;border-bottom:1px solid rgba(255,255,255,.18) !important;font-size:18px !important;font-weight:700 !important;letter-spacing:.3px !important;color:#fff !important;text-align:center !important;}',
       '.teacher-sidebar-shared a{display:block !important;margin:3px 4px !important;padding:10px 12px !important;border-radius:10px !important;font-size:14px !important;font-weight:500 !important;line-height:1.25 !important;color:#fff !important;text-decoration:none !important;border:none !important;}',
       '.teacher-sidebar-shared a:hover{background:rgba(255,255,255,.14) !important;color:#fff !important;}',
