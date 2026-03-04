@@ -13,7 +13,13 @@ body{margin:0;font-family:Poppins,sans-serif;background:#eef1f6;display:flex;}
 .sidebar a.active, .sidebar a:hover { background:#1a2648; }
 
 .main{margin-left:240px;padding:20px;width:calc(100% - 240px);} 
-.topbar{background:white;padding:15px 20px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.1);display:flex;justify-content:space-between;align-items:center;} 
+.topbar{background:white;padding:15px 20px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.1);display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;} 
+.topbar-right{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.principal-profile{display:flex;align-items:center;gap:10px;padding:6px 10px;border:1px solid #dbe3f0;border-radius:10px;background:#f8fbff;}
+.principal-profile img{width:52px;height:52px;border-radius:50%;object-fit:cover;border:1px solid #cbd5e1;background:#e5e7eb;}
+.principal-meta{line-height:1.2}
+.principal-name{font-size:14px;font-weight:700;color:#1f2a44;}
+.principal-sub{font-size:12px;color:#556384;}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px;margin-top:20px;} 
 .card{background:white;padding:20px;border-radius:10px;box-shadow:0 3px 10px rgba(0,0,0,0.1);} 
 .card h3{margin:0 0 10px;} 
@@ -35,15 +41,24 @@ body{margin:0;font-family:Poppins,sans-serif;background:#eef1f6;display:flex;}
   <a href="principal_leave.html">Teachers Leave</a>
   <a href="principal_attendence.html">Student Attendance</a>
   <a href="principal_marks.html">Uploaded Marks</a>
-  <a href="principal_exam_eligibility.html">Exam Eligibility</a>
+  <a href="principal_student_exam_access.html">Student Exam Access</a>
   <a href="index.html">Logout</a>
 </div>
 
 <div class="main">
   <div class="topbar">
     <h2>Dashboard Overview</h2>
-    <div>
+    <div class="topbar-right">
+      <div class="principal-profile">
+        <img id="principalPhoto" src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Crect width='100%25' height='100%25' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%236b7280' font-size='10'%3ENo%20Photo%3C/text%3E%3C/svg%3E">
+        <div class="principal-meta">
+          <div class="principal-name" id="principalNameLabel">PRINCIPAL</div>
+          <div class="principal-sub" id="principalInfoLabel">Designation: PRINCIPAL</div>
+        </div>
+      </div>
+      <div>
       Session: <select id="sessionSelect" style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;"></select>
+      </div>
     </div>
   </div>
 
@@ -100,6 +115,65 @@ const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/";
 const LEAVE_API = EXAM_API;
 
 let currentSession = localStorage.getItem("session") || "";
+const DEFAULT_AVATAR = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Crect width='100%25' height='100%25' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%236b7280' font-size='10'%3ENo%20Photo%3C/text%3E%3C/svg%3E";
+
+function norm(v){ return String(v || "").trim().toUpperCase(); }
+
+async function loadPrincipalProfile(){
+  const principalName = localStorage.getItem("principal_name") || "School Principal";
+  const pUser = "PRINCIPAL";
+
+  function asList(rows){
+    return Array.isArray(rows) ? rows : (Array.isArray(rows?.teachers) ? rows.teachers : []);
+  }
+
+  function setPrincipal(p){
+    const name = p?.teacher_name || principalName;
+    const code = p?.teacher_code || "-";
+    const des = p?.designation || "PRINCIPAL";
+    const photo = String(
+      p?.photo_url || p?.photo || p?.image_url || p?.profile_image || ""
+    ).trim();
+    document.getElementById("principalNameLabel").textContent = name;
+    document.getElementById("principalInfoLabel").textContent = `ID: ${code} | Designation: ${des}`;
+    const img = document.getElementById("principalPhoto");
+    img.src = photo || DEFAULT_AVATAR;
+    img.onerror = function(){ this.onerror = null; this.src = DEFAULT_AVATAR; };
+  }
+
+  try{
+    // 1) Direct server-side filter by designation.
+    let r = await fetch(`${STUDENT_API}/teachers?designation=PRINCIPAL&session=${encodeURIComponent(currentSession || "")}`);
+    let teachers = asList(await r.json());
+
+    // 2) Fallback without session, in case principal row has different/missing session.
+    if(!teachers.length){
+      r = await fetch(`${STUDENT_API}/teachers?designation=PRINCIPAL`);
+      teachers = asList(await r.json());
+    }
+
+    // 3) Last fallback: broad search by employee/name patterns.
+    if(!teachers.length){
+      r = await fetch(`${STUDENT_API}/teachers?session=${encodeURIComponent(currentSession || "")}`);
+      const all = asList(await r.json());
+      const found =
+        all.find(t => norm(t.employee_id) === pUser) ||
+        all.find(t => norm(t.teacher_name).includes("PRINCIPAL")) ||
+        all.find(t => norm(t.teacher_name) === norm(principalName));
+      if(found) teachers = [found];
+    }
+
+    if(teachers.length){
+      setPrincipal(teachers[0]);
+    }else{
+      setPrincipal(null);
+      document.getElementById("principalInfoLabel").textContent = "Designation: PRINCIPAL";
+    }
+  }catch(e){
+    setPrincipal(null);
+    document.getElementById("principalInfoLabel").textContent = "Designation: PRINCIPAL";
+  }
+}
 
 async function loadSessions(){
  try{
@@ -131,6 +205,7 @@ async function loadSessions(){
 }
 
 function loadStats(){ 
+    loadPrincipalProfile();
     loadStudentCount(); 
     loadTeacherCount();
     loadClassCount(); 
