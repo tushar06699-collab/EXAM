@@ -71,6 +71,26 @@ button{
     margin-top:10px;
     text-align:center;
 }
+.otp-wrap{
+    display:none;
+    margin-top:10px;
+    border-top:1px solid #e2e8f0;
+    padding-top:10px;
+}
+.otp-note{
+    font-size:12px;
+    color:#334155;
+    margin:0 0 8px 0;
+}
+.otp-actions{
+    display:flex;
+    gap:8px;
+}
+.otp-actions button{
+    flex:1;
+    padding:10px;
+    font-size:14px;
+}
 /* BACKGROUND IMAGE */
 body{
     background:url("images/event3.png") no-repeat center center/cover;
@@ -121,12 +141,20 @@ body::before{
     </div>
     <input id="captchaInput" placeholder="Enter Captcha" autocomplete="off">
     
-    <button onclick="login()">Login</button>
+    <button id="loginBtn" onclick="login()">Login</button>
+    <div id="otpWrap" class="otp-wrap">
+        <p class="otp-note" id="otpNote">Enter OTP sent to your registered email.</p>
+        <input id="otpInput" placeholder="Enter 6-digit OTP" maxlength="6" autocomplete="one-time-code">
+        <div class="otp-actions">
+            <button type="button" class="mini-btn" onclick="resendOtp()">Resend OTP</button>
+            <button type="button" onclick="verifyOtp()">Verify OTP</button>
+        </div>
+    </div>
     <div id="err" class="error"></div>
 </div>
 
 <script>
-const API = "https://exam-backend-117372286918.asia-south1.run.app/";
+const API = "http://127.0.0.1:8080";
 
 // ---------- ELEMENT REFERENCES ----------
 const userInput = document.getElementById("user");
@@ -134,7 +162,37 @@ const passInput = document.getElementById("pass");
 const captchaInput = document.getElementById("captchaInput");
 const captchaText = document.getElementById("captchaText");
 const errDiv = document.getElementById("err");
+const otpWrap = document.getElementById("otpWrap");
+const otpInput = document.getElementById("otpInput");
+const otpNote = document.getElementById("otpNote");
+const loginBtn = document.getElementById("loginBtn");
 let currentCaptcha = "";
+let pendingSpecialLogin = null;
+
+const SPECIAL_USERS = {
+    PSPSLIB: {
+        password: "14112017",
+        redirect: "https://library-kohl-eight.vercel.app/issue_return.html"
+    },
+    PSPSTEA: {
+        password: "14112017",
+        redirect: "https://teachers-frontend.vercel.app/"
+    },
+    PSPSSTU: {
+        password: "14112017",
+        redirect: "https://student-frontend-mocha.vercel.app/"
+    },
+    ADMIN: {
+        password: "PS*100",
+        backendUsername: "Admin",
+        roleRoute: "admin"
+    },
+    PRINCIPAL: {
+        password: "14112017",
+        backendUsername: "Principal",
+        roleRoute: "principal"
+    }
+};
 
 function generateCaptcha(){
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -179,6 +237,7 @@ function getDOBCandidates(input){
 /* ---------- LOGIN ---------- */
 async function login(){
     const username = userInput.value.trim();
+    const usernameUpper = username.toUpperCase();
     const rawPassword = passInput.value.trim();
     const captchaValue = captchaInput.value.trim().toUpperCase();
     errDiv.innerText = "";
@@ -191,23 +250,24 @@ async function login(){
         return;
     }
 
-     if(username === "PSPSLIB" && rawPassword === "14112017"){
-        window.location.href = "https://library-kohl-eight.vercel.app/issue_return.html";
-        return;
-    }
-
-if(username === "PSPSTEA" && rawPassword === "14112017"){
-        window.location.href = "https://teachers-frontend.vercel.app/";
-        return;
-    }    
-
-     if(username === "PSPSSTU" && rawPassword === "14112017"){
-        window.location.href = "https://student-frontend-mocha.vercel.app/";
-        return;
-    }
-
     if(!username || !rawPassword){
         errDiv.innerText = "Enter username and password";
+        return;
+    }
+
+    const special = SPECIAL_USERS[usernameUpper];
+    if(special){
+        if(rawPassword !== special.password){
+            errDiv.innerText = "Invalid credentials";
+            return;
+        }
+        pendingSpecialLogin = {
+            usernameUpper,
+            inputUsername: username,
+            rawPassword,
+            special
+        };
+        await requestOtp(usernameUpper);
         return;
     }
 
@@ -288,6 +348,100 @@ if(username === "PSPSTEA" && rawPassword === "14112017"){
 }
 
     errDiv.innerText = "Unknown role!";
+}
+
+async function requestOtp(usernameUpper){
+    try{
+        const response = await fetch(API + "/auth/otp/request", {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({ username: usernameUpper })
+        });
+        const data = await response.json().catch(()=>({}));
+        if(!response.ok || data.success === false){
+            errDiv.innerText = data.message || "Failed to send OTP";
+            return;
+        }
+        otpWrap.style.display = "block";
+        otpInput.value = "";
+        otpInput.focus();
+        otpNote.innerText = data.message || "OTP sent to your email";
+        loginBtn.disabled = true;
+        loginBtn.style.opacity = "0.6";
+    }catch(_e){
+        errDiv.innerText = "Network error: unable to reach OTP server";
+    }
+}
+
+async function resendOtp(){
+    if(!pendingSpecialLogin){
+        errDiv.innerText = "Start login first";
+        return;
+    }
+    await requestOtp(pendingSpecialLogin.usernameUpper);
+}
+
+function finishRoleLogin(res){
+    localStorage.setItem("token", res.token);
+    localStorage.setItem("role", res.role);
+
+    if(res.role === "admin"){
+        window.location.href = "dashboard.html";
+        return;
+    }
+    if(res.role === "principal"){
+        localStorage.setItem("principal_name", res.principal?.name || "Principal");
+        window.location.href = "principal_dashboard.html";
+        return;
+    }
+}
+
+async function verifyOtp(){
+    if(!pendingSpecialLogin){
+        errDiv.innerText = "No pending OTP request";
+        return;
+    }
+    const code = otpInput.value.trim();
+    if(!/^\d{6}$/.test(code)){
+        errDiv.innerText = "Enter valid 6-digit OTP";
+        return;
+    }
+
+    let verifyData = {};
+    try{
+        const verifyRes = await fetch(API + "/auth/otp/verify", {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({ username: pendingSpecialLogin.usernameUpper, otp: code })
+        });
+        verifyData = await verifyRes.json().catch(()=>({}));
+        if(!verifyRes.ok || verifyData.success === false){
+            errDiv.innerText = verifyData.message || "OTP verify failed";
+            return;
+        }
+    }catch(_e){
+        errDiv.innerText = "Network error: unable to verify OTP";
+        return;
+    }
+
+    const special = pendingSpecialLogin.special;
+    if(special.redirect){
+        window.location.href = special.redirect;
+        return;
+    }
+
+    const backendUsername = special.backendUsername || pendingSpecialLogin.inputUsername;
+    const loginRes = await fetch(API + "/login", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ username: backendUsername, password: pendingSpecialLogin.rawPassword })
+    });
+    const loginData = await loginRes.json().catch(()=>({}));
+    if(!loginRes.ok || loginData.success === false){
+        errDiv.innerText = loginData.message || "Post-OTP login failed";
+        return;
+    }
+    finishRoleLogin(loginData);
 }
 
 generateCaptcha();

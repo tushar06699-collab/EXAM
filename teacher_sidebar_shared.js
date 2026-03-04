@@ -29,11 +29,14 @@
     var style = document.createElement('style');
     style.id = 'teacher-profile-style';
     style.textContent = [
-      '.teacher-profile-strip{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:10px 16px;background:#f8fafc;border-bottom:1px solid #dbe3f0;}',
-      '.teacher-profile-strip .tp-avatar{width:42px;height:42px;border-radius:50%;object-fit:cover;border:1px solid #cbd5e1;background:#e5e7eb;}',
-      '.teacher-profile-strip .tp-meta{line-height:1.2;text-align:right;}',
-      '.teacher-profile-strip .tp-name{font-size:13px;font-weight:700;color:#1f2a44;}',
-      '.teacher-profile-strip .tp-sub{font-size:11px;color:#5b6b8a;}',
+      '.teacher-header-host{position:relative !important;overflow:visible !important;padding-right:340px !important;}',
+      '.teacher-profile-inline{position:absolute;right:520px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:8px;z-index:2;max-width:320px;}',
+      '.teacher-profile-inline .tp-avatar{width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.7);background:#e5e7eb;}',
+      '.teacher-profile-inline .tp-meta{line-height:1.15;text-align:left;min-width:0;}',
+      '.teacher-profile-inline .tp-name{font-size:20px;font-weight:700;color:#fff;}',
+      '.teacher-profile-inline .tp-sub{font-size:13px;color:rgba(255,255,255,.92);}',
+      '@media (max-width:1000px){.teacher-header-host{padding-right:300px !important;} .teacher-profile-inline{right:290px;max-width:280px;}}',
+      '@media (max-width:760px){.teacher-header-host{padding-right:220px !important;} .teacher-profile-inline{right:8px;gap:6px;max-width:210px;} .teacher-profile-inline .tp-avatar{width:34px;height:34px;}.teacher-profile-inline .tp-name{font-size:12px;}.teacher-profile-inline .tp-sub{font-size:10px;}}',
       '.teacher-dashboard-profile{display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:center;background:#fff;border:1px solid #dbe3f0;border-radius:14px;padding:14px;box-shadow:0 6px 18px rgba(15,23,42,.08);margin:0 0 16px 0;}',
       '.teacher-dashboard-profile .tdp-img{width:220px;height:260px;object-fit:cover;border-radius:12px;border:1px solid #cbd5e1;background:#e5e7eb;}',
       '.teacher-dashboard-profile .tdp-name{font-size:24px;font-weight:700;color:#1f2a44;margin-bottom:6px;}',
@@ -44,41 +47,29 @@
   }
 
   function injectHeaderProfile(profile){
-    var host = document.querySelector('header, .topbar, .main-header');
+    var current = (location.pathname.split('/').pop() || '').toLowerCase();
+    var host = document.querySelector('.topbar') || document.querySelector('header, .main-header');
     if(!host) return;
-    var old = document.getElementById('teacherProfileStrip');
+    var old = document.getElementById('teacherProfileInline');
     if(old) old.remove();
+    host.classList.add('teacher-header-host');
     var strip = document.createElement('div');
-    strip.id = 'teacherProfileStrip';
-    strip.className = 'teacher-profile-strip';
+    strip.id = 'teacherProfileInline';
+    strip.className = 'teacher-profile-inline';
     strip.innerHTML =
       '<img class="tp-avatar" src="' + escHtml(profile.photo_url || DEFAULT_AVATAR) + '" onerror="this.onerror=null;this.src=\'' + DEFAULT_AVATAR + '\';">' +
       '<div class="tp-meta">' +
       '<div class="tp-name">' + escHtml(profile.name || 'Teacher') + '</div>' +
       '<div class="tp-sub">ID: ' + escHtml(profile.teacher_code || '-') + ' | Session: ' + escHtml(profile.session || '-') + '</div>' +
       '</div>';
-    host.insertAdjacentElement('afterend', strip);
+    if(current === 'teacher_leave.html' || current === 'teacher_my_classes.html'){
+      strip.style.right = '16px';
+    }
+    host.appendChild(strip);
   }
 
   function injectDashboardProfile(profile){
-    var current = (location.pathname.split('/').pop() || '').toLowerCase();
-    if(current !== 'teacher_dashboard.html') return;
-    var main = document.querySelector('.main');
-    if(!main) return;
-    var old = document.getElementById('teacherDashboardProfile');
-    if(old) old.remove();
-    var box = document.createElement('div');
-    box.id = 'teacherDashboardProfile';
-    box.className = 'teacher-dashboard-profile';
-    box.innerHTML =
-      '<img class="tdp-img" src="' + escHtml(profile.photo_url || DEFAULT_AVATAR) + '" onerror="this.onerror=null;this.src=\'' + DEFAULT_AVATAR + '\';">' +
-      '<div>' +
-      '<div class="tdp-name">' + escHtml(profile.name || 'Teacher') + '</div>' +
-      '<div class="tdp-line"><b>Username:</b> ' + escHtml(profile.username || '-') + '</div>' +
-      '<div class="tdp-line"><b>Teacher ID:</b> ' + escHtml(profile.teacher_code || '-') + '</div>' +
-      '<div class="tdp-line"><b>Session:</b> ' + escHtml(profile.session || '-') + '</div>' +
-      '</div>';
-    main.insertBefore(box, main.firstChild);
+    // Disabled intentionally: profile is now shown inside blue dashboard header line.
   }
 
   async function resolveTeacherProfile(){
@@ -147,7 +138,13 @@
       '.teacher-sidebar-shared a:hover{background:rgba(255,255,255,.14) !important;color:#fff !important;}',
       '.teacher-sidebar-shared a.active{background:rgba(255,255,255,.24) !important;color:#fff !important;font-weight:700 !important;}',
       '#overlay.teacher-overlay-shared{position:fixed !important;inset:0 !important;background:rgba(2,6,23,.45) !important;z-index:1100 !important;display:none !important;}',
-      '#overlay.teacher-overlay-shared.active{display:block !important;}','.content{margin-left:0 !important;width:100% !important;}','header,.topbar{margin-left:0 !important;width:100% !important;padding-left:76px !important;}','.teacher-menu-fab{position:fixed;top:14px;left:14px;width:42px;height:42px;border:none;border-radius:10px;background:#233465;color:#fff;font-size:24px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:1301;box-shadow:0 8px 20px rgba(15,23,42,.35);}','.teacher-menu-fab:hover{background:#1b2a52;}','.menu-btn, #hamburger, .hamburger, .menu-icon{display:none !important;}'
+      '#overlay.teacher-overlay-shared.active{display:block !important;}',
+      '.content{margin-left:0 !important;width:100% !important;}',
+      'header,.topbar{margin-left:0 !important;width:100% !important;padding-left:76px !important;}',
+      '.teacher-menu-fab{position:fixed;top:14px;left:14px;width:42px;height:42px;border:none;border-radius:10px;background:#233465;color:#fff;font-size:24px;line-height:1;display:flex !important;align-items:center;justify-content:center;cursor:pointer;z-index:1301;box-shadow:0 8px 20px rgba(15,23,42,.35);}',
+      '.teacher-menu-fab:hover{background:#1b2a52;}',
+      '.menu-btn,#hamburger,.hamburger,.menu-icon{cursor:pointer;}',
+      '@media (max-width:900px){body{overflow-x:hidden !important;} .content,.container,.main{margin-left:0 !important;width:100% !important;max-width:100% !important;padding:12px !important;} main{max-width:100% !important;} #tableContainer,.table-wrap{overflow:auto !important;-webkit-overflow-scrolling:touch !important;} table{min-width:600px;}}'
     ].join('');
     document.head.appendChild(style);
   }
@@ -220,6 +217,16 @@
     document.body.appendChild(fab);
   }
   fab.onclick = function(ev){ ev.stopPropagation(); toggleMenu(); };
+
+  // Keep legacy hamburger/menu controls functional on pages that still use them.
+  var legacyBtns = document.querySelectorAll('.menu-btn, #hamburger, .hamburger, .menu-icon');
+  legacyBtns.forEach(function(btn){
+    btn.addEventListener('click', function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      toggleMenu();
+    });
+  });
 
   document.addEventListener('keydown', function(e){
     if(e.key === 'Escape') closeMenu();
