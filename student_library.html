@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Library</title>
+<style>
+:root{
+  --primary:#4e73df;
+  --bg:#f5f7fb;
+  --card:#ffffff;
+  --line:#e5e7eb;
+}
+body{margin:0;font-family:Poppins,system-ui,sans-serif;background:var(--bg);}
+header{
+  background:var(--primary);color:#fff;padding:10px 20px;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.left{display:flex;align-items:center;gap:10px;}
+.menu-btn{font-size:26px;cursor:pointer;}
+.student-info{display:flex;align-items:center;gap:10px;}
+.student-info img{width:38px;height:38px;border-radius:50%;border:2px solid #fff;object-fit:cover;}
+.logout{background:rgba(255,255,255,.25);border:none;color:#fff;padding:6px 12px;border-radius:20px;cursor:pointer;}
+.sidebar{
+  position:fixed;top:0;left:-280px;width:260px;height:100%;
+  background:#fff;z-index:1001;padding:20px;transition:.3s;box-shadow:2px 0 15px rgba(0,0,0,.2);
+}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;z-index:1000;}
+.container{max-width:1100px;margin:auto;padding:20px;}
+.panel{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 8px 20px rgba(15,23,42,.08);}
+.meta{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;color:#374151;font-size:14px;}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;}
+th,td{border:1px solid var(--line);padding:10px;text-align:left;font-size:14px;}
+th{background:#eef2ff;color:#1e3a8a;}
+.status-issued{color:#0369a1;font-weight:600;}
+.status-returned{color:#166534;font-weight:600;}
+.status-incident{color:#b91c1c;font-weight:700;}
+.muted{color:#6b7280;}
+</style>
+<link rel="stylesheet" href="student_mobile.css">
+</head>
+<body>
+<div class="overlay" id="overlay" onclick="closeMenu()"></div>
+<div class="sidebar" id="sidebar"></div>
+
+<header>
+  <div class="left">
+    <span class="menu-btn" onclick="openMenu()">&#9776;</span>
+    <h2>My Library</h2>
+  </div>
+  <div class="student-info">
+    <img id="headerPhoto" src="images/default.png" alt="Student">
+    <span id="headerName">Student</span>
+    <button class="logout" onclick="logout()">Logout</button>
+  </div>
+</header>
+
+<div class="container">
+  <div class="panel">
+    <div class="meta">
+      <div><b>Name:</b> <span id="studentName">-</span></div>
+      <div><b>Admission No:</b> <span id="admissionNo">-</span></div>
+    </div>
+    <div id="tableWrap" class="muted">Loading library records...</div>
+  </div>
+</div>
+
+<script>
+if(localStorage.getItem("role") !== "student"){ location.href = "index.html"; }
+
+const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/";
+const LIB_API = "http://127.0.0.1:5000/api";
+const studentId = localStorage.getItem("student_id");
+
+function openMenu(){ sidebar.style.left = "0"; overlay.style.display = "block"; }
+function closeMenu(){ sidebar.style.left = "-280px"; overlay.style.display = "none"; }
+function logout(){ localStorage.clear(); location.href = "index.html"; }
+
+function statusClass(status){
+  const s = String(status || "").toUpperCase();
+  if(s === "ISSUED") return "status-issued";
+  if(s === "RETURNED") return "status-returned";
+  if(["LOST","DAMAGED","MISPLACED"].includes(s)) return "status-incident";
+  return "";
+}
+
+function renderTable(rows){
+  const wrap = document.getElementById("tableWrap");
+  const sortedRows = [...(rows || [])].sort((a, b) => {
+    const da = new Date((a.returnDate || a.issueDate || "1900-01-01") + "T00:00:00").getTime();
+    const db = new Date((b.returnDate || b.issueDate || "1900-01-01") + "T00:00:00").getTime();
+    if(db !== da) return db - da;
+    return String(b.code || "").localeCompare(String(a.code || ""));
+  });
+
+  if(!sortedRows.length){
+    wrap.innerHTML = "<div class='muted'>No library records found.</div>";
+    return;
+  }
+  wrap.innerHTML = `
+    <table>
+      <tr>
+        <th>Book Code</th>
+        <th>Book Name</th>
+        <th>Issue Date</th>
+        <th>Due Date</th>
+        <th>Return Date</th>
+        <th>Status</th>
+        <th>Fine (INR)</th>
+        <th>Fine Reason</th>
+      </tr>
+      ${sortedRows.map(r => `
+        <tr>
+          <td>${r.code || ""}</td>
+          <td>${r.bookName || ""}</td>
+          <td>${r.issueDate || ""}</td>
+          <td>${r.dueDate || ""}</td>
+          <td>${r.returnDate || "-"}</td>
+          <td class="${statusClass(r.status)}">${r.status || ""}</td>
+          <td>${Number(r.fine || 0)}</td>
+          <td>${r.fine_reason || "-"}</td>
+        </tr>
+      `).join("")}
+    </table>
+  `;
+}
+
+async function init(){
+  if(!studentId){ location.href = "index.html"; return; }
+  try{
+    const r = await fetch(`${EXAM_API}/portal/student/${studentId}`);
+    const d = await r.json();
+    if(!d.success || !d.student) throw new Error("Student not found");
+
+    const s = d.student;
+    const adm = String(s.admission_no || "").trim();
+    headerName.textContent = s.name || "Student";
+    studentName.textContent = s.name || "-";
+    admissionNo.textContent = adm || "-";
+    headerPhoto.src = s.photo_url || "images/default.png";
+    headerPhoto.onerror = ()=> headerPhoto.src = "images/default.png";
+
+    if(!adm){
+      tableWrap.innerHTML = "<div class='muted'>Admission number missing in profile.</div>";
+      return;
+    }
+
+    const lr = await fetch(`${LIB_API}/records/student/${encodeURIComponent(adm)}`);
+    const ld = await lr.json();
+    if(!lr.ok || ld.success === false){
+      throw new Error(ld.error || "Library API failed");
+    }
+    renderTable(Array.isArray(ld.records) ? ld.records : []);
+  }catch(_e){
+    tableWrap.innerHTML = "<div class='muted'>Unable to load library data. Try again later.</div>";
+  }
+}
+
+init();
+</script>
+<script src="student_sidebar_shared.js"></script>
+</body>
+</html>

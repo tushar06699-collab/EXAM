@@ -264,12 +264,22 @@ async function releaseAllRollNo(){
     alert("Load students first.");
     return;
   }
+  let changed = 0;
   rows.forEach(tr=>{
     const eligible = tr.querySelector(".eligible");
     const relRoll = tr.querySelector(".release-roll");
+    const relResult = tr.querySelector(".release-result");
     if(!eligible || !relRoll) return;
-    relRoll.value = eligible.value === "yes" ? "yes" : "no";
+    eligible.value = "yes";
+    relRoll.disabled = false;
+    if(relResult) relResult.disabled = false;
+    relRoll.value = "yes";
+    changed++;
   });
+  if(!changed){
+    alert("No rows updated.");
+    return;
+  }
   await saveSettings();
 }
 

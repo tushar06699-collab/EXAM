@@ -266,7 +266,10 @@ fetch(`${EXAM_API}/portal/student/${studentId}`)
     headerName.innerText = s.name;
     dashName.innerText = s.name;
     dashClass.innerText = `${s.class_name} - ${s.section}`;
-    dashRoll.innerText = s.release_rollno ? `Roll No: ${s.roll}` : "Roll No: Not Released";
+    const shownRoll = String(s.roll ?? "").trim();
+    dashRoll.innerText = (shownRoll && shownRoll.toLowerCase() !== "nan")
+      ? `Roll No: ${shownRoll}`
+      : "Roll No: -";
 
     if(s.eligible === false){
         eligibilityMsg.innerText = "You are currently not eligible for exam/result release.";

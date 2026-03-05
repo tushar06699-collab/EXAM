@@ -17,6 +17,7 @@
     { href: 'student_exams.html', label: 'Exams' },
     { href: 'student_hall_ticket.html', label: 'Hall Ticket' },
     { href: 'student_attendance.html', label: 'Attendance' },
+    { href: 'student_library.html', label: 'My Library' },
     { href: 'student_notices.html', label: 'Notices' },
     { href: 'student_academic_calendar.html', label: 'Academic Calendar' }
   ];
