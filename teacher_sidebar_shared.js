@@ -13,6 +13,40 @@
   }
   function norm(v){ return String(v || '').trim().toUpperCase(); }
   function code4(v){ return String(v || '').replace(/\D/g,'').padStart(4,'0').slice(-4); }
+  function currentPage(){
+    return (location.pathname.split('/').pop() || '').toLowerCase();
+  }
+  function isTeacherPage(){
+    var p = currentPage();
+    return p.indexOf('teacher_') === 0 || p === 'view_notices.html';
+  }
+  function clearTeacherAuth(){
+    [
+      'token','role','teacher_id','teacher_name','teacher_username','session',
+      'teacher_otp_verified_until','teacher_otp_username'
+    ].forEach(function(k){ localStorage.removeItem(k); });
+    sessionStorage.removeItem('pending_teacher_login');
+  }
+  function enforceTeacherOtpWindow(){
+    if(!isTeacherPage()) return true;
+    var p = currentPage();
+    if(p === 'teacher_otp_verify.html') return true;
+
+    var role = String(localStorage.getItem('role') || '').toLowerCase();
+    var teacherUser = String(localStorage.getItem('teacher_username') || '').toUpperCase();
+    var otpUser = String(localStorage.getItem('teacher_otp_username') || '').toUpperCase();
+    var otpUntil = parseInt(localStorage.getItem('teacher_otp_verified_until') || '0', 10);
+    var now = Date.now();
+
+    if(role !== 'teacher' || !teacherUser || !otpUser || otpUser !== teacherUser || !otpUntil || now > otpUntil){
+      clearTeacherAuth();
+      location.href = 'index.html';
+      return false;
+    }
+    return true;
+  }
+
+  if(!enforceTeacherOtpWindow()) return;
 
   async function fetchJson(url){
     try{
@@ -165,7 +199,7 @@
     { href: 'teacher_incharge_students.html', label: 'My Incharge Students' }
   ];
 
-  var current = (location.pathname.split('/').pop() || '').toLowerCase();
+  var current = currentPage();
   var html = '<h2>Teacher Menu</h2>';
   menuItems.forEach(function(item){
     var active = item.href.toLowerCase() === current ? ' class="active"' : '';

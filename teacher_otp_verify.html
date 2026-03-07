@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teacher OTP Verification</title>
+<style>
+body{
+    margin:0;
+    font-family:Poppins,sans-serif;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:linear-gradient(135deg,#0f172a,#1e293b 55%,#334155);
+}
+.card{
+    width:min(92vw,430px);
+    background:#fff;
+    border-radius:14px;
+    padding:22px;
+    box-shadow:0 20px 45px rgba(0,0,0,0.28);
+}
+h1{
+    margin:0 0 14px 0;
+    font-size:22px;
+    color:#0f172a;
+}
+.teacher{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:12px;
+    background:#f8fafc;
+    border:1px solid #e2e8f0;
+    border-radius:10px;
+    margin-bottom:14px;
+}
+.avatar{
+    width:62px;
+    height:62px;
+    border-radius:50%;
+    object-fit:cover;
+    border:2px solid #cbd5e1;
+    background:#e2e8f0;
+}
+.meta{
+    min-width:0;
+}
+.name{
+    font-weight:700;
+    color:#0f172a;
+    line-height:1.2;
+}
+.mobile{
+    color:#475569;
+    font-size:14px;
+}
+.note{
+    font-size:13px;
+    color:#334155;
+    margin:6px 0 10px 0;
+}
+input{
+    width:100%;
+    box-sizing:border-box;
+    padding:11px 12px;
+    border:1px solid #cbd5e1;
+    border-radius:8px;
+    margin-bottom:10px;
+    letter-spacing:2px;
+    font-size:16px;
+}
+.row{
+    display:flex;
+    gap:8px;
+}
+button{
+    border:none;
+    border-radius:8px;
+    padding:10px 12px;
+    cursor:pointer;
+}
+#verifyBtn{
+    flex:1;
+    background:#2563eb;
+    color:#fff;
+    font-weight:600;
+}
+#resendBtn{
+    background:#e2e8f0;
+    color:#0f172a;
+}
+.error{
+    color:#dc2626;
+    margin-top:10px;
+    font-size:14px;
+    min-height:18px;
+}
+.ok{
+    color:#15803d;
+}
+</style>
+</head>
+<body>
+<div class="card">
+    <h1>Teacher Verification</h1>
+    <div class="teacher">
+        <img id="teacherPhoto" class="avatar" alt="Teacher photo">
+        <div class="meta">
+            <div id="teacherName" class="name">Teacher</div>
+            <div id="teacherMobile" class="mobile">Mobile: -</div>
+        </div>
+    </div>
+    <div class="note" id="otpNote">Sending OTP...</div>
+    <input id="otpInput" placeholder="Enter 6-digit OTP" maxlength="6" autocomplete="one-time-code" inputmode="numeric">
+    <div class="row">
+        <button id="resendBtn" type="button">Resend OTP</button>
+        <button id="verifyBtn" type="button">Verify & Continue</button>
+    </div>
+    <div id="msg" class="error"></div>
+</div>
+
+<script>
+const API = String(
+    sessionStorage.getItem("exam_api_base") || "https://exam-backend-117372286918.asia-south1.run.app/"
+).replace(/\/+$/, "");
+const FALLBACK_AVATAR = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='100%25' height='100%25' fill='%23e2e8f0'/%3E%3Ctext x='50%25' y='52%25' dominant-baseline='middle' text-anchor='middle' fill='%2364748b' font-size='12'%3ETeacher%3C/text%3E%3C/svg%3E";
+
+const teacherPhoto = document.getElementById("teacherPhoto");
+const teacherName = document.getElementById("teacherName");
+const teacherMobile = document.getElementById("teacherMobile");
+const otpInput = document.getElementById("otpInput");
+const otpNote = document.getElementById("otpNote");
+const msg = document.getElementById("msg");
+const resendBtn = document.getElementById("resendBtn");
+const verifyBtn = document.getElementById("verifyBtn");
+
+let pending = null;
+const OTP_WINDOW_MS = 12 * 60 * 60 * 1000;
+
+function getOrCreateOtpDeviceId(){
+    let id = localStorage.getItem("teacher_otp_device_id");
+    if(id) return id;
+    try{
+        id = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : "";
+    }catch(_e){
+        id = "";
+    }
+    if(!id){
+        id = "dev_" + Date.now() + "_" + Math.random().toString(36).slice(2,10);
+    }
+    localStorage.setItem("teacher_otp_device_id", id);
+    return id;
+}
+
+async function fetchWithTimeout(url, options, timeoutMs){
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), timeoutMs || 12000);
+    try{
+        return await fetch(url, { ...(options || {}), signal: ctrl.signal });
+    }finally{
+        clearTimeout(t);
+    }
+}
+
+function setError(text, ok){
+    msg.className = ok ? "error ok" : "error";
+    msg.innerText = text || "";
+}
+
+function loadPendingLogin(){
+    try{
+        pending = JSON.parse(sessionStorage.getItem("pending_teacher_login") || "null");
+    }catch(_e){
+        pending = null;
+    }
+    const t = (pending && pending.teacher) ? pending.teacher : {};
+    const name = t.name || t.username || "Teacher";
+    teacherName.innerText = name;
+    teacherPhoto.src = t.photo_url || FALLBACK_AVATAR;
+    teacherPhoto.onerror = ()=>{ teacherPhoto.src = FALLBACK_AVATAR; };
+    teacherMobile.innerText = "Mobile: loading...";
+    if(!pending || !t.username){
+        window.location.href = "index.html";
+    }
+}
+
+async function loadTeacherProfile(){
+    if(!pending || !pending.teacher || !pending.teacher.username){
+        return;
+    }
+    try{
+        const res = await fetchWithTimeout(
+            `${API}/teacher/auth/profile?username=${encodeURIComponent(pending.teacher.username)}`,
+            { method: "GET" },
+            8000
+        );
+        const data = await res.json().catch(()=>({}));
+        const profile = data.teacher || {};
+        teacherName.innerText = profile.name || teacherName.innerText;
+        teacherPhoto.src = profile.photo_url || teacherPhoto.src || FALLBACK_AVATAR;
+        teacherMobile.innerText = "Mobile: " + (profile.mobile_masked || "Registered number");
+    }catch(_e){
+        teacherMobile.innerText = "Mobile: Registered number";
+    }
+}
+
+async function requestTeacherOtp(){
+    setError("");
+    otpNote.innerText = "Sending OTP...";
+    const username = pending.teacher.username;
+    try{
+        const res = await fetchWithTimeout(`${API}/teacher/auth/otp/request`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username })
+        }, 15000);
+        const data = await res.json().catch(()=>({}));
+        const profile = data.teacher || {};
+        teacherName.innerText = profile.name || teacherName.innerText;
+        teacherPhoto.src = profile.photo_url || teacherPhoto.src || FALLBACK_AVATAR;
+        teacherMobile.innerText = "Mobile: " + (profile.mobile_masked || "Registered number");
+
+        if(!res.ok || data.success === false){
+            setError(data.message || "Failed to send OTP");
+            otpNote.innerText = "Could not send OTP";
+            return;
+        }
+        otpNote.innerText = data.message || "OTP sent";
+        otpInput.value = "";
+        otpInput.focus();
+        setError("OTP sent successfully.", true);
+    }catch(_e){
+        setError("OTP request timed out or network error");
+        otpNote.innerText = "Could not send OTP";
+    }
+}
+
+async function verifyTeacherOtp(){
+    setError("");
+    const code = otpInput.value.trim();
+    if(!/^\d{6}$/.test(code)){
+        setError("Enter valid 6-digit OTP");
+        return;
+    }
+    verifyBtn.disabled = true;
+    verifyBtn.style.opacity = "0.7";
+    try{
+        const res = await fetchWithTimeout(`${API}/teacher/auth/otp/verify`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: pending.teacher.username, otp: code })
+        }, 12000);
+        const data = await res.json().catch(()=>({}));
+        if(!res.ok || data.success === false){
+            setError(data.message || "OTP verification failed");
+            return;
+        }
+
+        localStorage.setItem("token", pending.token || "");
+        localStorage.setItem("role", pending.role || "teacher");
+        localStorage.setItem("teacher_id", pending.teacher.id || "");
+        localStorage.setItem("teacher_name", pending.teacher.name || "");
+        localStorage.setItem("teacher_username", pending.teacher.username || "");
+        localStorage.setItem("session", pending.teacher.session || "");
+        localStorage.setItem("teacher_otp_verified_until", String(Date.now() + OTP_WINDOW_MS));
+        localStorage.setItem("teacher_otp_username", String(pending.teacher.username || "").toUpperCase());
+        localStorage.setItem("teacher_otp_device_id", getOrCreateOtpDeviceId());
+        sessionStorage.removeItem("pending_teacher_login");
+        window.location.href = "teacher_dashboard.html";
+    }catch(_e){
+        setError("Network error while verifying OTP");
+    }finally{
+        verifyBtn.disabled = false;
+        verifyBtn.style.opacity = "1";
+    }
+}
+
+resendBtn.addEventListener("click", requestTeacherOtp);
+verifyBtn.addEventListener("click", verifyTeacherOtp);
+otpInput.addEventListener("keydown", (e)=>{
+    if(e.key === "Enter"){
+        verifyTeacherOtp();
+    }
+});
+
+loadPendingLogin();
+loadTeacherProfile();
+requestTeacherOtp();
+</script>
+</body>
+</html>

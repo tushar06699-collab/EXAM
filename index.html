@@ -326,11 +326,24 @@ async function login(){
     }
 
     if(res.role === "teacher"){
-        localStorage.setItem("teacher_id", res.teacher.id);
-        localStorage.setItem("teacher_name", res.teacher.name);
-        localStorage.setItem("teacher_username", res.teacher.username);
-        localStorage.setItem("session", res.teacher.session);
-        window.location.href = "teacher_dashboard.html";
+        const otpUntil = parseInt(localStorage.getItem("teacher_otp_verified_until") || "0", 10);
+        const otpUser = String(localStorage.getItem("teacher_otp_username") || "").toUpperCase();
+        const loginUser = String((res.teacher || {}).username || "").toUpperCase();
+        if(otpUntil > Date.now() && otpUser && otpUser === loginUser){
+            localStorage.setItem("teacher_id", res.teacher.id);
+            localStorage.setItem("teacher_name", res.teacher.name);
+            localStorage.setItem("teacher_username", res.teacher.username);
+            localStorage.setItem("session", res.teacher.session);
+            window.location.href = "teacher_dashboard.html";
+            return;
+        }
+        sessionStorage.setItem("exam_api_base", String(API || "").replace(/\/+$/, ""));
+        sessionStorage.setItem("pending_teacher_login", JSON.stringify({
+            token: res.token,
+            role: res.role,
+            teacher: res.teacher || {}
+        }));
+        window.location.href = "teacher_otp_verify.html";
         return;
     }
 
