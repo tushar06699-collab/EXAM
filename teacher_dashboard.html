@@ -130,6 +130,67 @@ body{
     color:#5f6d8a;
     font-size:13px;
 }
+.progress-panel{
+    background:#fff;
+    border:1px solid #d7def0;
+    border-radius:12px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.08);
+    padding:16px;
+    margin-bottom:20px;
+}
+.progress-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:10px;
+}
+.progress-head h3{ margin:0; }
+.progress-head button{
+    border:none;
+    background:#233465;
+    color:#fff;
+    border-radius:8px;
+    padding:8px 12px;
+    cursor:pointer;
+}
+.progress-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+    gap:10px;
+}
+.progress-item{
+    border:1px solid #dbe3f2;
+    border-radius:10px;
+    padding:10px;
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:7px 8px;
+    align-items:center;
+    background:#f8faff;
+}
+.progress-item a{
+    color:#1f3b7a;
+    text-decoration:none;
+    font-weight:700;
+}
+.progress-item a:hover{ text-decoration:underline; }
+.progress-status{
+    min-width:88px;
+    text-align:center;
+    padding:4px 10px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:700;
+}
+.st-checking{ background:#e2e8f0; color:#334155; }
+.st-complete{ background:#dcfce7; color:#166534; }
+.st-incomplete{ background:#fee2e2; color:#991b1b; }
+.progress-detail{
+    grid-column:1/-1;
+    color:#5f6d8a;
+    font-size:12px;
+}
 
 /* SCHOOL IMAGE */
 .school-image {
@@ -201,6 +262,14 @@ body{
         <div id="teacherStats" style="margin-top:12px;"></div>
     </div>
 
+    <div class="progress-panel">
+        <div class="progress-head">
+            <h3>My Progress Panel</h3>
+            <button id="refreshTeacherProgressBtn" type="button">Refresh</button>
+        </div>
+        <div class="progress-grid" id="teacherProgressGrid"></div>
+    </div>
+
     <!-- School Image -->
     <div class="school-image">
         <img src="images/event3.png" alt="School Image">
@@ -249,6 +318,120 @@ function isFemale(v){
 
 let assignedClasses = [];
 let classStudents = [];
+let teacherId = localStorage.getItem("teacher_id") || "";
+
+const TEACHER_PROGRESS_ITEMS = [
+    { key: "my_timetable", label: "My Time Table", page: "teacher_my_classes.html" },
+    { key: "upload_attendance", label: "Upload Attendance", page: "teacher_attendance.html" },
+    { key: "upload_papers", label: "Upload Question Papers", page: "teacher_papers.html" },
+    { key: "upload_internal", label: "Upload Internal Marks", page: "teacher_internal_marks_upload.html" },
+    { key: "upload_external", label: "Upload External Marks", page: "teacher_marks_upload.html" }
+];
+
+function renderTeacherProgressSkeleton(){
+    const grid = document.getElementById("teacherProgressGrid");
+    grid.innerHTML = TEACHER_PROGRESS_ITEMS.map(item => `
+        <div class="progress-item">
+            <a href="${item.page}">${item.label}</a>
+            <span class="progress-status st-checking" id="tp_status_${item.key}">Checking...</span>
+            <div class="progress-detail" id="tp_detail_${item.key}">Loading...</div>
+        </div>
+    `).join("");
+}
+
+function setTeacherProgressStatus(key, done){
+    const el = document.getElementById(`tp_status_${key}`);
+    if(!el) return;
+    el.className = `progress-status ${done ? "st-complete" : "st-incomplete"}`;
+    el.textContent = done ? "Complete" : "Incomplete";
+}
+
+function setTeacherProgressDetail(key, text){
+    const el = document.getElementById(`tp_detail_${key}`);
+    if(!el) return;
+    el.textContent = text || "-";
+}
+
+async function fetchJsonSafe(url){
+    try{
+        const res = await fetch(url);
+        if(!res.ok) return null;
+        return await res.json();
+    }catch(_e){
+        return null;
+    }
+}
+
+async function anyClassExamMatch(classes, exams, fn){
+    for(const cls of classes){
+        for(const ex of exams){
+            if(await fn(cls, ex)) return true;
+        }
+    }
+    return false;
+}
+
+async function loadTeacherProgressPanel(){
+    renderTeacherProgressSkeleton();
+
+    const classes = assignedClasses.slice();
+    const examsData = await fetchJsonSafe(`${EXAM_API}/exam/list-all`);
+    const exams = (examsData && examsData.success && Array.isArray(examsData.exams))
+        ? examsData.exams.filter(e => String(e.session || "").trim() === String(teacherSession || "").trim())
+        : [];
+
+    const ttData = await fetchJsonSafe(`${EXAM_API}/timetable/get?session=${encodeURIComponent(teacherSession || "")}&teacher_id=${encodeURIComponent(teacherId)}`);
+    const ttCount = (ttData && Array.isArray(ttData.timetable)) ? ttData.timetable.length : 0;
+    setTeacherProgressStatus("my_timetable", ttCount > 0);
+    setTeacherProgressDetail("my_timetable", `${ttCount} timetable rows found`);
+
+    const today = new Date().toISOString().slice(0,10);
+    let classesWithAttendanceToday = 0;
+    for(const cls of classes){
+        const aData = await fetchJsonSafe(`${EXAM_API}/attendance/list?session=${encodeURIComponent(teacherSession || "")}&class_name=${encodeURIComponent(cls)}&date=${encodeURIComponent(today)}`);
+        const count = (aData && Array.isArray(aData.attendance)) ? aData.attendance.length : 0;
+        if(count > 0) classesWithAttendanceToday += 1;
+    }
+    const attendanceDone = classes.length > 0 && classesWithAttendanceToday === classes.length;
+    setTeacherProgressStatus("upload_attendance", attendanceDone);
+    setTeacherProgressDetail("upload_attendance", `${classesWithAttendanceToday}/${classes.length || 0} incharge classes attendance uploaded today`);
+
+    let paperUploaded = false;
+    if(classes.length && exams.length){
+        paperUploaded = await anyClassExamMatch(classes, exams, async (cls, ex) => {
+            const sub = await fetchJsonSafe(`${EXAM_API}/exam/subjects/get?session=${encodeURIComponent(teacherSession || "")}&class_name=${encodeURIComponent(cls)}`);
+            const subjects = (sub && sub.success && Array.isArray(sub.subjects)) ? sub.subjects.slice(0, 5) : [];
+            for(const s of subjects){
+                const p = await fetchJsonSafe(`${EXAM_API}/exam/get-paper?session=${encodeURIComponent(teacherSession || "")}&class_name=${encodeURIComponent(cls)}&exam_name=${encodeURIComponent(ex.exam_name || "")}&subject=${encodeURIComponent(s)}`);
+                if(p && p.success && p.filename) return true;
+            }
+            return false;
+        });
+    }
+    setTeacherProgressStatus("upload_papers", paperUploaded);
+    setTeacherProgressDetail("upload_papers", paperUploaded ? "At least one paper uploaded" : "No uploaded paper found");
+
+    let internalUploaded = false;
+    if(classes.length && exams.length){
+        internalUploaded = await anyClassExamMatch(classes, exams, async (cls, ex) => {
+            const d = await fetchJsonSafe(`${EXAM_API}/internal-marks/subjects?session=${encodeURIComponent(teacherSession || "")}&class_name=${encodeURIComponent(cls)}&exam_name=${encodeURIComponent(ex.exam_name || "")}`);
+            return !!(d && d.success && Array.isArray(d.subjects) && d.subjects.length);
+        });
+    }
+    setTeacherProgressStatus("upload_internal", internalUploaded);
+    setTeacherProgressDetail("upload_internal", internalUploaded ? "Internal marks uploaded" : "No internal marks uploaded yet");
+
+    let externalUploaded = false;
+    if(classes.length && exams.length){
+        externalUploaded = await anyClassExamMatch(classes, exams, async (cls, ex) => {
+            const d = await fetchJsonSafe(`${EXAM_API}/exam/get-marks?session=${encodeURIComponent(teacherSession || "")}&class_name=${encodeURIComponent(cls)}&exam_name=${encodeURIComponent(ex.exam_name || "")}`);
+            return !!(d && d.success && Array.isArray(d.marks) && d.marks.length);
+        });
+    }
+    setTeacherProgressStatus("upload_external", externalUploaded);
+    setTeacherProgressDetail("upload_external", externalUploaded ? "External marks uploaded" : "No external marks uploaded yet");
+
+}
 
 function renderStats(){
     const classLabel = assignedClasses.length ? assignedClasses.join(", ") : "Not Assigned";
@@ -306,9 +489,11 @@ async function loadTeacherClassStats(){
         const assignedSet = new Set(assignedClasses.map(c => normalizeText(c)));
         classStudents = allStudents.filter(s => assignedSet.has(normalizeText(s.class_name || s.class)));
         renderStats();
+        loadTeacherProgressPanel();
     }catch(e){
         console.error("Failed to load teacher dashboard stats", e);
         document.getElementById("teacherStats").innerHTML = `<div class="muted">Unable to load incharge class statistics.</div>`;
+        loadTeacherProgressPanel();
     }
 }
 
@@ -319,6 +504,7 @@ function logout(){
 }
 
 loadTeacherClassStats();
+document.getElementById("refreshTeacherProgressBtn").onclick = loadTeacherProgressPanel;
 </script>
 
   <script src="teacher_sidebar_shared.js"></script>
