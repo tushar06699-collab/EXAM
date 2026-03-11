@@ -163,7 +163,7 @@
     var style = document.createElement('style');
     style.id = 'teacher-shared-sidebar-style';
     style.textContent = [
-      '.teacher-sidebar-shared{position:fixed !important;top:0 !important;left:-280px !important;right:auto !important;transform:none !important;width:260px !important;height:100vh !important;',
+      '.teacher-sidebar-shared{position:fixed !important;top:0 !important;left:-110vw !important;right:auto !important;transform:none !important;width:85vw !important;max-width:320px !important;height:100vh !important;',
       'background:linear-gradient(180deg,#233465 0%,#1b2a52 100%) !important;color:#fff !important;z-index:1200 !important;',
       'padding:16px 12px !important;box-shadow:6px 0 22px rgba(15,23,42,.25) !important;overflow-y:auto !important;transition:left .25s ease !important;visibility:hidden !important;pointer-events:none !important;}',
       '.teacher-sidebar-shared.is-open{left:0 !important;transform:none !important;}',
@@ -181,7 +181,7 @@
       '.teacher-menu-fab:hover{background:#1b2a52;}',
       '.menu-btn,#hamburger,.hamburger,.menu-icon{display:none !important;cursor:pointer;}',
       '@media (max-width:900px){body{overflow-x:hidden !important;} .content,.container,.main{margin-left:0 !important;width:100% !important;max-width:100% !important;padding:12px !important;} main{max-width:100% !important;} #tableContainer,.table-wrap{overflow:auto !important;-webkit-overflow-scrolling:touch !important;} table{min-width:600px;}}',
-      '@media (max-width:600px){.teacher-sidebar-shared{width:85vw !important;max-width:320px !important;} .teacher-sidebar-shared a{font-size:13px !important;padding:9px 10px !important;} .teacher-sidebar-shared h2{font-size:16px !important;} header,.topbar{padding-left:58px !important;} .teacher-menu-fab{width:38px;height:38px;font-size:20px;top:12px;left:12px;}}'
+      '@media (max-width:600px){.teacher-sidebar-shared a{font-size:13px !important;padding:9px 10px !important;} .teacher-sidebar-shared h2{font-size:16px !important;} header,.topbar{padding-left:58px !important;} .teacher-menu-fab{width:38px;height:38px;font-size:20px;top:12px;left:12px;}}'
     ].join('');
     document.head.appendChild(style);
   }
