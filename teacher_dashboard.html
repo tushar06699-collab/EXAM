@@ -3,8 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <title>Teacher Dashboard</title>
-<meta name="viewport" content="width=device-width">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
+html, body{
+    width:100%;
+    max-width:100%;
+}
 body{
     margin:0;
     font-family:Poppins, sans-serif;
@@ -73,6 +77,14 @@ body{
     box-shadow:0 4px 12px rgba(0,0,0,0.1);
     margin-bottom:20px;
 }
+
+h3{ font-size:clamp(18px, 2.2vw, 22px); }
+.info-box{ font-size:clamp(14px, 2vw, 16px); }
+.progress-head h3{ font-size:clamp(18px, 2.2vw, 22px); }
+.progress-item a{ font-size:clamp(14px, 2vw, 16px); }
+.progress-detail{ font-size:clamp(12px, 1.8vw, 13px); }
+.stat-title{ font-size:clamp(12px, 1.8vw, 14px); }
+.stat-value{ font-size:clamp(20px, 3vw, 26px); }
 
 .btn {
     display:inline-block;
