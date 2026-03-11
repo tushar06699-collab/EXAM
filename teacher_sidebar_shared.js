@@ -221,7 +221,7 @@
     sidebar.classList.remove('open');
     sidebar.classList.remove('active');
     sidebar.classList.remove('is-open');
-    var off = (window.innerWidth <= 600) ? '-90vw' : '-320px';
+    var off = (window.innerWidth <= 600) ? '-90vw' : '-700px';
     sidebar.style.left = off;
     sidebar.style.transform = 'translateX(0)';
     overlay.classList.remove('active');
