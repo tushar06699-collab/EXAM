@@ -212,6 +212,7 @@
     sidebar.classList.remove('open');
     sidebar.classList.remove('active');
     sidebar.classList.add('is-open');
+    sidebar.style.left = '0';
     overlay.classList.add('active');
   }
 
@@ -219,6 +220,8 @@
     sidebar.classList.remove('open');
     sidebar.classList.remove('active');
     sidebar.classList.remove('is-open');
+    sidebar.style.left = '-320px';
+    if(window.innerWidth <= 600){ sidebar.style.left = '-90vw'; }
     overlay.classList.remove('active');
   }
 
