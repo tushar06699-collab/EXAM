@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.pspublicschool.erp",
+      "sha256_cert_fingerprints": [
+        "FF:7B:D7:88:7D:FF:3F:5D:96:56:B0:8D:B4:68:3E:88:BE:37:FC:D8:CC:26:44:66:06:44:EE:C0:C7:97:06:23"
+
+      ]
+    }
+  }
+]
