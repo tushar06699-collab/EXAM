@@ -15,7 +15,10 @@
       '.student-sidebar-shared a.active{background:rgba(255,255,255,.24) !important;color:#fff !important;font-weight:700 !important;}',
       '#overlay.student-overlay-shared{position:fixed !important;inset:0 !important;background:rgba(2,6,23,.45) !important;z-index:1100 !important;display:none !important;}',
       '#overlay.student-overlay-shared.active{display:block !important;}',
-      '.menu-btn{display:none !important;}'
+      '.menu-btn{display:none !important;}',
+      '.student-menu-fab{position:fixed;top:14px;left:14px;width:42px;height:42px;border:none;border-radius:10px;background:#233465;color:#fff;font-size:24px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:1301;box-shadow:0 8px 20px rgba(15,23,42,.35);}',
+      '.student-menu-fab:hover{background:#1b2a52;}',
+      '@media (max-width:600px){.student-menu-fab{width:38px;height:38px;font-size:20px;top:12px;left:12px;}}'
     ].join('');
     document.head.appendChild(style);
   }
