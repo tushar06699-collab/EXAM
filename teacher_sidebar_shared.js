@@ -213,6 +213,7 @@
     sidebar.classList.remove('active');
     sidebar.classList.add('is-open');
     sidebar.style.left = '0';
+    sidebar.style.transform = 'translateX(0)';
     overlay.classList.add('active');
   }
 
@@ -220,8 +221,9 @@
     sidebar.classList.remove('open');
     sidebar.classList.remove('active');
     sidebar.classList.remove('is-open');
-    sidebar.style.left = '-320px';
-    if(window.innerWidth <= 600){ sidebar.style.left = '-90vw'; }
+    var off = (window.innerWidth <= 600) ? '-90vw' : '-320px';
+    sidebar.style.left = off;
+    sidebar.style.transform = 'translateX(0)';
     overlay.classList.remove('active');
   }
 
