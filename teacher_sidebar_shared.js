@@ -209,11 +209,15 @@
   sidebar.innerHTML = html;
 
   function openMenu(){
+    sidebar.classList.remove('open');
+    sidebar.classList.remove('active');
     sidebar.classList.add('is-open');
     overlay.classList.add('active');
   }
 
   function closeMenu(){
+    sidebar.classList.remove('open');
+    sidebar.classList.remove('active');
     sidebar.classList.remove('is-open');
     overlay.classList.remove('active');
   }
