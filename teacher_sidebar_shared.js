@@ -63,14 +63,14 @@
     var style = document.createElement('style');
     style.id = 'teacher-profile-style';
     style.textContent = [
-      '.teacher-header-host{position:relative !important;overflow:visible !important;padding-right:340px !important;}',
-      '.teacher-profile-inline{position:absolute;right:520px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:8px;z-index:2;max-width:320px;}',
+      '.teacher-header-host{position:relative !important;overflow:visible !important;flex-wrap:wrap !important;row-gap:6px !important;}',
+      '.teacher-profile-inline{position:static !important;transform:none !important;display:flex;align-items:center;gap:8px;z-index:2;max-width:100% !important;order:2 !important;width:100% !important;justify-content:flex-start !important;margin-top:6px !important;}',
       '.teacher-profile-inline .tp-avatar{width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.7);background:#e5e7eb;}',
       '.teacher-profile-inline .tp-meta{line-height:1.15;text-align:left;min-width:0;}',
       '.teacher-profile-inline .tp-name{font-size:20px;font-weight:700;color:#fff;}',
       '.teacher-profile-inline .tp-sub{font-size:13px;color:rgba(255,255,255,.92);}',
-      '@media (max-width:1000px){.teacher-header-host{padding-right:300px !important;} .teacher-profile-inline{right:290px;max-width:280px;}}',
-      '@media (max-width:760px){.teacher-header-host{padding-right:220px !important;} .teacher-profile-inline{right:8px;gap:6px;max-width:210px;} .teacher-profile-inline .tp-avatar{width:34px;height:34px;}.teacher-profile-inline .tp-name{font-size:12px;}.teacher-profile-inline .tp-sub{font-size:10px;}}',
+      '@media (max-width:1000px){.teacher-profile-inline{max-width:100% !important;}}',
+      '@media (max-width:760px){.teacher-profile-inline{gap:6px;} .teacher-profile-inline .tp-avatar{width:34px;height:34px;}.teacher-profile-inline .tp-name{font-size:12px;}.teacher-profile-inline .tp-sub{font-size:10px;}}',
       '.teacher-dashboard-profile{display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:center;background:#fff;border:1px solid #dbe3f0;border-radius:14px;padding:14px;box-shadow:0 6px 18px rgba(15,23,42,.08);margin:0 0 16px 0;}',
       '.teacher-dashboard-profile .tdp-img{width:220px;height:260px;object-fit:cover;border-radius:12px;border:1px solid #cbd5e1;background:#e5e7eb;}',
       '.teacher-dashboard-profile .tdp-name{font-size:24px;font-weight:700;color:#1f2a44;margin-bottom:6px;}',
