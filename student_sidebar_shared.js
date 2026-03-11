@@ -2,6 +2,24 @@
   var sidebar = document.getElementById('sidebar');
   if(!sidebar) return;
 
+  if(!document.getElementById('student-shared-sidebar-style')){
+    var style = document.createElement('style');
+    style.id = 'student-shared-sidebar-style';
+    style.textContent = [
+      '.student-sidebar-shared{position:fixed !important;top:0 !important;left:-110vw !important;right:auto !important;transform:none !important;width:85vw !important;max-width:320px !important;height:100vh !important;',
+      'background:#233465 !important;color:#fff !important;z-index:1200 !important;padding:16px 12px !important;box-shadow:6px 0 22px rgba(15,23,42,.25) !important;overflow-y:auto !important;transition:left .25s ease !important;visibility:hidden !important;pointer-events:none !important;}',
+      '.student-sidebar-shared.is-open{left:0 !important;visibility:visible !important;pointer-events:auto !important;}',
+      '.student-sidebar-shared h2{margin:0 6px 14px !important;padding:0 0 12px !important;border-bottom:1px solid rgba(255,255,255,.18) !important;font-size:18px !important;font-weight:700 !important;letter-spacing:.3px !important;color:#fff !important;text-align:center !important;}',
+      '.student-sidebar-shared a{display:block !important;margin:3px 4px !important;padding:10px 12px !important;border-radius:10px !important;font-size:14px !important;font-weight:500 !important;line-height:1.25 !important;color:#fff !important;text-decoration:none !important;border:none !important;}',
+      '.student-sidebar-shared a:hover{background:rgba(255,255,255,.14) !important;color:#fff !important;}',
+      '.student-sidebar-shared a.active{background:rgba(255,255,255,.24) !important;color:#fff !important;font-weight:700 !important;}',
+      '#overlay.student-overlay-shared{position:fixed !important;inset:0 !important;background:rgba(2,6,23,.45) !important;z-index:1100 !important;display:none !important;}',
+      '#overlay.student-overlay-shared.active{display:block !important;}',
+      '.menu-btn{display:none !important;}'
+    ].join('');
+    document.head.appendChild(style);
+  }
+
   var overlay = document.getElementById('overlay');
   if(!overlay){
     overlay = document.createElement('div');
@@ -9,6 +27,9 @@
     overlay.className = 'overlay';
     document.body.appendChild(overlay);
   }
+
+  sidebar.classList.add('student-sidebar-shared');
+  overlay.classList.add('student-overlay-shared');
 
   var menuItems = [
     { href: 'student_portal.html', label: 'Dashboard' },
@@ -34,13 +55,15 @@
   sidebar.innerHTML = html;
 
   function openMenu(){
+    sidebar.classList.add('is-open');
     sidebar.style.left = '0';
-    overlay.style.display = 'block';
+    overlay.classList.add('active');
   }
 
   function closeMenu(){
-    sidebar.style.left = '-280px';
-    overlay.style.display = 'none';
+    sidebar.classList.remove('is-open');
+    sidebar.style.left = '-110vw';
+    overlay.classList.remove('active');
   }
 
   function openPage(p){
@@ -53,10 +76,16 @@
 
   overlay.onclick = closeMenu;
 
-  document.querySelectorAll('.menu-btn').forEach(function(btn){
-    btn.innerHTML = '&#9776;';
-    btn.onclick = openMenu;
-  });
+  var fab = document.querySelector('.student-menu-fab');
+  if(!fab){
+    fab = document.createElement('button');
+    fab.type = 'button';
+    fab.className = 'student-menu-fab';
+    fab.innerHTML = '&#9776;';
+    fab.setAttribute('aria-label', 'Open menu');
+    document.body.appendChild(fab);
+  }
+  fab.onclick = function(ev){ ev.stopPropagation(); openMenu(); };
 
   document.addEventListener('keydown', function(e){
     if(e.key === 'Escape') closeMenu();
