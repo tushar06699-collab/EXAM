@@ -281,6 +281,12 @@ async function loadExams(){
     EXAMS=(data.exams||[]).filter(e=>e.session===CURRENT_SESSION);
     examSelect.innerHTML=`<option value="">Select Exam</option>`+
         EXAMS.map(e=>`<option>${e.exam_name}</option>`).join("");
+
+    if(EXAMS.length){
+        const latestExam = EXAMS[EXAMS.length - 1];
+        examSelect.value = latestExam.exam_name;
+        await loadFullDatesheet();
+    }
 }
 
 examSelect.onchange=loadFullDatesheet;

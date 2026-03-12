@@ -187,6 +187,12 @@ async function loadExams(){
         exams.map(e =>
             `<option value="${e.exam_name}">${e.exam_name}</option>`
         ).join("");
+
+    if(exams.length){
+        const latestExam = exams[exams.length - 1];
+        examSelect.value = latestExam.exam_name;
+        await loadDatesheet();
+    }
 }
 
 examSelect.onchange = loadDatesheet;

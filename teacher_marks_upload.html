@@ -290,6 +290,13 @@ async function loadExams(){
         if(!data.success) return alert("Exam load error");
         EXAMS = data.exams;
         examSelect.innerHTML = `<option value="">Select Exam</option>` + EXAMS.map(e=>`<option value="${e.exam_id}" data-total="${e.total_marks}">${e.exam_name}</option>`).join("");
+
+        if(EXAMS.length){
+            const latestExam = EXAMS[EXAMS.length - 1];
+            examSelect.value = latestExam.exam_id;
+            TOTAL_MARKS = latestExam.total_marks || 0;
+            totalMarks.textContent = `Total Marks: ${TOTAL_MARKS}`;
+        }
     }catch(err){
         console.error("Error loading exams:",err);
     }
