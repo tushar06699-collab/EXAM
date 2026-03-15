@@ -36,12 +36,12 @@
 
   var menuItems = [
     { href: 'student_portal.html', label: 'Dashboard' },
-    { href: 'student_results.html', label: 'Results' },
     { href: 'student_timetable.html', label: 'Timetable' },
+    { href: 'student_daily_work.html', label: 'Today Work' },
+    { href: 'student_attendance.html', label: 'Attendance' },
     { href: 'student_exams.html', label: 'Exams' },
     { href: 'student_hall_ticket.html', label: 'Hall Ticket' },
-    { href: 'student_attendance.html', label: 'Attendance' },
-    { href: 'student_daily_work.html', label: 'Today Work' },
+    { href: 'student_results.html', label: 'Results' },
     { href: 'student_library.html', label: 'My Library' },
     { href: 'student_notices.html', label: 'Notices' },
     { href: 'student_academic_calendar.html', label: 'Academic Calendar' }
