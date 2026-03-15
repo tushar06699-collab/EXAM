@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Teacher Daily Work</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body{
+  margin:0;
+  font-family:Poppins,sans-serif;
+  background:#ffffff;
+}
+.topbar{
+  background:#233465;
+  color:white;
+  padding:14px 16px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.content{
+  padding:20px;
+}
+header{
+  background:#233465;
+  color:#fff;
+  padding:1rem;
+  text-align:center;
+  font-size:1.4rem;
+  border-radius:8px;
+}
+main{
+  max-width:720px;
+  margin:2rem auto;
+  background:#ffffff;
+  padding:2rem;
+  border-radius:0;
+}
+label{display:block;font-weight:600;margin-top:15px;}
+select,input,textarea{
+  width:100%;
+  padding:10px;
+  margin-top:5px;
+  border:1px solid #ccc;
+  border-radius:6px;
+  font-size:14px;
+}
+textarea{min-height:140px;resize:vertical;}
+button{
+  margin-top:20px;
+  width:100%;
+  padding:12px;
+  background:#4f46e5;
+  color:white;
+  border:none;
+  font-size:16px;
+  border-radius:6px;
+  cursor:pointer;
+}
+button:hover{background:#3730a3;}
+.status{margin-top:10px;font-size:13px;color:#1f3b7a;}
+@media (max-width:768px){
+  .content{padding:14px;}
+  main{margin:1rem;padding:1rem;}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="menu-btn" onclick="toggleMenu()"></span>
+  <h2 style="margin:0;">Daily Work</h2>
+</div>
+
+<div class="sidebar" id="sidebar"></div>
+
+<div class="content">
+  <header>Upload Daily Work</header>
+  <main>
+    <label>Session</label>
+    <select id="sessionSelect"></select>
+
+    <label>Class</label>
+    <select id="classSelect"></select>
+
+    <label>Date</label>
+    <input type="date" id="workDate">
+
+    <label>Subject</label>
+    <select id="subjectSelect"></select>
+
+    <label>Today Work</label>
+    <textarea id="workText" placeholder="Write today's work for students..."></textarea>
+
+    <button id="saveBtn">Save Work</button>
+    <div class="status" id="statusText"></div>
+  </main>
+</div>
+
+<script>
+const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/";
+const TEACHER_ID = localStorage.getItem("teacher_id");
+const TEACHER_NAME = localStorage.getItem("teacher_name") || "";
+
+const sessionSelect = document.getElementById("sessionSelect");
+const classSelect = document.getElementById("classSelect");
+const workDate = document.getElementById("workDate");
+const subjectSelect = document.getElementById("subjectSelect");
+const workText = document.getElementById("workText");
+const statusText = document.getElementById("statusText");
+
+function setStatus(msg){ statusText.textContent = msg || ""; }
+
+window.addEventListener("DOMContentLoaded", () => {
+  const t = new Date();
+  workDate.value = t.toISOString().split("T")[0];
+  workDate.max = workDate.value;
+});
+
+async function loadSessions(){
+  const res = await fetch(`${EXAM_API}/session/list`);
+  const data = await res.json();
+  sessionSelect.innerHTML = `<option value="">Select Session</option>`;
+  (data.sessions || []).forEach(s => {
+    sessionSelect.innerHTML += `<option value="${s}">${s}</option>`;
+  });
+  if(data.sessions && data.sessions.length){
+    sessionSelect.value = data.sessions[0];
+    await loadTeacherClasses();
+  }
+}
+
+async function loadTeacherClasses(){
+  if(!TEACHER_ID) return;
+  const session = sessionSelect.value;
+  const res = await fetch(`${EXAM_API}/timetable/get?session=${encodeURIComponent(session)}&teacher_id=${encodeURIComponent(TEACHER_ID)}`);
+  const data = await res.json();
+  const classes = new Set();
+  if(data.success){
+    data.timetable.forEach(t => { if(t.class) classes.add(t.class); });
+  }
+  classSelect.innerHTML = `<option value="">Select Class</option>`;
+  [...classes].forEach(c => {
+    classSelect.innerHTML += `<option value="${c}">${c}</option>`;
+  });
+  await loadSubjects();
+  await loadExistingWork();
+}
+
+async function loadSubjects(){
+  const session = sessionSelect.value;
+  const cls = classSelect.value;
+  subjectSelect.innerHTML = `<option value="">Select Subject</option>`;
+  if(!session || !cls || !TEACHER_ID) return;
+  try{
+    const res = await fetch(`${EXAM_API}/timetable/get?session=${encodeURIComponent(session)}&teacher_id=${encodeURIComponent(TEACHER_ID)}`);
+    const data = await res.json();
+    const subjects = new Set();
+    if(data.success && Array.isArray(data.timetable)){
+      const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+      data.timetable.forEach(row => {
+        if(row.class !== cls) return;
+        days.forEach(d => {
+          const val = String(row[d] || "").trim();
+          if(!val) return;
+          let subj = val;
+          if(val.includes(" - ")){
+            const parts = val.split(" - ");
+            subj = parts.slice(1).join(" - ").trim() || val;
+          }
+          if(subj) subjects.add(subj);
+        });
+      });
+    }
+    [...subjects].forEach(s => {
+      subjectSelect.innerHTML += `<option value="${s}">${s}</option>`;
+    });
+    if(subjects.size === 0){
+      subjectSelect.innerHTML = `<option value="">No subjects found</option>`;
+    }
+  }catch(e){}
+}
+
+async function loadExistingWork(){
+  const session = sessionSelect.value;
+  const cls = classSelect.value;
+  const date = workDate.value;
+  workText.value = "";
+  if(!session || !cls || !date || !TEACHER_ID) return;
+  const subject = subjectSelect.value.trim();
+  if(!subject) return;
+
+  try{
+    const res = await fetch(`${EXAM_API}/teacher/daily-work/get?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&date=${encodeURIComponent(date)}&teacher_id=${encodeURIComponent(TEACHER_ID)}&subject=${encodeURIComponent(subject)}`);
+    const data = await res.json();
+    if(data.success && data.work){
+      workText.value = data.work.work || "";
+      setStatus("Loaded saved work.");
+    }else{
+      setStatus("");
+    }
+  }catch(e){
+    setStatus("Unable to load saved work.");
+  }
+}
+
+async function saveWork(){
+  const session = sessionSelect.value;
+  const cls = classSelect.value;
+  const date = workDate.value;
+  const subject = subjectSelect.value.trim();
+  const work = workText.value.trim();
+  if(!session || !cls || !date) return alert("Select session, class and date");
+  if(!subject) return alert("Select subject");
+  if(!work) return alert("Please enter today's work");
+
+  try{
+    const res = await fetch(`${EXAM_API}/teacher/daily-work/save`, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({
+        session,
+        class_name: cls,
+        date,
+        teacher_id: TEACHER_ID,
+        teacher_name: TEACHER_NAME,
+        subject,
+        work
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if(!res.ok || data.success === false){
+      alert(data.message || "Save failed");
+      return;
+    }
+    setStatus("Work saved successfully.");
+  }catch(e){
+    alert("Save failed");
+  }
+}
+
+sessionSelect.addEventListener("change", loadTeacherClasses);
+classSelect.addEventListener("change", loadSubjects);
+classSelect.addEventListener("change", () => { workText.value = ""; setStatus(""); });
+subjectSelect.addEventListener("change", loadExistingWork);
+workDate.addEventListener("change", loadExistingWork);
+document.getElementById("saveBtn").addEventListener("click", saveWork);
+
+loadSessions();
+</script>
+
+<script src="teacher_sidebar_shared.js"></script>
+</body>
+</html>

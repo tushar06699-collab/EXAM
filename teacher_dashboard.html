@@ -199,6 +199,7 @@ h3{ font-size:clamp(18px, 2.2vw, 22px); }
 }
 .st-checking{ background:#e2e8f0; color:#334155; }
 .st-complete{ background:#dcfce7; color:#166534; }
+.st-progress{ background:#fef9c3; color:#854d0e; }
 .st-incomplete{ background:#fee2e2; color:#991b1b; }
 .progress-detail{
     grid-column:1/-1;
@@ -313,7 +314,7 @@ h3{ font-size:clamp(18px, 2.2vw, 22px); }
 </div>
 
 <script>
-const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app";
+const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/";
 const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app";
 
 /* MENU OPEN/CLOSE */
@@ -357,7 +358,8 @@ let teacherId = localStorage.getItem("teacher_id") || "";
 
 const TEACHER_PROGRESS_ITEMS = [
     { key: "my_timetable", label: "My Time Table", page: "teacher_my_classes.html" },
-    { key: "upload_attendance", label: "Upload Attendance", page: "teacher_attendance.html" },
+    { key: "daily_attendance", label: "Daily Attendance", page: "teacher_attendance.html" },
+    { key: "daily_class_work", label: "Daily Class Work", page: "teacher_daily_work.html" },
     { key: "upload_papers", label: "Upload Question Papers", page: "teacher_papers.html" },
     { key: "upload_internal", label: "Upload Internal Marks", page: "teacher_internal_marks_upload.html" },
     { key: "upload_external", label: "Upload External Marks", page: "teacher_marks_upload.html" }
@@ -374,11 +376,20 @@ function renderTeacherProgressSkeleton(){
     `).join("");
 }
 
-function setTeacherProgressStatus(key, done){
+function setTeacherProgressStatus(key, state){
     const el = document.getElementById(`tp_status_${key}`);
     if(!el) return;
-    el.className = `progress-status ${done ? "st-complete" : "st-incomplete"}`;
-    el.textContent = done ? "Complete" : "Incomplete";
+    const normalized = (state || "").toLowerCase();
+    if(normalized === "complete"){
+        el.className = "progress-status st-complete";
+        el.textContent = "Complete";
+    }else if(normalized === "progress"){
+        el.className = "progress-status st-progress";
+        el.textContent = "Progress";
+    }else{
+        el.className = "progress-status st-incomplete";
+        el.textContent = "Incomplete";
+    }
 }
 
 function setTeacherProgressDetail(key, text){
@@ -409,27 +420,53 @@ async function anyClassExamMatch(classes, exams, fn){
 async function loadTeacherProgressPanel(){
     renderTeacherProgressSkeleton();
 
-    const classes = assignedClasses.slice();
+    const classes = Array.from(new Set(assignedClasses.map(c => String(c || "").trim()).filter(Boolean)));
     const examsData = await fetchJsonSafe(`${EXAM_API}/exam/list-all`);
     const exams = (examsData && examsData.success && Array.isArray(examsData.exams))
         ? examsData.exams.filter(e => String(e.session || "").trim() === String(teacherSession || "").trim())
         : [];
 
     const ttData = await fetchJsonSafe(`${EXAM_API}/timetable/get?session=${encodeURIComponent(teacherSession || "")}&teacher_id=${encodeURIComponent(teacherId)}`);
-    const ttCount = (ttData && Array.isArray(ttData.timetable)) ? ttData.timetable.length : 0;
-    setTeacherProgressStatus("my_timetable", ttCount > 0);
+    const ttRows = (ttData && Array.isArray(ttData.timetable)) ? ttData.timetable : [];
+    const ttCount = ttRows.length;
+    setTeacherProgressStatus("my_timetable", ttCount > 0 ? "complete" : "incomplete");
     setTeacherProgressDetail("my_timetable", `${ttCount} timetable rows found`);
+    const taughtClasses = Array.from(new Set(ttRows.map(r => String(r.class || "").trim()).filter(Boolean)));
 
     const today = new Date().toISOString().slice(0,10);
     let classesWithAttendanceToday = 0;
-    for(const cls of classes){
+    const attendanceClasses = taughtClasses.length ? taughtClasses : classes;
+    for(const cls of attendanceClasses){
         const aData = await fetchJsonSafe(`${EXAM_API}/attendance/list?session=${encodeURIComponent(teacherSession || "")}&class_name=${encodeURIComponent(cls)}&date=${encodeURIComponent(today)}`);
         const count = (aData && Array.isArray(aData.attendance)) ? aData.attendance.length : 0;
         if(count > 0) classesWithAttendanceToday += 1;
     }
-    const attendanceDone = classes.length > 0 && classesWithAttendanceToday === classes.length;
-    setTeacherProgressStatus("upload_attendance", attendanceDone);
-    setTeacherProgressDetail("upload_attendance", `${classesWithAttendanceToday}/${classes.length || 0} incharge classes attendance uploaded today`);
+    let attendanceState = "incomplete";
+    if(attendanceClasses.length > 0 && classesWithAttendanceToday === attendanceClasses.length){
+        attendanceState = "complete";
+    }else if(classesWithAttendanceToday > 0){
+        attendanceState = "progress";
+    }
+    setTeacherProgressStatus("daily_attendance", attendanceState);
+    setTeacherProgressDetail("daily_attendance", `${classesWithAttendanceToday}/${attendanceClasses.length || 0} classes attendance uploaded today`);
+
+    const workClasses = taughtClasses.length ? taughtClasses : classes;
+    if(workClasses.length){
+        const dw = await fetchJsonSafe(`${EXAM_API}/teacher/daily-work/list?session=${encodeURIComponent(teacherSession || "")}&teacher_id=${encodeURIComponent(teacherId)}&date=${encodeURIComponent(today)}`);
+        const rows = (dw && dw.success && Array.isArray(dw.rows)) ? dw.rows : [];
+        const classSet = new Set(workClasses.map(c => String(c || "").trim().toUpperCase()));
+        const workClassSet = new Set(rows.map(r => String(r.class_name || "").trim().toUpperCase()));
+        let covered = 0;
+        classSet.forEach(c => { if(workClassSet.has(c)) covered += 1; });
+        let dailyWorkState = "incomplete";
+        if(covered === classSet.size) dailyWorkState = "complete";
+        else if(covered > 0) dailyWorkState = "progress";
+        setTeacherProgressStatus("daily_class_work", dailyWorkState);
+        setTeacherProgressDetail("daily_class_work", `${covered}/${classSet.size} classes have work saved today`);
+    }else{
+        setTeacherProgressStatus("daily_class_work", "incomplete");
+        setTeacherProgressDetail("daily_class_work", "No classes assigned");
+    }
 
     let paperUploaded = false;
     if(classes.length && exams.length){
@@ -443,7 +480,7 @@ async function loadTeacherProgressPanel(){
             return false;
         });
     }
-    setTeacherProgressStatus("upload_papers", paperUploaded);
+    setTeacherProgressStatus("upload_papers", paperUploaded ? "complete" : "incomplete");
     setTeacherProgressDetail("upload_papers", paperUploaded ? "At least one paper uploaded" : "No uploaded paper found");
 
     let internalUploaded = false;
@@ -453,7 +490,7 @@ async function loadTeacherProgressPanel(){
             return !!(d && d.success && Array.isArray(d.subjects) && d.subjects.length);
         });
     }
-    setTeacherProgressStatus("upload_internal", internalUploaded);
+    setTeacherProgressStatus("upload_internal", internalUploaded ? "complete" : "incomplete");
     setTeacherProgressDetail("upload_internal", internalUploaded ? "Internal marks uploaded" : "No internal marks uploaded yet");
 
     let externalUploaded = false;
@@ -463,7 +500,7 @@ async function loadTeacherProgressPanel(){
             return !!(d && d.success && Array.isArray(d.marks) && d.marks.length);
         });
     }
-    setTeacherProgressStatus("upload_external", externalUploaded);
+    setTeacherProgressStatus("upload_external", externalUploaded ? "complete" : "incomplete");
     setTeacherProgressDetail("upload_external", externalUploaded ? "External marks uploaded" : "No external marks uploaded yet");
 
 }

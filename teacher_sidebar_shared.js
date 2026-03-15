@@ -194,6 +194,7 @@
     { href: 'view_notices.html', label: 'Notices and Circular' },
     { href: 'teacher_my_classes.html', label: 'My Time Table' },
     { href: 'teacher_attendance.html', label: 'Upload Attendance' },
+    { href: 'teacher_daily_work.html', label: 'Daily Work' },
     { href: 'teacher_view_datesheet.html', label: 'View Datesheet' },
     { href: 'teacher_papers.html', label: 'Question Papers' },
     { href: 'teacher_internal_marks_upload.html', label: 'Upload Internal Marks' },
