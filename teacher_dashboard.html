@@ -291,9 +291,14 @@ h3{ font-size:clamp(18px, 2.2vw, 22px); }
 <div class="main">
 
     <div class="card">
-        <h3>P.S. Public School welcomes you, <span id="teacherName"></span> </h3>
-        <div class="info-box">
-            Session: <b id="session"></b>
+        <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+            <img id="teacherPhoto" src="images/default.png" alt="Teacher Photo" style="width:90px;height:90px;border-radius:12px;object-fit:cover;border:1px solid #dbe3f0;">
+            <div>
+                <h3 style="margin:0 0 6px 0;">P.S. Public School welcomes you, <span id="teacherName"></span> </h3>
+                <div class="info-box" style="margin-top:0;">
+                    Session: <b id="session"></b>
+                </div>
+            </div>
         </div>
         <div id="teacherStats" style="margin-top:12px;"></div>
     </div>
@@ -562,6 +567,21 @@ async function loadTeacherClassStats(){
         classStudents = allStudents.filter(s => assignedSet.has(normalizeText(s.class_name || s.class)));
         renderStats();
         loadTeacherProgressPanel();
+
+        // Load teacher photo from student backend teachers list
+        try{
+            const tRes = await fetch(`${STUDENT_API}/teachers?session=${encodeURIComponent(teacherSession || "")}`);
+            const tData = await tRes.json().catch(() => ({}));
+            const tRows = Array.isArray(tData) ? tData : (Array.isArray(tData?.teachers) ? tData.teachers : []);
+            const tMatch = tRows.find(t => normalizeText(t.teacher_name) === myName) ||
+                           tRows.find(t => normalizeText(t.employee_id) === normalizeText(teacherName)) ||
+                           tRows.find(t => normalizeText(t.teacher_code) === normalizeText(localStorage.getItem("teacher_id") || ""));
+            const photo = tMatch?.photo_url || tMatch?.photo || "";
+            if(photo){
+                const img = document.getElementById("teacherPhoto");
+                if(img) img.src = photo;
+            }
+        }catch(e){}
     }catch(e){
         console.error("Failed to load teacher dashboard stats", e);
         document.getElementById("teacherStats").innerHTML = `<div class="muted">Unable to load incharge class statistics.</div>`;
