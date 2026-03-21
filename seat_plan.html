@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Seating Plan</title>`n<link rel="stylesheet" href="admin_sidebar.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="admin_theme.css">
+<style>
+body{margin:0;font-family:Poppins,system-ui,sans-serif;background:#f5f7fb;font-size:15px;color:#0f172a;}
+.sidebar{
+  width:230px; height:100vh; background:#233465; color:#fff;
+  position:fixed; left:0; top:0; padding:25px; overflow:auto;
+}
+.sidebar h2{font-size:22px; margin-bottom:30px;}
+.sidebar a{
+  display:block; padding:14px; margin:8px 0; color:#fff; text-decoration:none;
+  border-radius:10px; font-size:15px;
+}
+.sidebar a.active, .sidebar a:hover{background:#1a2648;}
+.main{margin-left:250px; padding:30px;}
+header{background:#233465;color:#fff;padding:1rem;text-align:center;font-size:1.4rem;border-radius:8px;}
+main{max-width:1100px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:0 6px 16px rgba(0,0,0,.08);}
+label{display:block;font-weight:600;margin-top:12px;color:#1f2a44;}
+select,button{width:100%;padding:10px 12px;margin-top:6px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;}
+button{background:#4f46e5;color:#fff;border:none;font-size:16px;cursor:pointer;}
+button:hover{background:#3730a3;}
+.section-title{margin:14px 0 6px;font-weight:700;color:#1f2a44;}
+.class-controls{display:flex;justify-content:space-between;align-items:center;margin:8px 0;}
+.class-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;}
+.class-card{
+  display:flex;align-items:center;gap:10px;
+  background:#f8fbff;border:1px solid #dbe3f0;padding:10px 12px;border-radius:10px;
+}
+.class-card input{width:auto;margin:0;}
+.class-card span{font-weight:600;}
+.status{margin-top:10px;font-size:13px;color:#1f3b7a;}
+.room-card{border:1px solid #dbe3f0;border-radius:10px;padding:12px;margin-top:14px;}
+.room-title{font-weight:700;color:#1f3b7a;margin-bottom:8px;font-size:16px;}
+.room-summary{font-size:13px;color:#475569;margin-bottom:8px;}
+.bench-grid{overflow:auto;}
+.bench-table{width:100%;border-collapse:collapse;min-width:600px;table-layout:fixed;}
+.bench-table th,.bench-table td{border:1px solid #dbe3f0;padding:2px 3px;text-align:center;font-size:9px;}
+.bench-table th:first-child,.bench-table td:first-child{width:18px;min-width:18px;max-width:18px;}
+.bench-table .bench-gap{border-right:6px solid #e2e8f0;}
+.bench-table th{background:#f1f5ff;color:#1f3b7a;font-weight:700;text-align:center;}
+.seat-cell{white-space:nowrap;}
+.seat-label{display:inline-block;min-width:18px;font-weight:700;color:#0f4aa3;font-size:12px;}
+.bench{background:#f8fbff;border:1px solid #dbe3f0;border-radius:8px;padding:8px;}
+.seat{font-size:12px;color:#334155;}
+.seat b{color:#111827;}
+@media (max-width:768px){
+  .main{margin-left:0; padding:16px;}
+  main{margin:1rem;padding:1rem;}
+  .sidebar{position:static;width:auto;height:auto;}
+}
+@media print{
+  @page { size: A4 landscape; margin: 6mm; }
+  body{background:#fff;}
+  .topbar,.content header,main > :not(#planHost){display:none !important;}
+  .print-header{display:flex !important;}
+  .room-card{page-break-after:always;box-shadow:none;border:1px solid #cbd5e1;margin-top:4px;}
+  .room-card:last-child{page-break-after:auto;}
+  .bench-table th,.bench-table td{padding:1px 2px;font-size:8px;}
+  .seat-box{border-radius:8px;border:1px solid #cbd5e1;padding:2px 4px;line-height:1.1;}
+  .seat-cell{white-space:normal;}
+  .room-title{margin:0 0 4px 0;}
+  .room-summary{margin:0 0 4px 0;}
+}
+</style>
+</head>
+<body>
+<div class="sidebar">
+  <h2>EXAM ERP</h2>
+  <a href="dashboard.html">Dashboard</a>
+  <a href="exam_paper.html">Upload Papers</a>
+  <a href="student_exam_access.html">Student Exam Access</a>
+  <a href="generate_rollno.html">Exam Roll No List</a>
+  <a href="seat_plan.html" class="active">Generate Seat Plan</a>
+  <a href="get_exam_paper.html">Uploaded Exam Papers</a>
+</div>
+
+<div class="main">
+  <header>Generate Seating Plan</header>
+  <main>
+    <div class="print-header" style="display:none;align-items:center;gap:10px;margin-bottom:10px;">
+      <img src="images/LOGON.png" alt="School Logo" style="width:40px;height:40px;border-radius:50%;">
+      <div style="line-height:1.1;">
+        <div style="font-weight:700;font-size:14px;">P. S. PUBLIC SCHOOL</div>
+        <div style="font-size:11px;color:#475569;">Seating Plan</div>
+      </div>
+      <div style="margin-left:auto;font-size:11px;color:#475569;">Date: <span id="printExamDate"></span></div>
+    </div>
+    <label>Session</label>
+    <select id="sessionSelect"></select>
+
+    <label>Exam</label>
+    <select id="examSelect"></select>
+
+    <label>Exam Date</label>
+    <select id="examDate"></select>
+
+    <div class="status" id="subjectLine"></div>
+
+    <div class="section-title">Classes (tick multiple)</div>
+    <div class="class-controls">
+      <label style="display:flex;gap:8px;align-items:center;margin:0;">
+        <input type="checkbox" id="selectAllClasses">
+        <span>Select All Classes</span>
+      </label>
+    </div>
+    <div id="classList" class="class-grid"></div>
+
+    <label>Preferred Room (optional)</label>
+    <select id="roomSelect"><option value="">Auto (single room if possible)</option></select>
+
+    <button onclick="generatePlan()">Generate Plan</button>
+    <button onclick="printPlan()" style="background:#0f766e;margin-top:10px;">Print Seating Plan</button>
+    <div class="status" id="statusText"></div>
+
+    <div id="planHost"></div>
+  </main>
+</div>
+
+<script>
+const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app";
+const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app/";
+
+const sessionSelect = document.getElementById("sessionSelect");
+const classList = document.getElementById("classList");
+const roomSelect = document.getElementById("roomSelect");
+const statusText = document.getElementById("statusText");
+const planHost = document.getElementById("planHost");
+const examSelect = document.getElementById("examSelect");
+const examDate = document.getElementById("examDate");
+const subjectLine = document.getElementById("subjectLine");
+let EXAMS = [];
+let DATE_SUBJECT_MAP = new Map();
+let DATE_CLASS_SUBJECT_MAP = new Map();
+
+function setStatus(msg){ statusText.textContent = msg || ""; }
+
+function printPlan(){
+  if(!planHost.innerHTML.trim()){
+    alert("Generate plan first.");
+    return;
+  }
+  const dateText = examDate.value || "";
+  const el = document.getElementById("printExamDate");
+  if(el) el.textContent = dateText;
+  window.print();
+}
+
+async function loadSessions(){
+  const res = await fetch(`${EXAM_API}/session/list`);
+  const data = await res.json();
+  sessionSelect.innerHTML = `<option value="">Select Session</option>`;
+  (data.sessions || []).forEach(s => {
+    sessionSelect.innerHTML += `<option value="${s}">${s}</option>`;
+  });
+  if(data.sessions && data.sessions.length){
+    sessionSelect.value = data.sessions[0];
+    await loadExams();
+    await loadClasses();
+    await loadRooms();
+  }
+}
+
+async function loadExams(){
+  const session = sessionSelect.value;
+  examSelect.innerHTML = `<option value="">Select Exam</option>`;
+  EXAMS = [];
+  try{
+    const res = await fetch(`${EXAM_API}/exam/list-all`);
+    const data = await res.json();
+    EXAMS = (data.exams || []).filter(e => e.session === session);
+    examSelect.innerHTML += EXAMS.map(e => `<option value="${e.exam_name}">${e.exam_name}</option>`).join("");
+  }catch(e){}
+}
+
+async function loadExamDates(){
+  const session = sessionSelect.value;
+  const examName = examSelect.value;
+  examDate.innerHTML = `<option value="">Select Date</option>`;
+  subjectLine.textContent = "Loading dates...";
+  DATE_SUBJECT_MAP = new Map();
+  DATE_CLASS_SUBJECT_MAP = new Map();
+  if(!session || !examName) return;
+  // Use all classes from backend to derive dates/subjects
+  let classes = [];
+  try{
+    const res = await fetch(`${STUDENT_API}/students?session=${encodeURIComponent(session)}`);
+    const data = await res.json();
+    const rows = Array.isArray(data) ? data : (Array.isArray(data?.students) ? data.students : []);
+    classes = [...new Set(rows.map(s => String(s.class_name || s.class || "").trim()).filter(Boolean))];
+  }catch(e){}
+  for(const cls of classes){
+    const res = await fetch(`${EXAM_API}/exam/get-datesheet?class_name=${encodeURIComponent(cls)}&session=${encodeURIComponent(session)}&exam_name=${encodeURIComponent(examName)}`);
+    const data = await res.json().catch(() => ({}));
+    (data.datesheet || []).forEach(d => {
+      const date = d.date;
+      const subj = d.subject;
+      if(!date || !subj) return;
+      if(!DATE_SUBJECT_MAP.has(date)) DATE_SUBJECT_MAP.set(date, new Set());
+      DATE_SUBJECT_MAP.get(date).add(subj);
+
+      if(!DATE_CLASS_SUBJECT_MAP.has(date)) DATE_CLASS_SUBJECT_MAP.set(date, new Map());
+      const clsMap = DATE_CLASS_SUBJECT_MAP.get(date);
+      if(!clsMap.has(cls)) clsMap.set(cls, new Set());
+      clsMap.get(cls).add(subj);
+    });
+  }
+  const dates = Array.from(DATE_SUBJECT_MAP.keys()).sort();
+  examDate.innerHTML = `<option value="">Select Date</option>` + dates.map(d => `<option value="${d}">${d}</option>`).join("");
+  subjectLine.textContent = dates.length ? "Dates loaded. Select a date." : "No dates found.";
+}
+
+function updateSubjectLine(){
+  const date = examDate.value;
+  subjectLine.textContent = "";
+  if(!date) return;
+  const clsMap = DATE_CLASS_SUBJECT_MAP.get(date);
+  if(clsMap && clsMap.size){
+    const lines = Array.from(clsMap.entries()).map(([cls, set]) => {
+      return `${cls}: ${Array.from(set).join(", ")}`;
+    });
+    subjectLine.textContent = `Subjects: ${lines.join(" | ")}`;
+  }
+}
+
+function classSortKey(name){
+  const raw = String(name || "").trim();
+  const numMatch = raw.match(/\d+/);
+  const num = numMatch ? parseInt(numMatch[0], 10) : 0;
+  const rest = raw.replace(/\d+/g, "").replace(/class/gi, "").replace(/(st|nd|rd|th)/gi, "").trim();
+  const upper = rest.toUpperCase();
+  const streamOrder = { "ARTS":1, "COMMERCE":2, "MEDICAL":3, "NONMEDICAL":4, "SCIENCE":5 };
+  let streamRank = 99;
+  Object.keys(streamOrder).forEach(k => { if (upper.includes(k)) streamRank = Math.min(streamRank, streamOrder[k]); });
+  const secMatch = upper.match(/\b([A-Z])\b/);
+  const secRank = secMatch ? (secMatch[1].charCodeAt(0) - 64) : 99;
+  return { num, streamRank, secRank, label: upper };
+}
+
+function classSort(a,b){
+  const ka = classSortKey(a);
+  const kb = classSortKey(b);
+  if (ka.num !== kb.num) return ka.num - kb.num;
+  if (ka.streamRank !== kb.streamRank) return ka.streamRank - kb.streamRank;
+  if (ka.secRank !== kb.secRank) return ka.secRank - kb.secRank;
+  return ka.label.localeCompare(kb.label);
+}
+
+async function loadClasses(){
+  const session = sessionSelect.value;
+  const res = await fetch(`${STUDENT_API}/students?session=${encodeURIComponent(session)}`);
+  const data = await res.json();
+  const rows = Array.isArray(data) ? data : (Array.isArray(data?.students) ? data.students : []);
+  const classes = [...new Set(rows.map(s => String(s.class_name || s.class || "").trim()).filter(Boolean))].sort(classSort);
+  classList.innerHTML = classes.map(c => `
+    <label class="class-card">
+      <input type="checkbox" class="cls-check" value="${c}">
+      <span>${c}</span>
+    </label>
+  `).join("");
+  const selectAll = document.getElementById("selectAllClasses");
+  if(selectAll) selectAll.checked = false;
+}
+
+async function loadRooms(){
+  const session = sessionSelect.value;
+  const res = await fetch(`${EXAM_API}/rooms/list?session=${encodeURIComponent(session)}`);
+  const data = await res.json();
+  const rooms = (data.success && Array.isArray(data.rooms)) ? data.rooms : [];
+  roomSelect.innerHTML = `<option value="">Auto (single room if possible)</option>` +
+    rooms.map(r => `<option value="${r.room_no}">${r.room_no} (cap ${capacity(r)})</option>`).join("");
+}
+
+function capacity(r){
+  return Number(r.rows||0) * Number(r.benches_per_row||0) * Number(r.seats_per_bench||0);
+}
+
+function computeExamRoll(className, roll){
+  const clsText = String(className || "");
+  const clsNumMatch = clsText.match(/\d+/);
+  let clsNum = clsNumMatch ? parseInt(clsNumMatch[0], 10) : 0;
+  const cls2 = String(clsNum || 0);
+  const secMatch = clsText.match(/\b([A-Z])\b/i);
+  const secLetter = secMatch ? secMatch[1].toUpperCase() : "A";
+  const secNum = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(secLetter) + 1 || 1;
+  const r = String(roll || "").replace(/\D/g, "");
+  const roll2 = r.padStart(2, "0").slice(-2);
+  return `${cls2}${secNum}${roll2}`;
+}
+
+function sortRoomsByCap(rooms){
+  return rooms.slice().sort((a,b) => capacity(a) - capacity(b));
+}
+
+function buildSeatMatrix(room, state){
+  // Visual requirement: use benches_per_row as row count, and rows as benches per row.
+  const rows = Number(room.benches_per_row||0);
+  const benches = Number(room.rows||0);
+  const seats = Number(room.seats_per_bench||0);
+  const grid = [];
+  const used = [];
+  const queues = state.queues;
+
+  function nextClass(exclude){
+    const q = queues.find(q => q.list.length && q.cls !== exclude);
+    return q ? q.cls : "";
+  }
+  function getQueue(cls){
+    return queues.find(q => q.cls === cls) || null;
+  }
+
+  let leftClass = state.leftClass || queues[0]?.cls || "";
+  let rightClass = state.rightClass || nextClass(leftClass);
+
+  // Fill column-wise: A then B then C...
+  for(let r=0;r<rows;r++){ grid.push([]); }
+  for(let b=0;b<benches;b++){
+    for(let r=0;r<rows;r++){
+      const bench = [];
+      // Left seat: keep same left class until it ends
+      let leftQueue = getQueue(leftClass);
+      if(!leftQueue || leftQueue.list.length === 0){
+        leftClass = nextClass(rightClass);
+        leftQueue = getQueue(leftClass);
+      }
+      const left = leftQueue && leftQueue.list.length ? leftQueue.list.shift() : null;
+
+      // Right seat: different class from left; keep right class until it ends
+      if(rightClass === leftClass) rightClass = nextClass(leftClass);
+      let rightQueue = getQueue(rightClass);
+      if(!rightQueue || rightQueue.list.length === 0){
+        rightClass = nextClass(leftClass);
+        rightQueue = getQueue(rightClass);
+      }
+      const right = (seats >= 2 && rightQueue && rightQueue.list.length) ? rightQueue.list.shift() : null;
+
+      bench.push(left || null);
+      if(seats >= 2) bench.push(right || null);
+      // Fill any extra seats (if seats_per_bench > 2)
+      for(let s=2;s<seats;s++){
+        bench.push(null);
+      }
+      if(left){
+        if(!left.exam_roll) left.exam_roll = computeExamRoll(left.class_name, left.roll);
+        used.push(left);
+      }
+      if(right){
+        if(!right.exam_roll) right.exam_roll = computeExamRoll(right.class_name, right.roll);
+        used.push(right);
+      }
+      grid[r].push(bench);
+    }
+  }
+  state.leftClass = leftClass;
+  state.rightClass = rightClass;
+  return { grid, used };
+}
+
+function benchLetter(idx){
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  if(idx < letters.length) return letters[idx];
+  return letters[idx % letters.length] + letters[Math.floor(idx / letters.length) - 1];
+}
+
+function formatSeat(st){
+  if(!st) return "-";
+  const name = String(st.name || "").replace(/\s+/g, " ").trim().replace(/ (.+)/, "<br>$1");
+  return `<div class="seat-box">
+    <div class="seat-label">${(st.exam_roll || st.roll || "-")}</div>
+    <div style="text-align:center;font-weight:700;font-size:11px;">${name}</div>
+    <div style="text-align:center;color:#64748b;">${st.class_name}</div>
+  </div>`;
+}
+
+function renderRoom(room, grid, used, summaryText){
+  const host = document.createElement("div");
+  host.className = "room-card";
+  host.innerHTML = `<div class="room-title">Room ${room.room_no} (capacity ${capacity(room)})</div>`;
+  if(summaryText){
+    const sm = document.createElement("div");
+    sm.className = "room-summary";
+    sm.innerHTML = summaryText.split("\n").map(l => `<div>${l}</div>`).join("");
+    host.appendChild(sm);
+  }
+  const wrap = document.createElement("div");
+  wrap.className = "bench-grid";
+
+  const table = document.createElement("table");
+  table.className = "bench-table";
+
+  const thead = document.createElement("thead");
+  const headRow1 = document.createElement("tr");
+  const headRow2 = document.createElement("tr");
+  headRow1.innerHTML = `<th rowspan="2">Row</th>`;
+  const benchesPerRow = Number(room.rows || 0);
+  for(let b=0;b<benchesPerRow;b++){
+    const letter = benchLetter(b);
+    const th = document.createElement("th");
+    th.colSpan = 2;
+    th.textContent = letter;
+    headRow1.appendChild(th);
+    headRow2.innerHTML += `<th>A</th><th class="bench-gap">B</th>`;
+  }
+  thead.appendChild(headRow1);
+  thead.appendChild(headRow2);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  grid.forEach((row, rIdx) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td><b>${rIdx + 1}</b></td>`;
+    row.forEach((bench) => {
+      const left = bench[0] || null;
+      const right = bench[1] || null;
+      tr.innerHTML += `<td class="seat-cell">${formatSeat(left)}</td><td class="seat-cell bench-gap">${formatSeat(right)}</td>`;
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  host.appendChild(wrap);
+  return host;
+}
+
+async function generatePlan(){
+  planHost.innerHTML = "";
+  const session = sessionSelect.value;
+  const selectedClasses = Array.from(document.querySelectorAll(".cls-check:checked")).map(cb => cb.value);
+  if(!session || selectedClasses.length === 0){ alert("Select session and at least one class"); return; }
+  setStatus("Loading students and rooms...");
+
+  const roomRes = await fetch(`${EXAM_API}/rooms/list?session=${encodeURIComponent(session)}`);
+  const roomData = await roomRes.json();
+  const rooms = (roomData.success && Array.isArray(roomData.rooms)) ? roomData.rooms : [];
+
+  const classStudentLists = await Promise.all(selectedClasses.map(async cls => {
+    const res = await fetch(`${STUDENT_API}/students?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}`);
+    const data = await res.json();
+    const rows = Array.isArray(data) ? data : (Array.isArray(data?.students) ? data.students : []);
+    const list = rows
+      .map(s => ({
+        name: s.student_name || s.name || "",
+        roll: String(s.rollno ?? s.roll ?? "").trim(),
+        class_name: cls,
+        exam_roll: String(s.exam_rollno ?? s.exam_roll ?? "").trim()
+      }))
+      .filter(s => s.roll)
+      .sort((a,b) => (parseInt(a.roll)||0) - (parseInt(b.roll)||0));
+    return { cls, list };
+  }));
+
+  const classQueues = classStudentLists
+    .map(c => ({ cls: c.cls, list: c.list.slice() }))
+    .filter(c => c.list.length)
+    .sort((a,b) => b.list.length - a.list.length);
+  const totalStudents = classQueues.reduce((a,c)=>a+c.list.length,0);
+  if(!totalStudents){ setStatus("No students found."); return; }
+  if(!rooms.length){ setStatus("No rooms saved."); return; }
+
+  const preferred = roomSelect.value;
+  let selectedRooms = [];
+  if(preferred){
+    const room = rooms.find(r => r.room_no === preferred);
+    if(room && capacity(room) >= totalStudents){
+      selectedRooms = [room];
+    }else if(room){
+      selectedRooms = [room, ...rooms.filter(r => r.room_no !== preferred)];
+    }
+  }
+
+  if(!selectedRooms.length){
+    const sorted = sortRoomsByCap(rooms);
+    const single = sorted.find(r => capacity(r) >= totalStudents);
+    if(single) selectedRooms = [single];
+    else selectedRooms = rooms.slice();
+  }
+
+  // Build room assignments to keep same-subject classes in different rooms
+  const dateKey = examDate.value || "";
+  const clsMap = DATE_CLASS_SUBJECT_MAP.get(dateKey) || new Map();
+  const subjectGroups = new Map(); // subject -> [class]
+  classQueues.forEach(c => {
+    const subjSet = clsMap.get(c.cls);
+    const subj = subjSet ? Array.from(subjSet).join(", ") : "Unknown";
+    if(!subjectGroups.has(subj)) subjectGroups.set(subj, []);
+    subjectGroups.get(subj).push(c.cls);
+  });
+
+  const roomAssignments = selectedRooms.map(r => ({ room: r, classes: [] }));
+  if(roomAssignments.length){
+    let idx = 0;
+    subjectGroups.forEach(classesArr => {
+      classesArr.forEach(cls => {
+        roomAssignments[idx % roomAssignments.length].classes.push(cls);
+        idx += 1;
+      });
+    });
+  }
+
+  const classMap = new Map(classQueues.map(c => [c.cls, c.list]));
+  let carryClasses = [];
+  roomAssignments.forEach((ra, i) => {
+    let roomClasses = Array.from(new Set([...(ra.classes || []), ...carryClasses]));
+    carryClasses = [];
+    if(!roomClasses.length) return;
+
+    // Build queues for this room using shared class lists
+    const roomQueues = roomClasses
+      .map(cls => ({ cls, list: classMap.get(cls) || [] }))
+      .filter(q => q.list.length);
+    if(!roomQueues.length) return;
+
+    const state = { queues: roomQueues, leftClass: "", rightClass: "" };
+    const result = buildSeatMatrix(ra.room, state);
+    const used = result.used || [];
+
+    // Any leftover students in these classes carry to next room
+    roomQueues.forEach(q => {
+      if(q.list.length) carryClasses.push(q.cls);
+    });
+
+    const classCounts = used.reduce((acc, u) => {
+      acc[u.class_name] = (acc[u.class_name] || 0) + 1;
+      return acc;
+    }, {});
+    const perClassRoll = used.reduce((acc, u) => {
+      const r = parseInt(u.roll || "0", 10);
+      if(!acc[u.class_name]) acc[u.class_name] = { min: r || 0, max: r || 0 };
+      if(r && r < acc[u.class_name].min) acc[u.class_name].min = r;
+      if(r && r > acc[u.class_name].max) acc[u.class_name].max = r;
+      return acc;
+    }, {});
+    const dateText = examDate.value ? `Date: ${examDate.value}` : "";
+    const summaryLines = Object.entries(classCounts)
+      .map(([k,v]) => {
+        const range = perClassRoll[k] ? `${perClassRoll[k].min} to ${perClassRoll[k].max}` : "-";
+        const subjSet = clsMap.get(k);
+        const subj = subjSet ? Array.from(subjSet).join(", ") : "-";
+        return `Class: ${k} | Students: ${v} | Roll: ${range} | Subject: ${subj}`;
+      })
+      .join("\n");
+    const summary = `Room: ${ra.room.room_no} | Total: ${used.length} | ${dateText}\n${summaryLines}`;
+    planHost.appendChild(renderRoom(ra.room, result.grid, used, summary));
+  });
+
+  const remaining = classQueues.reduce((a,c)=>a+c.list.length,0);
+  if(remaining > 0){
+    setStatus(`Not enough seats. ${remaining} students left without seats.`);
+  }else{
+    setStatus(selectedRooms.length === 1
+      ? "All students placed in a single room."
+      : "Students placed across multiple rooms.");
+  }
+}
+
+sessionSelect.addEventListener("change", async () => {
+  await loadClasses();
+  await loadRooms();
+});
+
+sessionSelect.addEventListener("change", async () => {
+  await loadExams();
+  await loadClasses();
+  await loadRooms();
+});
+
+examSelect.addEventListener("change", loadExamDates);
+examDate.addEventListener("change", updateSubjectLine);
+
+loadSessions();
+
+document.getElementById("selectAllClasses").addEventListener("change", (e) => {
+  const checked = e.target.checked;
+  document.querySelectorAll(".cls-check").forEach(cb => { cb.checked = checked; });
+});
+</script>
+</body>
+</html>
+

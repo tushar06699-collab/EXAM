@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>School Exam ERP - Dashboard</title>
+<title>School Exam ERP - Dashboard</title>`n<link rel="stylesheet" href="admin_sidebar.css">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
@@ -235,6 +235,7 @@ body {
     <a href="exam_create.html">Pre Exam Corner</a>
     <a href="exam_paper.html">Exams Corner</a>
     <a href="result_upload.html">Post Exam Corner</a>
+    <a href="admin_export.html">Export Data</a>
 </div>
 
 <div class="main">
@@ -347,6 +348,7 @@ function loadStats() {
 const PROGRESS_ITEMS = [
     { key: "subject_add", label: "Subject Add", page: "subject_add.html" },
     { key: "holidays", label: "Holidays", page: "admin_holiday.html" },
+    { key: "incharge", label: "Incharge", page: "incharge.html" },
     { key: "subject_marks_add", label: "Subject Marks Add", page: "exam_subject_marks_config.html" },
     { key: "teacher_management", label: "Teacher Management", page: "teachers.html" },
     { key: "add_timetable", label: "Add Timetable", page: "Timetable.html" },
@@ -355,7 +357,8 @@ const PROGRESS_ITEMS = [
     { key: "student_exam_access", label: "Student Exam Access", page: "student_exam_access.html" },
     { key: "upload_internal_marks", label: "Upload Internal Marks", page: "internal_marks_add.html" },
     { key: "upload_external_marks", label: "Upload External Marks", page: "uploaded_marks.html" },
-    { key: "publish_result", label: "Publish Result", page: "result_publish.html" }
+    { key: "publish_result", label: "Publish Result", page: "result_publish.html" },
+    { key: "daily_export", label: "Daily Export", page: "admin_export.html" }
 ];
 
 function renderProgressSkeleton() {
@@ -523,6 +526,31 @@ async function loadSetupProgress() {
 
     let publishDone = false;
     let publishedCombos = 0;
+
+    function normalizeInchargeKey(raw){
+        return String(raw || "")
+            .toLowerCase()
+            .replace(/class\s*/g, "")
+            .replace(/\s+/g, "")
+            .trim();
+    }
+    let inchargeDone = false;
+    let classesWithIncharge = 0;
+    if (classes.length) {
+        const incData = await fetchJsonSafe(`${EXAM_API}/incharge/get?session=${encodeURIComponent(currentSession)}`);
+        const inchargeMap = (incData && incData.incharge) || {};
+        const keys = new Set(Object.keys(inchargeMap || {}).map(normalizeInchargeKey));
+        for (const cls of classes) {
+            const norm = normalizeInchargeKey(cls);
+            if (keys.has(norm) && String(inchargeMap[Object.keys(inchargeMap).find(k => normalizeInchargeKey(k) === norm)] || "").trim()) {
+                classesWithIncharge += 1;
+            }
+        }
+        inchargeDone = classesWithIncharge === classes.length;
+    }
+
+    const todayKey = `daily_export_${new Date().toISOString().slice(0,10)}`;
+    const dailyExportDone = localStorage.getItem(todayKey) === "true";
     if (classes.length && exams.length) {
         for (const cls of classes) for (const ex of exams) {
             const d = await fetchJsonSafe(
@@ -535,6 +563,7 @@ async function loadSetupProgress() {
 
     setProgressStatus("subject_add", subjectAddDone);
     setProgressStatus("holidays", holidaysDone);
+    setProgressStatus("incharge", inchargeDone);
     setProgressStatus("subject_marks_add", subjectMarksDone);
     setProgressStatus("teacher_management", teacherMgmtDone);
     setProgressStatus("add_timetable", timetableDone);
@@ -544,6 +573,7 @@ async function loadSetupProgress() {
     setProgressStatus("upload_internal_marks", internalDone);
     setProgressStatus("upload_external_marks", externalDone);
     setProgressStatus("publish_result", publishDone);
+    setProgressStatus("daily_export", dailyExportDone);
 
     const classesLeftSubjects = Math.max(0, classes.length - classesWithSubjects);
     const classesLeftTimetable = Math.max(0, classes.length - classesWithTimetable);
@@ -559,6 +589,7 @@ async function loadSetupProgress() {
     const teacherCount = (teachersData && Array.isArray(teachersData.teachers)) ? teachersData.teachers.length : 0;
 
     setProgressDetail("holidays", `${holidayCount} holidays filled`);
+    setProgressDetail("incharge", `${classesWithIncharge}/${classes.length} classes assigned`);
     setProgressDetail("subject_marks_add", `${subjectMarksDoneCombos}/${totalCombos} class-exam configs${combosLeftSubjectMarks ? `, ${combosLeftSubjectMarks} left` : ""}`);
     setProgressDetail("teacher_management", `${teacherCount} teachers added`);
     setProgressDetail("add_timetable", `${classesWithTimetable}/${classes.length} classes have timetable${classesLeftTimetable ? `, ${classesLeftTimetable} class left` : ""}`);
@@ -568,6 +599,7 @@ async function loadSetupProgress() {
     setProgressDetail("upload_internal_marks", `${internalDoneCombos}/${totalCombos} class-exam uploads${combosLeftInternal ? `, ${combosLeftInternal} left` : ""}`);
     setProgressDetail("upload_external_marks", `${externalDoneCombos}/${totalCombos} class-exam uploads${combosLeftExternal ? `, ${combosLeftExternal} left` : ""}`);
     setProgressDetail("publish_result", `${publishedCombos}/${totalCombos} class-exam results published${combosLeftPublish ? `, ${combosLeftPublish} left` : ""}`);
+    setProgressDetail("daily_export", dailyExportDone ? "Export completed today" : "Export not done today");
 }
 
 
@@ -646,6 +678,7 @@ window.onload = loadSessions;
 
 </body>
 </html>
+
 
 
 

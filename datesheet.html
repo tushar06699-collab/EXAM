@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Datesheet Add - School ERP</title>
+<title>Datesheet Add - School ERP</title>`n<link rel="stylesheet" href="admin_sidebar.css">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 /* ... same CSS as before ... */
@@ -197,6 +197,22 @@ async function buildTable(){
   await loadClasses();
   SUBJECTS_BY_CLASS = {};
 
+  // Load subjects for each class (authoritative list)
+  const subjectResults = await Promise.allSettled(CLASS_LIST.map(async (cls)=>{
+    const res = await fetch(`${EXAM_API}/exam/subjects/get?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}`);
+    const data = await res.json();
+    return { cls, subjects: (data.subjects || []) };
+  }));
+
+  let allSubjectsSet = new Set();
+  subjectResults.forEach(r => {
+    if(r.status === "fulfilled"){
+      (r.value.subjects || []).forEach(s => allSubjectsSet.add(s));
+    }
+  });
+  let allSubjects = Array.from(allSubjectsSet);
+
+  // Load saved datesheet entries for each class to prefill
   await Promise.all(CLASS_LIST.map(async (cls)=>{
     try {
       const res = await fetch(`${EXAM_API}/exam/get-datesheet?class_name=${encodeURIComponent(cls)}&session=${encodeURIComponent(session)}&exam_name=${encodeURIComponent(exam)}`);
@@ -207,18 +223,19 @@ async function buildTable(){
     }
   }));
 
-  let allSubjectsSet = new Set();
-  Object.values(SUBJECTS_BY_CLASS).forEach(arr => arr.forEach(sub => {
-    if(sub && sub.subject) allSubjectsSet.add(sub.subject);
-  }));
-  let allSubjects = Array.from(allSubjectsSet);
-
   thead.innerHTML = `<tr><th>Class</th>${allSubjects.map(s => `<th>${s}</th>`).join('')}</tr>`;
 
   tbody.innerHTML = "";
   for(let cls of CLASS_LIST){
     const row = document.createElement("tr");
+    const classSubjects = new Set(
+      (subjectResults.find(r => r.status === "fulfilled" && r.value.cls === cls)?.value.subjects) || []
+    );
     row.innerHTML = `<td>${cls}</td>` + allSubjects.map(sub => {
+      const hasSub = classSubjects.has(sub);
+      if(!hasSub){
+        return `<td style="background:#f8fafc;color:#94a3b8;">-</td>`;
+      }
       const existing = (SUBJECTS_BY_CLASS[cls] || []).find(e => e.subject === sub);
       return `<td><input type="date" value="${existing ? existing.date : ''}" id="d_${cls}_${sub.replace(/ /g,'_')}"></td>`;
     }).join('');
@@ -232,27 +249,47 @@ async function saveAll(){
   const exam = examSelect.value;
   if(!session || !exam) { alert("Select exam"); return; }
 
-  let rows = document.querySelectorAll("#sheetTable tbody tr");
-  for(let r of rows){
+  const rows = Array.from(document.querySelectorAll("#sheetTable tbody tr"));
+  const headers = Array.from(thead.querySelectorAll("th")).map(h => h.innerText);
+
+  const payloads = rows.map(r => {
     const cls = r.children[0].innerText;
-    let datesheet = [];
+    const datesheet = [];
     for(let i=1; i<r.children.length; i++){
-      const subject = thead.querySelectorAll("th")[i].innerText;
-      const dateVal = r.children[i].querySelector("input").value;
+      const subject = headers[i];
+      const input = r.children[i].querySelector("input");
+      const dateVal = input ? input.value : "";
       if(dateVal){
         datesheet.push({subject, date: dateVal, total_marks:100, duration:180});
       }
     }
-    if(datesheet.length > 0){
-      await fetch(`${EXAM_API}/exam/add-datesheet`, {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({session, class_name:cls, exam_name:exam, datesheet})
-      });
-    }
+    return { cls, datesheet };
+  }).filter(p => p.datesheet.length > 0);
+
+  if(!payloads.length){
+    alert("No datesheet entries to save.");
+    return;
   }
 
-  alert("Datesheet saved successfully!");
+  const results = await Promise.allSettled(payloads.map(async p => {
+    const res = await fetch(`${EXAM_API}/exam/add-datesheet`, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({session, class_name:p.cls, exam_name:exam, datesheet:p.datesheet})
+    });
+    if(!res.ok){
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Failed ${p.cls}`);
+    }
+    return p.cls;
+  }));
+
+  const failed = results.filter(r => r.status === "rejected");
+  if(failed.length){
+    alert(`Saved with ${failed.length} failures. Check network and retry for those classes.`);
+  }else{
+    alert("Datesheet saved successfully!");
+  }
 }
 
 async function downloadPDF(){
@@ -323,6 +360,7 @@ loadSessionsAndLock().then(loadExams);
 
 </body>
 </html>
+
 
 
 

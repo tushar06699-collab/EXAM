@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Export Data - Exam ERP</title>
+  <link rel="stylesheet" href="admin_theme.css">
+  <style>
+    body { background:#f3f5fb; }
+    .sidebar {
+      width:230px; height:100vh; background:#233465; color:#fff;
+      position:fixed; left:0; top:0; padding:25px; overflow:auto; z-index:1000;
+      transition: transform 0.2s ease;
+    }
+    .sidebar h2 { font-size:22px; margin-bottom:30px; }
+    .sidebar a {
+      display:block; padding:14px; margin:8px 0; color:#fff; text-decoration:none;
+      border-radius:10px; font-size:15px;
+    }
+    .sidebar a.active, .sidebar a:hover { background:#1a2648; }
+    .main {
+      margin-left:250px !important;
+      padding:30px;
+      max-width:1100px;
+      background:#f3f5fb !important;
+      color:#111827 !important;
+      width:auto !important;
+    }
+    .menu-toggle {
+      display:none; position:fixed; top:12px; left:12px; z-index:1100;
+      width:40px; height:40px; border:none; border-radius:10px;
+      background:#233465; color:#fff; font-size:12px; cursor:pointer; letter-spacing:0.5px;
+      box-shadow:0 6px 14px rgba(0,0,0,0.2);
+    }
+    .backdrop {
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,0.35);
+      z-index:900;
+    }
+    .sidebar.closed { transform: translateX(-110%) !important; }
+    .sidebar.open { transform: translateX(0) !important; }
+    .menu-toggle { display:block; }
+    #menuClose { display:block !important; }
+    .backdrop.show { display:block; }
+    @media (max-width: 900px){
+      .main { margin-left:0 !important; padding:70px 16px 24px; }
+    }
+    .card { background:#fff; border-radius:14px; padding:22px; box-shadow:0 8px 20px rgba(0,0,0,0.08); }
+    .row { display:flex; gap:18px; flex-wrap:wrap; }
+    .row > div { flex:1 1 260px; }
+    label { font-weight:600; display:block; margin-bottom:6px; color:#233465; }
+    select, input[type="date"] {
+      width:100%; padding:10px 12px; border:1px solid #d8deef; border-radius:8px; font-size:14px;
+    }
+    .btn {
+      padding:12px 18px; border:none; border-radius:10px; cursor:pointer; font-weight:700;
+      background:#1a73e8; color:#fff; font-size:14px;
+    }
+    .btn:disabled { opacity:0.6; cursor:not-allowed; }
+    .muted { color:#6b7280; font-size:13px; }
+    .status {
+      margin-top:12px; font-size:14px; padding:10px 12px; border-radius:8px;
+      background:#eef2ff; color:#233465;
+    }
+    .status.error { background:#fee2e2; color:#991b1b; }
+    .status.success { background:#dcfce7; color:#166534; }
+    .inline { display:flex; gap:8px; align-items:center; margin-top:6px; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+  <button class="menu-toggle" id="menuToggle">MENU</button>
+  <div class="backdrop" id="backdrop"></div>
+  <div class="sidebar" id="sidebar">
+    <div class="inline" style="justify-content:space-between;margin-bottom:10px;">
+      <h2 style="margin:0;">EXAM ERP</h2>
+      <button class="menu-toggle" id="menuClose" style="position:static;width:36px;height:36px;display:none;">X</button>
+    </div>
+    
+    <a href="dashboard.html">Dashboard</a>
+    <a href="admin_export.html" class="active">Export Data</a>
+  </div>
+
+    <div class="main">
+    <h1>Export Admin Data</h1>
+    <p class="muted">Exports key data into a single Excel file with multiple sheets.</p>
+
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>Session</label>
+          <select id="sessionSelect"></select>
+        </div>
+        <div>
+          <label>Exam (for Datesheet export)</label>
+          <select id="examSelect">
+            <option value="">Select exam</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <label>Include Attendance (optional)</label>
+        <div class="inline">
+          <input type="checkbox" id="includeAttendance" />
+          <span class="muted">Adds Attendance sheet for date range</span>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <div>
+            <label>From Date</label>
+            <input type="date" id="attFrom" />
+          </div>
+          <div>
+            <label>To Date</label>
+            <input type="date" id="attTo" />
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:18px;">
+        <button class="btn" id="exportBtn">Export Excel</button>
+      </div>
+      <div id="status" class="status" style="display:none;"></div>
+    </div>
+  </div>
+
+  <script>
+    const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app";
+    const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app";
+    const FEE_API = "https://fee-backend-ntas.onrender.com";
+
+    const sessionSelect = document.getElementById("sessionSelect");
+    const examSelect = document.getElementById("examSelect");
+    const exportBtn = document.getElementById("exportBtn");
+    const statusEl = document.getElementById("status");
+    const includeAttendance = document.getElementById("includeAttendance");
+    const attFrom = document.getElementById("attFrom");
+    const attTo = document.getElementById("attTo");
+
+    function showStatus(message, type) {
+      statusEl.textContent = message;
+      statusEl.className = "status" + (type ? " " + type : "");
+      statusEl.style.display = "block";
+    }
+
+    async function fetchJson(url) {
+      const res = await fetch(url);
+      const contentType = res.headers.get("content-type") || "";
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Request failed ${res.status} for ${url}. ${text.slice(0,120)}`);
+      }
+      if (!contentType.includes("application/json")) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Non-JSON response from ${url}. ${text.slice(0,120)}`);
+      }
+      return res.json();
+    }
+
+    async function safeFetchJson(url) {
+      try {
+        return await fetchJson(url);
+      } catch (e) {
+        console.warn(e);
+        return null;
+      }
+    }
+
+    function addSheet(wb, name, rows) {
+      const safeName = name.slice(0, 31);
+      const data = rows && rows.length ? rows : [{ info: "No data" }];
+      const ws = XLSX.utils.json_to_sheet(data);
+      XLSX.utils.book_append_sheet(wb, ws, safeName);
+    }
+
+    function dateRangeArray(from, to) {
+      const out = [];
+      const start = new Date(from);
+      const end = new Date(to);
+      if (isNaN(start) || isNaN(end) || start > end) return out;
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        out.push(d.toISOString().slice(0, 10));
+      }
+      return out;
+    }
+
+    async function loadSessions() {
+      sessionSelect.innerHTML = `<option value="">Loading...</option>`;
+      let sessions = [];
+      try {
+        const data = await fetchJson(`${EXAM_API}/session/list`);
+        sessions = (data.sessions || []).map(s => s.session).filter(Boolean);
+      } catch (e) {}
+
+      if (!sessions.length) {
+        try {
+          const data2 = await fetchJson(`${FEE_API}/session/list`);
+          sessions = (data2.sessions || []).map(s => s.session).filter(Boolean);
+        } catch (e) {}
+      }
+
+      if (!sessions.length) {
+        const stored = localStorage.getItem("session");
+        if (stored) sessions = [stored];
+      }
+
+      sessionSelect.innerHTML = sessions.length
+        ? sessions.map(s => `<option value="${s}">${s}</option>`).join("")
+        : `<option value="">No sessions</option>`;
+    }
+
+    async function loadExams() {
+      const session = sessionSelect.value;
+      examSelect.innerHTML = `<option value="">Select exam</option>`;
+      if (!session) return;
+      try {
+        const data = await fetchJson(`${EXAM_API}/exam/list-all`);
+        const exams = (data.exams || []).filter(x => String(x.session) === String(session));
+        exams.forEach(ex => {
+          const opt = document.createElement("option");
+          opt.value = ex.exam_name;
+          opt.textContent = ex.exam_name;
+          examSelect.appendChild(opt);
+        });
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    async function exportExcel() {
+      const session = sessionSelect.value;
+      if (!session) return alert("Please select session");
+
+      exportBtn.disabled = true;
+      showStatus("Export in progress... please wait");
+
+      try {
+        const wb = XLSX.utils.book_new();
+
+        const [sessionsData, studentsBySession, allStudentsData, teachersBySession, allTeachersData, examsData, holidaysData, noticesData, leavesData, roomsData, accessData] = await Promise.all([
+          safeFetchJson(`${EXAM_API}/session/list`),
+          safeFetchJson(`${STUDENT_API}/students?session=${encodeURIComponent(session)}`),
+          safeFetchJson(`${STUDENT_API}/students`),
+          safeFetchJson(`${STUDENT_API}/teachers?session=${encodeURIComponent(session)}`),
+          safeFetchJson(`${STUDENT_API}/teachers`),
+          safeFetchJson(`${EXAM_API}/exam/list-all`),
+          safeFetchJson(`${EXAM_API}/holiday/list?session=${encodeURIComponent(session)}`),
+          safeFetchJson(`${EXAM_API}/notice/list`),
+          safeFetchJson(`${EXAM_API}/leave/list`),
+          safeFetchJson(`${EXAM_API}/rooms/list?session=${encodeURIComponent(session)}`),
+          safeFetchJson(`${EXAM_API}/student-access/list`)
+        ]);
+
+        const allStudents = (allStudentsData && (allStudentsData.students || allStudentsData)) || [];
+        const sessionStudentsRaw = (studentsBySession && (studentsBySession.students || studentsBySession)) || [];
+        // Students sheet should include ALL students across sessions
+        const students = allStudents.length ? allStudents : sessionStudentsRaw;
+
+        let teachers = (teachersBySession && (teachersBySession.teachers || teachersBySession)) || [];
+        if (!teachers.length) teachers = (allTeachersData && (allTeachersData.teachers || allTeachersData)) || [];
+        if (!teachers.length) {
+          const fallbackTeachers = await safeFetchJson(`${EXAM_API}/teacher/list`);
+          teachers = (fallbackTeachers && (fallbackTeachers.teachers || fallbackTeachers)) || [];
+        }
+        const exams = ((examsData && examsData.exams) || []).filter(e => String(e.session || "") === String(session));
+        const holidays = (holidaysData && holidaysData.holidays) || [];
+        const notices = (noticesData && noticesData.notices) || [];
+        const leaves = (leavesData && leavesData.leaves) || [];
+        const rooms = (roomsData && roomsData.rooms) || [];
+        const access = ((accessData && (accessData.data || accessData.students || accessData)) || []).filter(a => String(a.session || "") === String(session));
+
+        addSheet(wb, "Sessions", sessionsData.sessions || []);
+        addSheet(wb, "Students", students);
+        addSheet(wb, "Teachers", teachers);
+        addSheet(wb, "Exams", exams);
+        addSheet(wb, "Holidays", holidays);
+        addSheet(wb, "Notices", notices);
+        addSheet(wb, "Leaves", leaves);
+        addSheet(wb, "Rooms", rooms);
+        addSheet(wb, "StudentAccess", access);
+
+        // Subjects
+        // Use session-specific classes for exam-related sheets
+        const classSource = sessionStudentsRaw.length ? sessionStudentsRaw : allStudents;
+        const classes = [...new Set(classSource.map(s => s.class_name).filter(Boolean))];
+        const subjectRows = [];
+        for (const cls of classes) {
+          try {
+            const sres = await safeFetchJson(`${EXAM_API}/exam/subjects/get?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}`);
+            (sres.subjects || []).forEach(sub => subjectRows.push({ class_name: cls, subject: sub }));
+          } catch (e) {}
+        }
+        addSheet(wb, "Subjects", subjectRows);
+
+        // Datesheet (only if exam selected)
+        const examName = examSelect.value;
+        if (examName) {
+          const datesheetRows = [];
+          for (const cls of classes) {
+            try {
+              const dres = await safeFetchJson(`${EXAM_API}/exam/get-datesheet?class_name=${encodeURIComponent(cls)}&session=${encodeURIComponent(session)}&exam_name=${encodeURIComponent(examName)}`);
+              (dres.datesheet || []).forEach(it => datesheetRows.push({
+                class_name: cls,
+                exam_name: examName,
+                subject: it.subject,
+                date: it.date,
+                time: it.time || "",
+                max_marks: it.max_marks || ""
+              }));
+            } catch (e) {}
+          }
+          addSheet(wb, "Datesheet", datesheetRows);
+        }
+
+        // Timetable
+        const timetableRows = [];
+        for (const cls of classes) {
+          try {
+            const tres = await safeFetchJson(`${EXAM_API}/timetable/classwise?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}`);
+            const rows = tres.timetable || [];
+            rows.forEach(r => timetableRows.push({ class_name: cls, ...r }));
+          } catch (e) {}
+        }
+        addSheet(wb, "Timetable", timetableRows);
+
+        // Attendance (optional)
+        if (includeAttendance.checked) {
+          const from = attFrom.value;
+          const to = attTo.value;
+          const dates = dateRangeArray(from, to);
+          if (!dates.length) {
+            showStatus("Attendance date range is invalid. Skipping attendance.", "error");
+          } else {
+            const attendanceRows = [];
+            for (const cls of classes) {
+              for (const d of dates) {
+                try {
+                  const ares = await safeFetchJson(`${EXAM_API}/attendance/list?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&date=${encodeURIComponent(d)}`);
+                  (ares.attendance || []).forEach(a => attendanceRows.push({ class_name: cls, date: d, ...a }));
+                } catch (e) {}
+              }
+            }
+            addSheet(wb, "Attendance", attendanceRows);
+          }
+        }
+
+        XLSX.writeFile(wb, `exam_admin_export_${session}.xlsx`);
+        const todayKey = `daily_export_${new Date().toISOString().slice(0,10)}`;
+        localStorage.setItem(todayKey, "true");
+        showStatus("Export completed successfully.", "success");
+      } catch (e) {
+        console.error(e);
+        showStatus("Export failed: " + e.message, "error");
+      } finally {
+        exportBtn.disabled = false;
+      }
+    }
+
+    const sidebar = document.getElementById("sidebar");
+    const menuToggle = document.getElementById("menuToggle");
+    const menuClose = document.getElementById("menuClose");
+    const backdrop = document.getElementById("backdrop");
+
+    function closeSidebar(){
+      sidebar.classList.add("closed");
+      sidebar.classList.remove("open");
+      backdrop.classList.remove("show");
+    }
+
+    menuToggle.addEventListener("click", () => {
+      const willOpen = sidebar.classList.contains("closed");
+      if (willOpen) {
+        sidebar.classList.remove("closed");
+        sidebar.classList.add("open");
+        backdrop.classList.add("show");
+      } else {
+        closeSidebar();
+      }
+    });
+    menuClose.addEventListener("click", closeSidebar);
+    backdrop.addEventListener("click", closeSidebar);
+    document.querySelectorAll(".sidebar a").forEach(a => a.addEventListener("click", closeSidebar));
+
+    window.addEventListener("resize", () => {
+      if (window.innerWidth <= 900) {
+        closeSidebar();
+      }
+    });
+    closeSidebar();
+
+    sessionSelect.addEventListener("change", loadExams);
+    exportBtn.addEventListener("click", exportExcel);
+
+    loadSessions().then(loadExams);
+  </script>
+</body>
+</html>

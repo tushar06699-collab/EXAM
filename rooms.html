@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Room Management</title>`n<link rel="stylesheet" href="admin_sidebar.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="admin_theme.css">
+<style>
+body{margin:0;font-family:Poppins,system-ui,sans-serif;background:#f5f7fb;}
+.sidebar{
+  width:230px; height:100vh; background:#233465; color:#fff;
+  position:fixed; left:0; top:0; padding:25px; overflow:auto;
+}
+.sidebar h2{font-size:22px; margin-bottom:30px;}
+.sidebar a{
+  display:block; padding:14px; margin:8px 0; color:#fff; text-decoration:none;
+  border-radius:10px; font-size:15px;
+}
+.sidebar a.active, .sidebar a:hover{background:#1a2648;}
+.main{margin-left:250px; padding:30px;}
+header{background:#233465;color:#fff;padding:1rem;text-align:center;font-size:1.4rem;border-radius:8px;}
+main{max-width:900px;margin:2rem auto;background:#fff;padding:2rem;border-radius:10px;box-shadow:0 6px 16px rgba(0,0,0,.08);}
+label{display:block;font-weight:600;margin-top:12px;}
+select,input{width:100%;padding:10px;margin-top:5px;border:1px solid #ccc;border-radius:6px;}
+button{margin-top:16px;width:100%;padding:12px;background:#4f46e5;color:white;border:none;font-size:16px;border-radius:6px;cursor:pointer;}
+button:hover{background:#3730a3;}
+table{width:100%;border-collapse:collapse;margin-top:20px;}
+th,td{border:1px solid #ddd;padding:8px;text-align:center;}
+th{background:#233465;color:white;}
+.btn-del{background:#dc2626;}
+.row-actions button{width:auto;padding:6px 10px;font-size:12px;}
+@media (max-width:768px){
+  .main{margin-left:0; padding:16px;}
+  main{margin:1rem;padding:1rem;}
+  .sidebar{position:static;width:auto;height:auto;}
+}
+</style>
+</head>
+<body>
+<div class="sidebar">
+  <h2>EXAM ERP</h2>
+  <a href="dashboard.html">Dashboard</a>
+  <a href="subject_add.html">Subjects Management</a>
+  <a href="exam_subject_marks_config.html">Subject Marks Config</a>
+  <a href="rooms.html" class="active">Room Management</a>
+  <a href="teachers.html">Teacher Management</a>
+  <a href="Timetable.html">Add Timetable</a>
+  <a href="get_classes_timetable.html">View Class Timetable</a>
+  <a href="get_teacher_timetable.html">View Teacher Timetable</a>
+</div>
+
+<div class="main">
+  <header>Add Room Details</header>
+  <main>
+    <label>Session</label>
+    <select id="sessionSelect"></select>
+
+    <label>Room No</label>
+    <input id="roomNo" placeholder="e.g. A101">
+
+    <label>Columns</label>
+    <input id="rows" type="number" min="1" placeholder="e.g. 5">
+
+    <label>Benches Per Row</label>
+    <input id="benchesPerRow" type="number" min="1" placeholder="e.g. 4">
+
+    <label>Seats Per Bench</label>
+    <input id="seatsPerBench" type="number" min="1" value="2">
+
+    <button onclick="saveRoom()">Save Room</button>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Room No</th>
+          <th>Columns</th>
+          <th>Benches/Row</th>
+          <th>Seats/Bench</th>
+          <th>Capacity</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="roomsBody"></tbody>
+    </table>
+  </main>
+</div>
+
+<script>
+const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app";
+const sessionSelect = document.getElementById("sessionSelect");
+const roomsBody = document.getElementById("roomsBody");
+
+async function loadSessions(){
+  const res = await fetch(`${EXAM_API}/session/list`);
+  const data = await res.json();
+  sessionSelect.innerHTML = `<option value="">Select Session</option>`;
+  (data.sessions || []).forEach(s => {
+    sessionSelect.innerHTML += `<option value="${s}">${s}</option>`;
+  });
+  if(data.sessions && data.sessions.length){
+    sessionSelect.value = data.sessions[0];
+    loadRooms();
+  }
+}
+
+async function loadRooms(){
+  const session = sessionSelect.value;
+  if(!session) return;
+  const res = await fetch(`${EXAM_API}/rooms/list?session=${encodeURIComponent(session)}`);
+  const data = await res.json();
+  const rows = (data.success && Array.isArray(data.rooms)) ? data.rooms : [];
+  roomsBody.innerHTML = rows.map(r => {
+    const cap = (Number(r.rows||0) * Number(r.benches_per_row||0) * Number(r.seats_per_bench||0));
+    return `<tr>
+      <td>${r.room_no}</td>
+      <td>${r.rows}</td>
+      <td>${r.benches_per_row}</td>
+      <td>${r.seats_per_bench}</td>
+      <td>${cap}</td>
+      <td class="row-actions">
+        <button class="btn-del" onclick="deleteRoom('${r.room_no}')">Delete</button>
+      </td>
+    </tr>`;
+  }).join("");
+  if(!rows.length){
+    roomsBody.innerHTML = `<tr><td colspan="6">No rooms saved.</td></tr>`;
+  }
+}
+
+async function saveRoom(){
+  const session = sessionSelect.value;
+  const room_no = document.getElementById("roomNo").value.trim();
+  const rows = Number(document.getElementById("rows").value || 0);
+  const benches_per_row = Number(document.getElementById("benchesPerRow").value || 0);
+  const seats_per_bench = Number(document.getElementById("seatsPerBench").value || 0);
+  if(!session || !room_no || rows <= 0 || benches_per_row <= 0 || seats_per_bench <= 0){
+    alert("Fill all fields");
+    return;
+  }
+  const res = await fetch(`${EXAM_API}/rooms/save`, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ session, room_no, rows, benches_per_row, seats_per_bench })
+  });
+  const data = await res.json().catch(() => ({}));
+  if(!res.ok || data.success === false){
+    alert(data.message || "Save failed");
+    return;
+  }
+  document.getElementById("roomNo").value = "";
+  document.getElementById("rows").value = "";
+  document.getElementById("benchesPerRow").value = "";
+  document.getElementById("seatsPerBench").value = "2";
+  loadRooms();
+}
+
+async function deleteRoom(roomNo){
+  const session = sessionSelect.value;
+  if(!confirm(`Delete room ${roomNo}?`)) return;
+  await fetch(`${EXAM_API}/rooms/delete`, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ session, room_no: roomNo })
+  });
+  loadRooms();
+}
+
+sessionSelect.addEventListener("change", loadRooms);
+loadSessions();
+</script>
+</body>
+</html>
+
