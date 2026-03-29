@@ -296,8 +296,9 @@ function buildExamUsername(studentTeacher) {
 
 function buildExamPassword(studentTeacher) {
     const dobPass = dobToDDMMYYYY(studentTeacher.dob);
-    if (dobPass) return dobPass;
     const code = normalizeCode(studentTeacher.teacher_code);
+    if (dobPass && code) return `${code}@${dobPass}`;
+    if (dobPass) return dobPass;
     return `T${code}@${code}`;
 }
 

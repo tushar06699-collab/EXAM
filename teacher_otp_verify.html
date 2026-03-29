@@ -270,11 +270,16 @@ async function requestTeacherOtp(){
         teacherMobile.innerText = "Mobile: " + (profile.mobile_masked || "Registered number");
 
         if(!res.ok || data.success === false){
-            setError(data.message || "Failed to send OTP");
+            const fallbackMsg = data && data.message ? data.message : `Failed to send OTP (HTTP ${res.status})`;
+            setError(fallbackMsg);
             otpNote.innerText = "Could not send OTP";
             return;
         }
-        otpNote.innerText = data.message || "OTP sent";
+        if (data.channel === "email") {
+            otpNote.innerText = data.message || "OTP sent to email";
+        } else {
+            otpNote.innerText = data.message || "OTP sent";
+        }
         otpInput.value = "";
         otpInput.focus();
         setError("OTP sent successfully.", true);

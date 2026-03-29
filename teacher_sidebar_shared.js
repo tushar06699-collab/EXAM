@@ -22,23 +22,15 @@
   }
   function clearTeacherAuth(){
     [
-      'token','role','teacher_id','teacher_name','teacher_username','session',
-      'teacher_otp_verified_until','teacher_otp_username'
+      'token','role','teacher_id','teacher_name','teacher_username','session'
     ].forEach(function(k){ localStorage.removeItem(k); });
     sessionStorage.removeItem('pending_teacher_login');
   }
-  function enforceTeacherOtpWindow(){
+  function enforceTeacherAuth(){
     if(!isTeacherPage()) return true;
-    var p = currentPage();
-    if(p === 'teacher_otp_verify.html') return true;
-
     var role = String(localStorage.getItem('role') || '').toLowerCase();
     var teacherUser = String(localStorage.getItem('teacher_username') || '').toUpperCase();
-    var otpUser = String(localStorage.getItem('teacher_otp_username') || '').toUpperCase();
-    var otpUntil = parseInt(localStorage.getItem('teacher_otp_verified_until') || '0', 10);
-    var now = Date.now();
-
-    if(role !== 'teacher' || !teacherUser || !otpUser || otpUser !== teacherUser || !otpUntil || now > otpUntil){
+    if(role !== 'teacher' || !teacherUser){
       clearTeacherAuth();
       location.href = 'index.html';
       return false;
@@ -46,7 +38,7 @@
     return true;
   }
 
-  if(!enforceTeacherOtpWindow()) return;
+  if(!enforceTeacherAuth()) return;
 
   async function fetchJson(url){
     try{
