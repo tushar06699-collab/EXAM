@@ -136,12 +136,20 @@ async function loadSessions() {
         const data = await res.json();
 
         if(!data.success || !data.sessions || data.sessions.length === 0){
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
             sessionSelect.innerHTML = "<option>No sessions found</option>";
             return;
         }
 
         const sessions = data.sessions;
-        let currentSession = localStorage.getItem("session") || sessions[0];
+        let currentSession = localStorage.getItem("session") || sessions[sessions.length - 1];
 
         sessionSelect.innerHTML = sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
         sessionSelect.value = currentSession;
@@ -185,9 +193,10 @@ function populateClasses() {
 async function loadExams() {
     const session = document.getElementById("sessionSelect").value;
     try {
-        const res = await fetch(`${EXAM_API}/exam/list-all?session=${session}`);
+        const res = await fetch(`${EXAM_API}/exam/list-all`);
         const data = await res.json();
-        EXAMS = data.exams || [];
+        const all = data.exams || [];
+        EXAMS = session ? all.filter(e => String(e.session || "") === String(session)) : all;
         const examSelect = document.getElementById("examSelect");
         examSelect.innerHTML = `<option value="">Select</option>` + EXAMS.map(e=>`<option value="${e.exam_name}">${e.exam_name}</option>`).join("");
     } catch(e) {

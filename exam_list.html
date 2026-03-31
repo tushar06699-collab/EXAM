@@ -69,12 +69,20 @@ async function loadSessions(){
         const data = await res.json();
         sessions = data.sessions || [];
 
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
+
         if(sessions.length === 0){
             sel.innerHTML = "<option>No sessions found</option>";
             return;
         }
 
-        currentSession = currentSession || sessions[0];
+        currentSession = currentSession || sessions[sessions.length - 1];
         sel.innerHTML = sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
         sel.value = currentSession;
 

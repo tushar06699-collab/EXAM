@@ -186,7 +186,15 @@ async function loadSessions() {
         const data = await res.json();
 
         sessionSelect.innerHTML = data.sessions.map(s => `<option>${s}</option>`).join("");
-        sessionSelect.value = currentSession || data.sessions[0];
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
+        sessionSelect.value = currentSession || data.sessions[data.sessions.length - 1];
         currentSession = sessionSelect.value;
 
         sessionSelect.onchange = () => {

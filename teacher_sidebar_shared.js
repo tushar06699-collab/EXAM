@@ -1,5 +1,7 @@
 (function(){
-  var EXAM_API = 'https://exam-backend-117372286918.asia-south1.run.app';
+  var EXAM_API = String(
+    localStorage.getItem('examApiBaseUrl') || 'https://exam-backend-117372286918.asia-south1.run.app'
+  ).replace(/\/+$/, '');
   var STUDENT_API_CANDIDATES = [
     'https://student-backend-117372286918.asia-south1.run.app',
     'http://127.0.0.1:8080'
@@ -86,7 +88,7 @@
       '<img class="tp-avatar" src="' + escHtml(profile.photo_url || DEFAULT_AVATAR) + '" onerror="this.onerror=null;this.src=\'' + DEFAULT_AVATAR + '\';">' +
       '<div class="tp-meta">' +
       '<div class="tp-name">' + escHtml(profile.name || 'Teacher') + '</div>' +
-      '<div class="tp-sub">ID: ' + escHtml(profile.teacher_code || '-') + ' | Session: ' + escHtml(profile.session || '-') + '</div>' +
+      '<div class="tp-sub">ID: ' + escHtml(profile.teacher_code || '-') + '</div>' +
       '</div>';
     if(current === 'teacher_leave.html' || current === 'teacher_my_classes.html'){
       strip.style.right = '16px';
@@ -103,6 +105,17 @@
     var teacherName = localStorage.getItem('teacher_name') || 'Teacher';
     var teacherUsername = localStorage.getItem('teacher_username') || '';
     var teacherSession = localStorage.getItem('session') || '';
+
+    try{
+      var sRes = await fetchJson(EXAM_API + '/session/list');
+      if(sRes && Array.isArray(sRes.sessions) && sRes.sessions.length){
+        var latest = sRes.sessions[sRes.sessions.length - 1];
+        if(latest){
+          teacherSession = latest;
+          localStorage.setItem('session', latest);
+        }
+      }
+    }catch(_e){}
 
     var examTeacher = null;
     if(teacherId){

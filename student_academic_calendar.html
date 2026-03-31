@@ -191,7 +191,15 @@ function parseSession(session){
 async function loadCurrentSession(){
     const res = await fetch(`${API}/session/list`);
     const data = await res.json();
-    CURRENT_SESSION = data.sessions[0]; // first session is current
+    CURRENT_SESSION = data.sessions[data.sessions.length - 1]; // first session is current
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
     const {startYear,endYear} = parseSession(CURRENT_SESSION);
     sessionTitle.innerText = `April ${startYear} - March ${endYear}`;
     generateCalendar(startYear, endYear);
@@ -277,7 +285,6 @@ loadCurrentSession();
   <script src="student_sidebar_shared.js"></script>
 </body>
 </html>
-
 
 
 

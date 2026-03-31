@@ -167,6 +167,15 @@ async function loadSessions(){
     const res = await fetch(`${EXAM_API}/session/list`);
     const data = await res.json();
     sessionSelect.innerHTML = data.sessions.map(s=>`<option>${s}</option>`).join("");
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+            sessionSelect.value = latest;
+        }
+    }
 }
 
 /* LOAD CLASSES ONCE */

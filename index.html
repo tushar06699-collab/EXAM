@@ -123,6 +123,43 @@ body::before{
     margin:0;
 }
 
+.password-wrap{
+    position:relative;
+}
+.password-wrap input{
+    width:100%;
+    padding-right:0px;
+}
+.toggle-pass{
+    position:absolute;
+    right:-5px;
+    top:50%;
+    transform:translateY(-69%);
+    border:1px solid #d1d5db;
+    background:#ffffff;
+    color:#f6f6f7;
+    font-size:30px;
+    font-weight:600;
+    padding:0 4px;
+    border-radius:100px;
+    cursor:pointer;
+    line-height:0;
+    height:37px;
+    width:auto;
+    min-width:0;
+    display:inline-flex;
+    align-items:center;
+    box-sizing:border-box;
+}
+.password-wrap .toggle-pass{
+    width:auto !important;
+    max-width:48px;
+}
+.password-wrap .toggle-pass:focus{
+    outline:2px solid rgba(59,130,246,.25);
+    outline-offset:2px;
+}
+
 </style>
 </head>
 <body>
@@ -134,7 +171,10 @@ body::before{
 </div>
     
     <input id="user" placeholder="Username / Roll No">
-    <input id="pass" placeholder="Password / DOB (DDMMYYYY)" type="password">
+    <div class="password-wrap">
+        <input id="pass" placeholder="Password / DOB (DDMMYYYY)" type="password">
+        <button type="button" class="toggle-pass" onclick="togglePassword()">👁️</button>
+    </div>
     <div class="captcha-row">
         <div id="captchaText" class="captcha-box"></div>
         <button class="mini-btn" type="button" onclick="generateCaptcha()">↻</button>
@@ -204,6 +244,15 @@ function generateCaptcha(){
     }
     currentCaptcha = out;
     captchaText.textContent = out;
+}
+
+function togglePassword(){
+    const passEl = document.getElementById("pass");
+    const btn = document.querySelector(".toggle-pass");
+    if(!passEl || !btn) return;
+    const isHidden = passEl.type === "password";
+    passEl.type = isHidden ? "text" : "password";
+    btn.textContent = isHidden ? "👁️‍🗨️" : "👁️";
 }
 
 /* ---------- DOB CANDIDATES (STUDENT ONLY) ---------- */

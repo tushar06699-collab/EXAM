@@ -86,10 +86,18 @@ async function loadSessions(){
 
     sessionSelect.innerHTML = `<option value="">Select Session</option>`;
     if(data.sessions){
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
         data.sessions.forEach(s=>{
             sessionSelect.innerHTML += `<option value="${s}">${s}</option>`;
         });
-        sessionSelect.value = data.sessions[0];
+        sessionSelect.value = data.sessions[data.sessions.length - 1];
         loadClasses();
     }
 }
@@ -104,7 +112,7 @@ async function loadClasses(){
     const session = sessionSelect.value;
     if(!session) return;
 
-    const res = await fetch(`${STUDENT_API}/students?session=${session}`);
+  const res = await fetch(`${STUDENT_API}/students?session=${session}&strict=1`);
     const students = await res.json();
 
     const classes = [...new Set(students.map(s=>s.class_name).filter(Boolean))];
@@ -127,7 +135,7 @@ async function loadStudents(){
         return;
     }
 
-    const res = await fetch(`${STUDENT_API}/students?session=${session}`);
+  const res = await fetch(`${STUDENT_API}/students?session=${session}&strict=1`);
     const students = await res.json();
 const classStudents = students
     .filter(s => s.class_name === cls)
@@ -155,17 +163,18 @@ const classStudents = students
         }
     }catch(e){}
 
-    let html = `<table>
-        <tr><th>Roll No</th><th>Name</th><th>Attendance</th></tr>`;
+      let html = `<table>
+          <tr><th>Admission No</th><th>Roll No</th><th>Name</th><th>Attendance</th></tr>`;
 
     classStudents.forEach(s=>{
         const status = existingAttendance[s._id] || "present";
-        html += `
-        <tr>
-            <td>${s.rollno}</td>
-            <td>${s.student_name}</td>
-            <td>
-<select class="attendance-select" data-student-id="${s._id}">
+          html += `
+          <tr>
+              <td>${s.admission_no || "NA"}</td>
+              <td>${s.rollno || "NA"}</td>
+              <td>${s.student_name || "NA"}</td>
+              <td>
+  <select class="attendance-select" data-student-id="${s._id}" data-student-roll="${s.rollno || s.roll || ""}" data-student-adm="${s.admission_no || ""}">
                     <option value="present" ${status==="present"?"selected":""}>Present</option>
                     <option value="absent" ${status==="absent"?"selected":""}>Absent</option>
                     <option value="leave" ${status==="leave"?"selected":""}>Leave</option>
@@ -191,10 +200,12 @@ async function uploadAttendance(){
         return;
     }
 
-    const attendance = [...document.querySelectorAll(".attendance-select")].map(s=>({
-        student_id: s.dataset.studentId,
-        status: s.value
-    }));
+  const attendance = [...document.querySelectorAll(".attendance-select")].map(s=>({
+      student_id: s.dataset.studentId,
+      student_roll: s.dataset.studentRoll || "",
+      student_admission: s.dataset.studentAdm || "",
+      status: s.value
+  }));
 
     const res = await fetch(`${ATTENDANCE_API}/attendance/save`,{
         method:"POST",

@@ -124,7 +124,22 @@ button:hover {
   <select id="sessionSelect"></select>
 
   <label>Exam Name</label>
-  <input type="text" id="examName" placeholder="Example: UT-1, Half Yearly, Final" />
+  <select id="examNameSelect" onchange="applyExamPreset()">
+    <option value="">Select Exam</option>
+    <option value="UT-1">UT - 1</option>
+    <option value="UT-2">UT - 2</option>
+    <option value="Half Yearly">Half Yearly</option>
+    <option value="Preboard">Preboard</option>
+    <option value="Annual Exam">Annual Exam</option>
+    <option value="Other">Other</option>
+  </select>
+
+  <div id="otherExamWrap" style="display:none;">
+    <label>Other Exam Name</label>
+    <input type="text" id="otherExamName" placeholder="Enter exam name" />
+    <label>Exam Details</label>
+    <input type="text" id="otherExamDetails" placeholder="Optional details" />
+  </div>
 
   <label>Exam Time</label>
   <input type="text" id="examTime" placeholder="Example: 8:00 AM - 11:00 AM" />
@@ -144,16 +159,27 @@ button:hover {
 
 </div>
 <script>
-const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/";
+const EXAM_API = String(
+  localStorage.getItem("examApiBaseUrl") || "https://exam-backend-117372286918.asia-south1.run.app/"
+).replace(/\/+$/, "");
 
 /* LOAD CURRENT SESSION ONLY */
 async function loadCurrentSession() {
   try {
-    const res = await fetch("https://exam-backend-117372286918.asia-south1.run.app//session/list");
+    const res = await fetch(`${EXAM_API}/session/list`);
     const data = await res.json();
 
     // Assuming current session is last in the list, or pick with some property
-    const currentSession = data.current || data.sessions[data.sessions.length - 1];
+    let currentSession = data.current || data.sessions[data.sessions.length - 1];
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+            currentSession = latest;
+        }
+    }
 
     const select = document.getElementById("sessionSelect");
     select.innerHTML = `<option>${currentSession}</option>`;
@@ -165,10 +191,45 @@ async function loadCurrentSession() {
 
 loadCurrentSession();
 
+function applyExamPreset(){
+  const sel = document.getElementById("examNameSelect").value;
+  const otherWrap = document.getElementById("otherExamWrap");
+  const examTime = document.getElementById("examTime");
+  const totalMarks = document.getElementById("totalMarks");
+  const internalMarks = document.getElementById("internalMarks");
+
+  otherWrap.style.display = sel === "Other" ? "block" : "none";
+
+  if (sel === "UT-1" || sel === "UT-2") {
+    examTime.value = "1 hour";
+    totalMarks.value = "20";
+    internalMarks.value = "no";
+  } else if (sel === "Half Yearly" || sel === "Preboard" || sel === "Annual Exam") {
+    examTime.value = "3 hours";
+    totalMarks.value = "80";
+    internalMarks.value = "yes";
+  } else if (sel === "Other") {
+    examTime.value = "";
+    totalMarks.value = "";
+    internalMarks.value = "yes";
+  }
+}
+
 /* CREATE EXAM */
 async function createExam() {
   const session = document.getElementById("sessionSelect").value;
-  const exam_name = document.getElementById("examName").value.trim();
+  const selectedExam = document.getElementById("examNameSelect").value;
+  let exam_name = selectedExam;
+  if (selectedExam === "Other") {
+    const customName = document.getElementById("otherExamName").value.trim();
+    const customDetails = document.getElementById("otherExamDetails").value.trim();
+    if (!customName) {
+      alert("Please enter other exam name");
+      return;
+    }
+    exam_name = customName;
+    if (customDetails) exam_name = `${customName} - ${customDetails}`;
+  }
   const exam_time = document.getElementById("examTime").value.trim();
   const total_marks = document.getElementById("totalMarks").value.trim();
   const internal_marks = document.getElementById("internalMarks").value === "yes";
@@ -188,7 +249,10 @@ async function createExam() {
 
   if (data.success) {
     alert("Exam created successfully!");
-    document.getElementById("examName").value = "";
+    document.getElementById("examNameSelect").value = "";
+    document.getElementById("otherExamName").value = "";
+    document.getElementById("otherExamDetails").value = "";
+    document.getElementById("otherExamWrap").style.display = "none";
     document.getElementById("examTime").value = "";
     document.getElementById("totalMarks").value = "";
   } else {
@@ -200,7 +264,6 @@ async function createExam() {
 
 </body>
 </html>
-
 
 
 

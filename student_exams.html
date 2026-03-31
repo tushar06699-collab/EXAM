@@ -162,6 +162,14 @@ async function loadSession(){
     const data = await res.json();
 
     if(!data.sessions.length){
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
         document.getElementById("sessionInfo").innerText = "Session not found";
         return;
     }
@@ -304,7 +312,6 @@ loadSession();
   <script src="student_sidebar_shared.js"></script>
 </body>
 </html>
-
 
 
 

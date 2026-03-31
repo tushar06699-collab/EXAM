@@ -154,12 +154,17 @@ button:hover { background: #3730a3; }
 
 <!-- ---------------- SCRIPT ---------------- -->
 <script>
-const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/";
-const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app/";
+const EXAM_API = String(
+  localStorage.getItem("examApiBaseUrl") || "https://exam-backend-117372286918.asia-south1.run.app/"
+).replace(/\/+$/, "");
+const STUDENT_API = String(
+  localStorage.getItem("studentApiBaseUrl") || "https://student-backend-117372286918.asia-south1.run.app/"
+).replace(/\/+$/, "");
 
 const sessionSelect = document.getElementById("sessionSelect");
 const classSubjectTable = document.getElementById("classSubjectTable");
 let currentSession = localStorage.getItem("session") || "";
+const autoCopiedClasses = new Set();
 
 /* ---------- Load Sessions ---------- */
 async function loadSessions() {
@@ -167,7 +172,15 @@ async function loadSessions() {
     const data = await res.json();
 
     sessionSelect.innerHTML = data.sessions.map(s => `<option>${s}</option>`).join("");
-    sessionSelect.value = currentSession || data.sessions[0];
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
+    sessionSelect.value = currentSession || data.sessions[data.sessions.length - 1];
     currentSession = sessionSelect.value;
 
     sessionSelect.onchange = () => {
@@ -180,6 +193,24 @@ async function loadSessions() {
 }
 
 /* ---------- Load All Classes ---------- */
+function normalizeClassName(value){
+    const v = String(value || "").trim();
+    if (!v) return "";
+    const low = v.toLowerCase();
+    if (low === "nan" || low === "null" || low === "undefined") return "";
+    return v.replace(/\s+/g, " ").trim();
+}
+
+function getPreviousSessionName(sessionName){
+    const m = String(sessionName || "").match(/^(\d+)_/);
+    if(!m) return "";
+    const start = parseInt(m[1], 10);
+    if(!Number.isFinite(start)) return "";
+    const prevStart = start - 1;
+    const prevEnd = String(prevStart + 1).slice(-2);
+    return `${prevStart}_${prevEnd}`;
+}
+
 async function loadAllClasses() {
 
     classSubjectTable.innerHTML = `<tr><td colspan="9">Loading...</td></tr>`;
@@ -187,13 +218,8 @@ async function loadAllClasses() {
     const res = await fetch(`${STUDENT_API}/students`);
     const students = await res.json();
 
-    let classList = [...new Set(students.map(s => s.class_name).filter(Boolean))];
-
-    classList.sort((a,b)=>{
-        let A = parseInt(a);
-        let B = parseInt(b);
-        return A - B;
-    });
+    let classList = [...new Set(students.map(s => normalizeClassName(s.class_name || s.class)).filter(Boolean))];
+    classList.sort((a,b)=>a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
 
     classSubjectTable.innerHTML = "";
     classList.forEach(cls => createClassRow(cls));
@@ -222,29 +248,56 @@ async function createClassRow(className) {
 }
 
 /* ---------- Load Existing Subjects ---------- */
-async function loadSubjects(className) {
-    const res = await fetch(`${EXAM_API}/exam/subjects/get?session=${currentSession}&class_name=${className}`);
-    const data = await res.json();
-
-    const subjects = data.subjects || [];
-
-    subjects.forEach((sub, i) => {
+function applySubjectsToRow(className, subjects){
+    (subjects || []).forEach((sub, i) => {
         const input = document.getElementById(`${className}-${i+1}`);
         if (input) input.value = sub;
     });
 }
 
+async function loadSubjects(className) {
+    const res = await fetch(`${EXAM_API}/exam/subjects/get?session=${currentSession}&class_name=${className}`);
+    const data = await res.json();
+
+    const subjects = data.subjects || [];
+    if (subjects.length) {
+        applySubjectsToRow(className, subjects);
+        return;
+    }
+
+    const prevSession = getPreviousSessionName(currentSession);
+    if (!prevSession) return;
+    const key = `${currentSession}:${className}`;
+    if (autoCopiedClasses.has(key)) return;
+
+    try {
+        const prevRes = await fetch(`${EXAM_API}/exam/subjects/get?session=${prevSession}&class_name=${className}`);
+        const prevData = await prevRes.json();
+        const prevSubjects = prevData.subjects || [];
+        if (!prevSubjects.length) return;
+        applySubjectsToRow(className, prevSubjects);
+        autoCopiedClasses.add(key);
+        await saveSubjects(className, { silent: true, forceSubjects: prevSubjects });
+    } catch(_e){
+        // ignore auto copy failure
+    }
+}
+
 /* ---------- Save Subjects ---------- */
-async function saveSubjects(className) {
+async function saveSubjects(className, options = {}) {
 
     let subjects = [];
-for (let i = 1; i <= 8; i++) {
-        let value = document.getElementById(`${className}-${i}`).value.trim();
-        if (value) subjects.push(value);
+    if (Array.isArray(options.forceSubjects) && options.forceSubjects.length) {
+        subjects = options.forceSubjects.filter(Boolean);
+    } else {
+        for (let i = 1; i <= 8; i++) {
+            let value = document.getElementById(`${className}-${i}`).value.trim();
+            if (value) subjects.push(value);
+        }
     }
 
     if (subjects.length === 0) {
-        alert("Enter at least one subject");
+        if (!options.silent) alert("Enter at least one subject");
         return;
     }
 
@@ -259,7 +312,9 @@ for (let i = 1; i <= 8; i++) {
     });
 
     const result = await res.json();
-    alert(result.success ? "Subjects saved!" : result.message);
+    if (!options.silent) {
+        alert(result.success ? "Subjects saved!" : result.message);
+    }
 }
 
 window.onload = loadSessions;

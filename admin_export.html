@@ -189,6 +189,14 @@
       try {
         const data = await fetchJson(`${EXAM_API}/session/list`);
         sessions = (data.sessions || []).map(s => s.session).filter(Boolean);
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
       } catch (e) {}
 
       if (!sessions.length) {

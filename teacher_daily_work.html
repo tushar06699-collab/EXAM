@@ -124,8 +124,15 @@ async function loadSessions(){
   (data.sessions || []).forEach(s => {
     sessionSelect.innerHTML += `<option value="${s}">${s}</option>`;
   });
+  // FORCE_LATEST_SESSION
+  if (Array.isArray(data.sessions) && data.sessions.length) {
+      const latest = data.sessions[data.sessions.length - 1];
+      if (latest) {
+          localStorage.setItem('session', latest);
+          sessionSelect.value = latest;
+      }
+  }
   if(data.sessions && data.sessions.length){
-    sessionSelect.value = data.sessions[0];
     await loadTeacherClasses();
   }
 }

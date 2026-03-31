@@ -126,6 +126,14 @@ async function loadSessionsAndLock(){
       const r1 = await fetch(`${EXAM_API}/session/list`);
       const d1 = await r1.json();
       sessions = d1.sessions || [];
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
     }catch(_e){}
 
     // Fallback source: fee backend sessions
@@ -360,7 +368,6 @@ loadSessionsAndLock().then(loadExams);
 
 </body>
 </html>
-
 
 
 

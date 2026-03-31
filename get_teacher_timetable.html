@@ -85,7 +85,7 @@ tr:nth-child(even){ background:#f2f4f7; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/"; // use deployed backend
-const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app/";
+const STUDENT_API = localStorage.getItem("studentApiBaseUrl") || "https://student-backend-117372286918.asia-south1.run.app/";
 
 
 const periods = ["Period 1","Period 2","Period 3","Period 4","Lunch","Period 5","Period 6","Period 7","Period 8"];
@@ -105,19 +105,34 @@ async function loadSessions() {
     const res = await fetch(`${EXAM_API}/session/list`);
     const data = await res.json();
     sessionSelect.innerHTML = data.sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+            sessionSelect.value = latest;
+        }
+    }
 }
 
 // LOAD CLASSES
 
 // LOAD CLASSES
+function normalizeSessionName(v){
+    return String(v || "").trim().replace(/[-/ ]/g, "_");
+}
+
 async function loadClasses() {
     try {
         const session = sessionSelect.value;
-        const res = await fetch(`${STUDENT_API}/students?session=${encodeURIComponent(session)}`);
+        const res = await fetch(`${STUDENT_API}/students?session=${encodeURIComponent(session)}&strict=1`);
         const data = await res.json();
 
         // Support both array directly or object with 'students' property
-        const studentList = Array.isArray(data) ? data : (data.students || []);
+        const studentListRaw = Array.isArray(data) ? data : (data.students || []);
+        const targetSession = normalizeSessionName(session);
+        const studentList = studentListRaw.filter(s => normalizeSessionName(s.session) === targetSession);
 
         // Extract unique class names
         classes = [...new Set(studentList.map(s => s.class_name).filter(Boolean))];
@@ -282,6 +297,7 @@ async function init() {
     await loadClasses();
 
     sessionSelect.onchange = async () => {
+        localStorage.setItem("session", sessionSelect.value || "");
         await loadClasses();
         await loadTimetableAndTeachers();
         renderTable();

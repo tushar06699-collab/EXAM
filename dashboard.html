@@ -305,6 +305,14 @@ async function loadSessions() {
 
         // If no sessions exist
         if (!data.sessions || data.sessions.length === 0) {
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
             sel.innerHTML = `<option value="">No Sessions</option>`;
             return;
         }
@@ -317,7 +325,7 @@ async function loadSessions() {
         });
 
         if (!data.sessions.includes(currentSession)) {
-            currentSession = data.sessions[0];
+            currentSession = data.sessions[data.sessions.length - 1];
         }
 
         sel.value = currentSession;

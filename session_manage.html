@@ -90,6 +90,14 @@ async function loadSessions() {
         box.innerHTML = "";
 
         data.sessions.forEach(s => {
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
             box.innerHTML += `
                 <div class="session-box">
                     <span>${s}</span>
@@ -140,7 +148,6 @@ window.onload = loadSessions;
 
 </body>
 </html>
-
 
 
 

@@ -159,12 +159,20 @@ async function loadSessions(){
     sessionSel.innerHTML = `<option value="">Select Session</option>`;
 
     if(data.sessions && data.sessions.length){
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
         data.sessions.forEach(s=>{
             sessionSel.innerHTML += `<option value="${s}">${s}</option>`;
         });
 
         // auto select latest session
-        sessionSel.value = data.sessions[0];
+        sessionSel.value = data.sessions[data.sessions.length - 1];
         loadHolidays();
     }
 }
@@ -238,7 +246,6 @@ loadSessions();
 
 </body>
 </html>
-
 
 
 

@@ -182,6 +182,13 @@ th, td {
     <input id="username" placeholder="Username">
     <input id="password" placeholder="Password" type="password">
     <button onclick="addTeacher()">Add Teacher</button>
+    <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+        <button onclick="copyPrevSessionTeachers()">Copy Previous Session Teachers</button>
+        <button onclick="fixMissingTeacherPhotos()">Fix Missing Photo URLs</button>
+        <button onclick="syncExamWithStudentTeachers()">Sync Exam Teachers From Student List</button>
+        <button onclick="cleanupTimetables()">Remove Timetables of Removed Teachers</button>
+        <button onclick="showOrphanTeachers()">Show Orphan Timetables</button>
+    </div>
 
     <h3 style="margin-top:30px;">All Teachers</h3>
 
@@ -198,12 +205,31 @@ th, td {
         </thead>
         <tbody id="teacherTable"></tbody>
     </table>
+
+    <div id="orphanWrap" style="margin-top:24px;display:none;">
+        <h3>Orphan Timetables (Not in Teachers List)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Teacher Code</th>
+                    <th>Name</th>
+                    <th>Username</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="orphanTable"></tbody>
+        </table>
+    </div>
 </main>
 </div>
 
 <script>
-const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app";
-const STUDENT_API = "http://127.0.0.1:8080";
+const EXAM_API = String(
+    localStorage.getItem("examApiBaseUrl") || "https://exam-backend-117372286918.asia-south1.run.app"
+).replace(/\/+$/, "");
+const STUDENT_API = String(
+    localStorage.getItem("studentApiBaseUrl") || "http://127.0.0.1:8080"
+).replace(/\/+$/, "");
 const DEFAULT_AVATAR = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='52' height='62'%3E%3Crect width='100%25' height='100%25' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%236b7280' font-size='10'%3ENo%20Photo%3C/text%3E%3C/svg%3E";
 
 let sessions = [];
@@ -215,6 +241,16 @@ function normalizeSession(s) {
 
 function sameSession(a, b) {
     return normalizeSession(a) === normalizeSession(b);
+}
+
+function getPreviousSessionName(sessionName){
+    const m = String(sessionName || "").match(/^(\d+)_/);
+    if(!m) return "";
+    const start = parseInt(m[1], 10);
+    if(!Number.isFinite(start)) return "";
+    const prevStart = start - 1;
+    const prevEnd = String(prevStart + 1).slice(-2);
+    return `${prevStart}_${prevEnd}`;
 }
 
 async function parseJson(res) {
@@ -441,8 +477,16 @@ async function loadSessions() {
     const data = await parseJson(res);
     sessions = data.sessions;
 
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
+
     if (!currentSession || !sessions.includes(currentSession)) {
-        currentSession = sessions[0];
+        currentSession = sessions[sessions.length - 1];
         localStorage.setItem("session", currentSession);
     }
 
@@ -495,12 +539,14 @@ async function loadTeachers() {
     tbl.innerHTML = `<tr><td colspan="6">Loading...</td></tr>`;
 
     try {
-        await syncExamTeachersToStudent(currentSession);
-        await syncStudentTeachersToExam(currentSession);
-        const [examTeachers, studentTeachers] = await Promise.all([
+        const [examTeachers, studentTeachersRaw] = await Promise.all([
             fetchExamTeachers(currentSession),
             fetchStudentTeachers(currentSession)
         ]);
+        const studentTeachers = (studentTeachersRaw || []).filter(t => {
+            const s = String(t.session || "").trim();
+            return !s || sameSession(s, currentSession);
+        });
 
         const examByCode = new Map();
         const examByUsername = new Map();
@@ -521,7 +567,14 @@ async function loadTeachers() {
         }
 
         const seenRowKeys = new Set();
-        studentTeachers.forEach(t => {
+        studentTeachers
+            .sort((a, b) => {
+                const ac = parseInt(normalizeCode(a.teacher_code)) || 0;
+                const bc = parseInt(normalizeCode(b.teacher_code)) || 0;
+                if (ac !== bc) return ac - bc;
+                return normalizeText(a.teacher_name).localeCompare(normalizeText(b.teacher_name));
+            })
+            .forEach(t => {
             const code = normalizeCode(t.teacher_code);
             const e = findMatchingExamTeacher(t, examByCode, examByUsername, examByName);
             const name = t.teacher_name || e?.name || "";
@@ -529,7 +582,7 @@ async function loadTeachers() {
             const studentId = t._id || "";
             const examId = e?.id || "";
             const resetUsername = (e?.username || t.employee_id || "").toUpperCase();
-            const photo = String(t.photo_url || "").trim();
+            const photo = String(t.photo_url || t.photo || e?.photo_url || "").trim();
             const rowKey = `${code}|${normalizeText(name)}|${normalizeText(userOrEmp)}`;
             if (seenRowKeys.has(rowKey)) return;
             seenRowKeys.add(rowKey);
@@ -551,6 +604,352 @@ async function loadTeachers() {
         tbl.innerHTML = `<tr><td colspan="6">Failed to load teachers</td></tr>`;
     }
 }
+
+  async function copyPrevSessionTeachers(){
+      const latestSession = (Array.isArray(sessions) && sessions.length)
+          ? sessions[sessions.length - 1]
+          : currentSession;
+      if (latestSession && latestSession !== currentSession) {
+          currentSession = latestSession;
+          localStorage.setItem("session", currentSession);
+          const curEl = document.getElementById("curSession");
+          if (curEl) curEl.textContent = currentSession;
+      }
+      const prevSession = getPreviousSessionName(currentSession);
+      if(!prevSession) return alert("Previous session not found");
+      if(!confirm(`Copy teachers from ${prevSession} to ${currentSession}?`)) return;
+
+    try{
+        const [prevExamTeachers, prevStudentTeachers] = await Promise.all([
+            fetchExamTeachers(prevSession),
+            fetchStudentTeachers(prevSession)
+        ]);
+
+        const existingExam = await fetchExamTeachers(currentSession);
+        const existingStudent = await fetchStudentTeachers(currentSession);
+
+        const examByUsername = new Map();
+        existingExam.forEach(t => examByUsername.set(normalizeText(t.username), t));
+
+        const studentByCode = new Map();
+        existingStudent.forEach(t => {
+            const code = normalizeCode(t.teacher_code);
+            if (code) studentByCode.set(code, t);
+        });
+
+        // Copy Exam teachers to current session
+        for (const t of prevExamTeachers) {
+            const uname = normalizeText(t.username);
+            if (examByUsername.has(uname)) continue;
+            await fetch(`${EXAM_API}/teacher/add`, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    session: currentSession,
+                    teacher_id: normalizeCode(t.teacher_id),
+                    name: t.name,
+                    username: t.username,
+                    password: t.password || ""
+                })
+            });
+        }
+
+        // Copy Student teachers to current session
+        for (const st of prevStudentTeachers) {
+            const code = normalizeCode(st.teacher_code);
+            if (code && studentByCode.has(code)) continue;
+            const fd = new FormData();
+            fd.append("teacher_code", code);
+            fd.append("employee_id", st.employee_id || "");
+            fd.append("teacher_name", st.teacher_name || "");
+            fd.append("father_name", st.father_name || "");
+            fd.append("mother_name", st.mother_name || "");
+            fd.append("gender", st.gender || "");
+            fd.append("dob", st.dob || "");
+            fd.append("joining_date", st.joining_date || "");
+            fd.append("qualification", st.qualification || "");
+            fd.append("designation", st.designation || "");
+            fd.append("subject", st.subject || "");
+            fd.append("mobile", st.mobile || "");
+            fd.append("email", st.email || "");
+            fd.append("address", st.address || "");
+            fd.append("session", currentSession);
+            fd.append("photo_url", st.photo_url || "");
+            await fetch(`${STUDENT_API}/teachers`, { method: "POST", body: fd });
+        }
+
+          await fixMissingTeacherPhotos(true);
+          alert("Previous session teachers copied.");
+          loadTeachers();
+      }catch(e){
+          console.error(e);
+          alert("Failed to copy previous session teachers.");
+      }
+  }
+
+  async function fixMissingTeacherPhotos(silent = false){
+      try{
+          const latestSession = (Array.isArray(sessions) && sessions.length)
+              ? sessions[sessions.length - 1]
+              : currentSession;
+          if (latestSession && latestSession !== currentSession) {
+              currentSession = latestSession;
+              localStorage.setItem("session", currentSession);
+              const curEl = document.getElementById("curSession");
+              if (curEl) curEl.textContent = currentSession;
+          }
+          const prevSession = getPreviousSessionName(currentSession);
+          if (!prevSession) {
+              if (!silent) alert("Previous session not found");
+              return;
+          }
+
+          const [prevTeachers, curTeachers] = await Promise.all([
+              fetchStudentTeachers(prevSession),
+              fetchStudentTeachers(currentSession)
+          ]);
+
+          const prevByCode = new Map();
+          (prevTeachers || []).forEach(t => {
+              const code = normalizeCode(t.teacher_code);
+              if (code) prevByCode.set(code, t);
+          });
+
+          let updated = 0;
+          for (const ct of (curTeachers || [])) {
+              const code = normalizeCode(ct.teacher_code);
+              if (!code) continue;
+              const prev = prevByCode.get(code);
+              if (!prev) continue;
+              const curPhoto = String(ct.photo_url || "").trim();
+              const prevPhoto = String(prev.photo_url || "").trim();
+              if (curPhoto || !prevPhoto) continue;
+
+              await fetch(`${STUDENT_API}/teachers/${encodeURIComponent(ct._id)}`, {
+                  method: "PUT",
+                  headers: {"Content-Type":"application/json"},
+                  body: JSON.stringify({ photo_url: prevPhoto })
+              });
+              updated += 1;
+          }
+
+          if (!silent) {
+              alert(`Photo URLs updated: ${updated}`);
+          }
+          if (updated) loadTeachers();
+      }catch(e){
+          console.error(e);
+          if (!silent) alert("Failed to fix photo URLs");
+      }
+  }
+
+async function cleanupTimetables(){
+    if(!confirm(`Remove timetables for teachers not in Teachers list for ${currentSession}?`)) return;
+    try{
+        const [examTeachers, studentTeachers] = await Promise.all([
+            fetchExamTeachers(currentSession),
+            fetchStudentTeachers(currentSession)
+        ]);
+
+        const studentCodes = new Set(
+            (studentTeachers || [])
+                .map(t => normalizeCode(t.teacher_code))
+                .filter(c => c)
+        );
+        const studentNames = new Set(
+            (studentTeachers || [])
+                .map(t => normalizeText(t.teacher_name))
+                .filter(n => n)
+        );
+        const studentEmpIds = new Set(
+            (studentTeachers || [])
+                .map(t => normalizeText(t.employee_id))
+                .filter(e => e)
+        );
+
+        let removed = 0;
+        for (const t of examTeachers) {
+            const code = normalizeCode(t.teacher_id);
+            const uname = normalizeText(t.username);
+            const name = normalizeText(t.name);
+            if (code && studentCodes.has(code)) continue;
+            if (uname && studentEmpIds.has(uname)) continue;
+            if (name && studentNames.has(name)) continue;
+            if (!t.id) continue;
+            await fetch(`${EXAM_API}/teacher/delete/${encodeURIComponent(t.id)}`, { method: "DELETE" });
+            removed += 1;
+        }
+
+        alert(`Removed ${removed} teacher timetables (and teacher records) not in Teachers list.`);
+        loadTeachers();
+    }catch(e){
+        console.error(e);
+        alert("Failed to cleanup timetables.");
+    }
+}
+
+async function showOrphanTeachers(){
+    const wrap = document.getElementById("orphanWrap");
+    const table = document.getElementById("orphanTable");
+    table.innerHTML = `<tr><td colspan="4">Loading...</td></tr>`;
+    wrap.style.display = "block";
+
+    try{
+        const [examTeachers, studentTeachers] = await Promise.all([
+            fetchExamTeachers(currentSession),
+            fetchStudentTeachers(currentSession)
+        ]);
+
+        const studentCodes = new Set(
+            (studentTeachers || [])
+                .map(t => normalizeCode(t.teacher_code))
+                .filter(c => c)
+        );
+        const studentNames = new Set(
+            (studentTeachers || [])
+                .map(t => normalizeText(t.teacher_name))
+                .filter(n => n)
+        );
+        const studentEmpIds = new Set(
+            (studentTeachers || [])
+                .map(t => normalizeText(t.employee_id))
+                .filter(e => e)
+        );
+
+        const orphans = (examTeachers || []).filter(t => {
+            const code = normalizeCode(t.teacher_id);
+            const uname = normalizeText(t.username);
+            const name = normalizeText(t.name);
+            if (code && studentCodes.has(code)) return false;
+            if (uname && studentEmpIds.has(uname)) return false;
+            if (name && studentNames.has(name)) return false;
+            return true;
+        });
+
+        if(!orphans.length){
+            table.innerHTML = `<tr><td colspan="4">No orphan timetables found.</td></tr>`;
+            return;
+        }
+
+        table.innerHTML = "";
+        orphans.forEach(t => {
+            table.innerHTML += `
+                <tr>
+                    <td>${normalizeCode(t.teacher_id) || "-"}</td>
+                    <td>${t.name || "-"}</td>
+                    <td>${t.username || "-"}</td>
+                    <td><button class="delete-btn" onclick="deleteExamTeacher('${t.id}')">Delete</button></td>
+                </tr>
+            `;
+        });
+    }catch(e){
+        console.error(e);
+        table.innerHTML = `<tr><td colspan="4">Failed to load orphan timetables.</td></tr>`;
+    }
+}
+
+  async function deleteExamTeacher(id){
+    if(!id) return;
+    if(!confirm("Delete this teacher timetable?")) return;
+    await fetch(`${EXAM_API}/teacher/delete/${encodeURIComponent(id)}`, { method: "DELETE" });
+    showOrphanTeachers();
+    loadTeachers();
+  }
+
+  async function syncExamWithStudentTeachers(){
+      const latestSession = (Array.isArray(sessions) && sessions.length)
+          ? sessions[sessions.length - 1]
+          : currentSession;
+      if (latestSession && latestSession !== currentSession) {
+          currentSession = latestSession;
+          localStorage.setItem("session", currentSession);
+          const curEl = document.getElementById("curSession");
+          if (curEl) curEl.textContent = currentSession;
+      }
+      if (!confirm(`Sync EXAM teachers with Student backend for ${currentSession}?\nThis will delete EXAM teachers not present in Student list.`)) return;
+
+      try{
+          const [examTeachers, studentTeachers] = await Promise.all([
+              fetchExamTeachers(currentSession),
+              fetchStudentTeachers(currentSession)
+          ]);
+
+          const studentCodes = new Set(
+              (studentTeachers || [])
+                  .map(t => normalizeCode(t.teacher_code))
+                  .filter(c => c)
+          );
+          const studentNames = new Set(
+              (studentTeachers || [])
+                  .map(t => normalizeText(t.teacher_name))
+                  .filter(n => n)
+          );
+          const studentEmpIds = new Set(
+              (studentTeachers || [])
+                  .map(t => normalizeText(t.employee_id))
+                  .filter(e => e)
+          );
+
+          // Remove EXAM teachers not in Student list
+          let removed = 0;
+          for (const t of (examTeachers || [])) {
+              const code = normalizeCode(t.teacher_id);
+              const uname = normalizeText(t.username);
+              const name = normalizeText(t.name);
+              if (code && studentCodes.has(code)) continue;
+              if (uname && studentEmpIds.has(uname)) continue;
+              if (name && studentNames.has(name)) continue;
+              if (!t.id) continue;
+              await fetch(`${EXAM_API}/teacher/delete/${encodeURIComponent(t.id)}`, { method: "DELETE" });
+              removed += 1;
+          }
+
+          // Add missing Student teachers to EXAM
+          const examByCode = new Set(
+              (examTeachers || []).map(t => normalizeCode(t.teacher_id)).filter(c => c)
+          );
+          const examByUsername = new Set(
+              (examTeachers || []).map(t => normalizeText(t.username)).filter(u => u)
+          );
+          const examByName = new Set(
+              (examTeachers || []).map(t => normalizeText(t.name)).filter(n => n)
+          );
+
+          let added = 0;
+          for (const st of (studentTeachers || [])) {
+              const code = normalizeCode(st.teacher_code);
+              const uname = normalizeText(buildExamUsername(st));
+              const name = normalizeText(st.teacher_name);
+              if (code && examByCode.has(code)) continue;
+              if (uname && examByUsername.has(uname)) continue;
+              if (name && examByName.has(name)) continue;
+
+              const username = buildExamUsername(st);
+              const password = buildExamPassword(st);
+              const res = await fetch(`${EXAM_API}/teacher/add`, {
+                  method: "POST",
+                  headers: {"Content-Type": "application/json"},
+                  body: JSON.stringify({
+                      session: currentSession,
+                      teacher_id: normalizeCode(st.teacher_code),
+                      name: st.teacher_name,
+                      username,
+                      password
+                  })
+              });
+              const data = await parseJson(res);
+              if (res.ok && data.success !== false) {
+                  added += 1;
+              }
+          }
+
+          alert(`Sync complete. Removed: ${removed}, Added: ${added}`);
+          loadTeachers();
+      }catch(e){
+          console.error(e);
+          alert("Failed to sync exam teachers.");
+      }
+  }
 
 /* Delete teacher */
 async function delTeacher(studentId, examId) {
@@ -606,7 +1005,6 @@ loadSessions();
 
 </body>
 </html>
-
 
 
 

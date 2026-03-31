@@ -133,8 +133,16 @@ async function loadSessions(){
     const res = await fetch(`${EXAM_API}/session/list`);
     const data = await res.json();
     sessionSelect.innerHTML = data.sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
     if(data.sessions.length>0){
-        SESSION = data.sessions[0];
+        SESSION = data.sessions[data.sessions.length - 1];
         sessionSelect.value = SESSION;
         loadExams();
         loadGrid();
@@ -153,11 +161,13 @@ sessionSelect.addEventListener("change", ()=>{
 async function loadExams(){
     const res = await fetch(`${EXAM_API}/exam/list-all`);
     const data = await res.json();
-    EXAMS = data.exams || [];
+    const all = data.exams || [];
+    EXAMS = SESSION ? all.filter(e => String(e.session || "") === String(SESSION)) : all;
     examSelect.innerHTML = `<option value="">Select Exam</option>` +
         EXAMS.map(e=>`<option value="${e.exam_id}">${e.exam_name}</option>`).join("");
-    examSelect.addEventListener("change", loadGrid);
 }
+
+examSelect.addEventListener("change", loadGrid);
 
 // -------------------------
 // LOAD GRID OF CLASSES & SUBJECTS

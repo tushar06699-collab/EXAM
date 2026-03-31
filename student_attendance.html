@@ -80,16 +80,18 @@ button.primary{margin-top:10px;width:100%;max-width:300px;padding:11px;backgroun
 <script src="student_attendance_data.js"></script>
 <script>
 if(localStorage.getItem('role')!=='student') location.href='index.html';
-const API='https://exam-backend-117372286918.asia-south1.run.app/';
+  const API = localStorage.getItem("examApiBaseUrl") || 'https://exam-backend-117372286918.asia-south1.run.app/';
+  const STUDENT_API = localStorage.getItem("studentApiBaseUrl") || "https://student-backend-117372286918.asia-south1.run.app/";
 const studentId=localStorage.getItem('student_id');
 if(!studentId) location.href='index.html';
 
 const fallbackClass=localStorage.getItem('class')||'';
-const fallbackSession=localStorage.getItem('session')||'';
+  const fallbackSession=localStorage.getItem('session')||'';
 let resolvedClass='';
 let resolvedSession='';
-let studentIdKeys=[];
-let studentRollKeys=[];
+  let studentIdKeys=[];
+  let studentRollKeys=[];
+  let studentAdmissionKeys=[];
 let attendanceChart=null;
 let attendanceBarChart=null;
 
@@ -134,14 +136,67 @@ function renderSummary(records){
   return total;
 }
 
-async function loadSummary(){
-  if(!resolvedClass||!resolvedSession) return;
+function normalizeClassCandidates(cls){
+  const raw = String(cls || "").trim();
+  if(!raw) return [];
+  const candidates = [raw];
+  const noSection = raw.replace(/\s*-\s*[A-Z]$/i, "").replace(/\s+[A-Z]$/i, "").trim();
+  if(noSection && !candidates.includes(noSection)) candidates.push(noSection);
+  const numMatch = noSection.match(/^(\d{1,2})$/);
+  if(numMatch){
+    const n = parseInt(numMatch[1],10);
+    let suffix = "th";
+    if (n === 1) suffix = "st";
+    else if (n === 2) suffix = "nd";
+    else if (n === 3) suffix = "rd";
+    const ord = `${n}${suffix}`;
+    if(!candidates.includes(ord)) candidates.push(ord);
+  }
+  return candidates;
+}
 
-  // 1) Show cache instantly (fresh or stale)
-  const cached = StudentAttendanceData.getCachedAttendanceData({
-    studentId,
-    resolvedSession,
-    resolvedClass,
+async function tryFetchAttendanceByClass(classCandidates){
+  for (const cls of classCandidates){
+    const quick = await StudentAttendanceData.getQuickAttendanceData({
+      api: API,
+      resolvedSession,
+      resolvedClass: cls,
+      studentIdKeys,
+      studentRollKeys,
+      studentAdmissionKeys
+    }).catch(()=>[]);
+    if (quick && quick.length){
+      resolvedClass = cls;
+      return {records: quick, source: "quick"};
+    }
+
+    const full = await StudentAttendanceData.getAttendanceData({
+      api: API,
+      studentId,
+      resolvedSession,
+      resolvedClass: cls,
+      studentIdKeys,
+      studentRollKeys,
+      studentAdmissionKeys,
+      maxCacheMs: 15*60*1000
+    }).catch(()=>({records:[], source:"none"}));
+    if (full.records && full.records.length){
+      resolvedClass = cls;
+      return full;
+    }
+  }
+  return {records: [], source: "none"};
+}
+
+  async function loadSummary(){
+    if(!resolvedClass||!resolvedSession) return;
+    const preferredSession = (localStorage.getItem('session')||'').trim();
+
+    // 1) Show cache instantly (fresh or stale)
+    const cached = StudentAttendanceData.getCachedAttendanceData({
+      studentId,
+      resolvedSession,
+      resolvedClass,
     maxCacheMs: 15*60*1000
   });
   if(cached.records && cached.records.length){
@@ -151,38 +206,28 @@ async function loadSummary(){
     loadingText.textContent='Loading attendance...';
   }
 
-  // 2) Quick recent fetch (last 2 months) for immediate update
-  try{
-    const quickRecords = await StudentAttendanceData.getQuickAttendanceData({
-      api: API,
-      resolvedSession,
-      resolvedClass,
-      studentIdKeys,
-      studentRollKeys
-    });
-    if(quickRecords.length){
-      const total = renderSummary(quickRecords);
-      loadingText.textContent = `Quick data loaded (${total} days). Syncing full data...`;
+  const classCandidates = normalizeClassCandidates(resolvedClass);
+  let {records, source} = await tryFetchAttendanceByClass(classCandidates);
+  let total = renderSummary(records);
+    if(!total && preferredSession && preferredSession !== resolvedSession){
+      const prevSession = resolvedSession;
+      resolvedSession = preferredSession;
+      const alt = await tryFetchAttendanceByClass(classCandidates);
+      if(alt.records && alt.records.length){
+        resolvedSession = preferredSession;
+        records = alt.records;
+        source = `${alt.source} (latest session)`;
+        total = renderSummary(records);
+      } else {
+        resolvedSession = prevSession;
+      }
     }
-  }catch(e){}
+    loadingText.textContent = total ? `Updated from ${total} marked day(s) (${source})` : 'No attendance marked yet';
+  }
 
-  // 3) Full fetch/update in background
-  const {records, source} = await StudentAttendanceData.getAttendanceData({
-    api: API,
-    studentId,
-    resolvedSession,
-    resolvedClass,
-    studentIdKeys,
-    studentRollKeys,
-    maxCacheMs: 15*60*1000
-  });
-  const total = renderSummary(records);
-  loadingText.textContent = total ? `Updated from ${total} marked day(s) (${source})` : 'No attendance marked yet';
-}
-
-fetch(`${API}/portal/student/${studentId}`)
-.then(r=>r.json())
-.then(d=>{
+  fetch(`${API}/portal/student/${studentId}`)
+  .then(r=>r.json())
+  .then(d=>{
   if(!d.success) throw new Error('Invalid session');
   const s=d.student;
   const photo=s.photo_url||'images/default.png';
@@ -190,20 +235,58 @@ fetch(`${API}/portal/student/${studentId}`)
   headerName.textContent=s.name||'Student'; dashName.textContent=s.name||'Student';
   dashClass.textContent=`Class: ${s.class_name||fallbackClass} - ${s.section||''}`;
   dashRoll.textContent=`Roll No: ${s.roll||localStorage.getItem('rollno')||'N/A'}`;
-  resolvedClass=s.class_name||fallbackClass;
-  resolvedSession=s.session||fallbackSession;
-  studentIdKeys=[studentId,s._id,s.id,s.student_id].filter(Boolean).map(StudentAttendanceData.normalizedId);
-  studentRollKeys=[s.roll,localStorage.getItem('rollno'),localStorage.getItem('roll')].filter(Boolean).map(v=>String(v).trim());
-  if(!resolvedClass||!resolvedSession) throw new Error('Missing class/session');
-  loadSummary();
-}).catch(()=>{ alert('Session expired. Please login again.'); logout(); });
+    resolvedClass=s.class_name||fallbackClass;
+    resolvedSession=(localStorage.getItem('session')||'') || s.session || fallbackSession;
+    studentIdKeys=[studentId,s._id,s.id,s.student_id].filter(Boolean).map(StudentAttendanceData.normalizedId);
+    studentRollKeys=[s.roll,localStorage.getItem('rollno'),localStorage.getItem('roll')].filter(Boolean).map(v=>String(v).trim());
+    const admissionNo = (s.admission_no || localStorage.getItem('admission_no') || "").trim();
+    studentAdmissionKeys = [admissionNo].filter(Boolean);
+    if(!resolvedClass||!resolvedSession) throw new Error('Missing class/session');
+
+    // Try to add student-backend _id to match attendance records saved from admin attendance.
+    if (admissionNo || studentRollKeys.length) {
+      const sess = resolvedSession;
+      // Try class-filtered first (fast)
+      const classUrl = `${STUDENT_API}/students?session=${encodeURIComponent(sess)}&class_name=${encodeURIComponent(resolvedClass)}&strict=1`;
+      const allUrl = `${STUDENT_API}/students?session=${encodeURIComponent(sess)}&strict=1`;
+      const findMatch = (rows)=>rows.find(x=>{
+        const adm = String(x.admission_no || "").trim();
+        const roll = String(x.rollno || x.roll || "").trim();
+        return (admissionNo && adm && adm === admissionNo) || (roll && studentRollKeys.includes(roll));
+      });
+
+      fetch(classUrl)
+        .then(r=>r.json())
+        .then(list=>{
+          const rows = Array.isArray(list) ? list : (list.students || []);
+          let match = findMatch(rows);
+          if (!match && admissionNo) {
+            return fetch(allUrl)
+              .then(r=>r.json())
+              .then(all=>{
+                const allRows = Array.isArray(all) ? all : (all.students || []);
+                match = findMatch(allRows);
+                return match;
+              });
+          }
+          return match;
+        })
+        .then(match=>{
+          if (match && match._id) {
+            studentIdKeys.push(StudentAttendanceData.normalizedId(match._id));
+          }
+        })
+        .finally(loadSummary);
+    } else {
+      loadSummary();
+    }
+  }).catch(()=>{ alert('Session expired. Please login again.'); logout(); });
 
 function openMenu(){ sidebar.style.left='0'; overlay.style.display='block'; }
 function closeMenu(){ sidebar.style.left='-280px'; overlay.style.display='none'; }
 function openPage(p){ location.href=p; }
 function logout(){ localStorage.clear(); location.href='index.html'; }
 </script>
-  <script src="student_photo_sync.js"></script>
   <script src="student_sidebar_shared.js"></script>
 </body>
 </html>

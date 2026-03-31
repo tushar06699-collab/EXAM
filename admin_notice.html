@@ -162,16 +162,23 @@ button:hover {background:#1b2854;}
 </div>
 
 <script>
-const API = "https://exam-backend-117372286918.asia-south1.run.app/";
+const API = String(
+    localStorage.getItem("examApiBaseUrl") || "https://exam-backend-117372286918.asia-south1.run.app/"
+).replace(/\/+$/, "");
 
 /* Load Sessions */
 async function loadSessions(){
     try{
         const res = await fetch(`${API}/session/list`);
         const data = await res.json();
-        sessionSelect.innerHTML = data.sessions.map(s =>
-            `<option value="${s}">${s}</option>`
-        ).join("");
+        const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+        sessionSelect.innerHTML = sessions.map(s => `<option value="${s}">${s}</option>`).join("");
+        // FORCE_LATEST_SESSION
+        if (sessions.length) {
+            const latest = sessions[sessions.length - 1];
+            localStorage.setItem('session', latest);
+            sessionSelect.value = latest;
+        }
     }catch{}
 }
 loadSessions();

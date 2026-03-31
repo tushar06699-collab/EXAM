@@ -295,9 +295,6 @@ h3{ font-size:clamp(18px, 2.2vw, 22px); }
             <img id="teacherPhoto" src="images/default.png" alt="Teacher Photo" style="width:90px;height:90px;border-radius:12px;object-fit:cover;border:1px solid #dbe3f0;">
             <div>
                 <h3 style="margin:0 0 6px 0;">P.S. Public School welcomes you, <span id="teacherName"></span> </h3>
-                <div class="info-box" style="margin-top:0;">
-                    Session: <b id="session"></b>
-                </div>
             </div>
         </div>
         <div id="teacherStats" style="margin-top:12px;"></div>
@@ -341,7 +338,21 @@ if(!teacherName){
 }
 
 document.getElementById("teacherName").textContent = teacherName;
-document.getElementById("session").textContent = teacherSession;
+
+async function refreshTeacherSession(){
+    try{
+        const res = await fetch(`${EXAM_API}/session/list`);
+        const data = await res.json();
+        if (Array.isArray(data.sessions) && data.sessions.length) {
+            const latest = data.sessions[data.sessions.length - 1];
+            if (latest) {
+                localStorage.setItem("session", latest);
+                teacherSession = latest;
+                document.getElementById("session").textContent = latest;
+            }
+        }
+    }catch(_e){}
+}
 
 function normalizeText(v){
     return String(v || "").trim().replace(/\s+/g, " ").toUpperCase();
@@ -595,7 +606,7 @@ function logout(){
     window.location.href = "index.html";
 }
 
-loadTeacherClassStats();
+refreshTeacherSession().then(loadTeacherClassStats);
 document.getElementById("refreshTeacherProgressBtn").onclick = loadTeacherProgressPanel;
 </script>
 

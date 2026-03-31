@@ -107,8 +107,8 @@ tr:nth-child(even){
 </div>
 
 <script>
-const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app/";
-const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/";
+const STUDENT_API = localStorage.getItem("studentApiBaseUrl") || "https://student-backend-117372286918.asia-south1.run.app/";
+const EXAM_API = localStorage.getItem("examApiBaseUrl") || "https://exam-backend-117372286918.asia-south1.run.app/";
 
 function escapeHtml(s){
     return String(s || "").replace(/[&<>"']/g, c => ({
@@ -133,6 +133,16 @@ function normalizeSessionList(raw){
     }).filter(Boolean);
 }
 
+function getPreviousSessionName(sessionName){
+    const m = String(sessionName || "").match(/^(\d+)_/);
+    if(!m) return "";
+    const start = parseInt(m[1], 10);
+    if(!Number.isFinite(start)) return "";
+    const prevStart = start - 1;
+    const prevEnd = String(prevStart + 1).slice(-2);
+    return `${prevStart}_${prevEnd}`;
+}
+
 /* --------------------------
    LOAD SESSIONS
 --------------------------- */
@@ -140,6 +150,14 @@ async function loadSessions() {
     let res = await fetch(`${EXAM_API}/session/list`);
     let data = await res.json();
     const sessions = normalizeSessionList(data.sessions);
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
 
     let sel = document.getElementById("sessionSelect");
     sel.innerHTML = "";
@@ -179,6 +197,7 @@ async function loadPage() {
         }catch(_){
             teacherNames = [];
         }
+        // Only use teachers from current session; removed fallbacks to prevent deleted teachers showing up.
 
         // Fetch students for session
         let resStudents = await fetch(`${STUDENT_API}/students?session=${session}`);

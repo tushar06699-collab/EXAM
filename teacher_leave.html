@@ -277,6 +277,14 @@ async function populateSessions(){
     const res = await fetch(`${BACKEND}/session/list`);
     const data = await res.json();
     if (data && data.sessions && Array.isArray(data.sessions)) {
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
       sessionSelect.innerHTML = data.sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
       if (teacher.session && data.sessions.includes(teacher.session)) sessionSelect.value = teacher.session;
       else if (data.sessions.length) sessionSelect.selectedIndex = 0;
@@ -458,7 +466,6 @@ document.querySelectorAll(".sidebar a").forEach(link=>{
   <script src="teacher_sidebar_shared.js"></script>
 </body>
 </html>
-
 
 
 

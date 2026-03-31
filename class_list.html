@@ -121,6 +121,14 @@ async function loadSession() {
         if (!res.ok) throw new Error(`Session API failed (${res.status})`);
         let data = await res.json();
         const sessions = normalizeSessionList(data.sessions);
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
         if (!sessions.length) {
             document.getElementById("currentSession").innerText = "No sessions found!";
             return;
@@ -288,7 +296,6 @@ window.onload = loadSession;
 
 </body>
 </html>
-
 
 
 

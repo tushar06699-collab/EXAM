@@ -10,6 +10,17 @@
     return String(raw).trim();
   }
 
+  function normalizeKey(raw){
+    if(raw == null) return "";
+    let s = String(raw).trim();
+    if(!s) return "";
+    if(s.endsWith(".0")) s = s.slice(0,-2);
+    if(/^\d+$/.test(s)){
+      s = String(parseInt(s,10));
+    }
+    return s;
+  }
+
   function getSessionCandidates(s){
     return Array.from(new Set([
       s,
@@ -36,6 +47,10 @@
     const out = [];
     for(let mm=4; mm<=12; mm++) out.push(`${y1}-${String(mm).padStart(2,"0")}`);
     for(let mm=1; mm<=3; mm++) out.push(`${y2}-${String(mm).padStart(2,"0")}`);
+    // Ensure current month is included (handles attendance saved near session boundary)
+    const now = new Date();
+    const cur = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+    if(!out.includes(cur)) out.push(cur);
     return out;
   }
 
@@ -146,13 +161,20 @@
 
   async function getQuickAttendanceData(opts){
     const {
-      api, resolvedSession, resolvedClass, studentIdKeys, studentRollKeys
+      api, resolvedSession, resolvedClass, studentIdKeys, studentRollKeys, studentAdmissionKeys
     } = opts;
+
+    const idSet = new Set((studentIdKeys || []).map(normalizedId).filter(Boolean));
+    const rollSet = new Set((studentRollKeys || []).map(normalizeKey).filter(Boolean));
+    const admSet = new Set((studentAdmissionKeys || []).map(normalizeKey).filter(Boolean));
 
     const matchFn = (x)=>{
       const sid = normalizedId(x.student_id);
-      const sroll = String(x.student_roll || "").trim();
-      return studentIdKeys.includes(sid) || studentRollKeys.includes(sid) || (sroll && studentRollKeys.includes(sroll));
+      const sroll = normalizeKey(x.student_roll || "");
+      const sadm = normalizeKey(x.student_admission || "");
+      return (sid && idSet.has(sid))
+        || (sroll && rollSet.has(sroll))
+        || (sadm && admSet.has(sadm));
     };
 
     const months = monthsFromSession(resolvedSession);
@@ -185,14 +207,21 @@
 
   async function getAttendanceData(opts){
     const {
-      api, studentId, resolvedSession, resolvedClass, studentIdKeys, studentRollKeys,
+      api, studentId, resolvedSession, resolvedClass, studentIdKeys, studentRollKeys, studentAdmissionKeys,
       maxCacheMs = 10*60*1000
     } = opts;
 
+    const idSet = new Set((studentIdKeys || []).map(normalizedId).filter(Boolean));
+    const rollSet = new Set((studentRollKeys || []).map(normalizeKey).filter(Boolean));
+    const admSet = new Set((studentAdmissionKeys || []).map(normalizeKey).filter(Boolean));
+
     const matchFn = (x)=>{
       const sid = normalizedId(x.student_id);
-      const sroll = String(x.student_roll || "").trim();
-      return studentIdKeys.includes(sid) || studentRollKeys.includes(sid) || (sroll && studentRollKeys.includes(sroll));
+      const sroll = normalizeKey(x.student_roll || "");
+      const sadm = normalizeKey(x.student_admission || "");
+      return (sid && idSet.has(sid))
+        || (sroll && rollSet.has(sroll))
+        || (sadm && admSet.has(sadm));
     };
 
     const cached = readCache(studentId, resolvedSession, resolvedClass, maxCacheMs);
@@ -211,6 +240,7 @@
 
   window.StudentAttendanceData = {
     normalizedId,
+    normalizeKey,
     getAttendanceData,
     getQuickAttendanceData,
     getCachedAttendanceData,

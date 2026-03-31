@@ -378,7 +378,7 @@ if(localStorage.getItem("role") !== "student"){
   location.href = "index.html";
 }
 
-const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/";
+const EXAM_API = localStorage.getItem("examApiBaseUrl") || "https://exam-backend-117372286918.asia-south1.run.app/";
 const studentId = localStorage.getItem("student_id");
 if(!studentId) location.href = "index.html";
 
@@ -437,6 +437,14 @@ async function loadSession(){
   const r = await fetch(`${EXAM_API}/session/list`);
   const d = await r.json();
   const list = d.sessions || [];
+
+  // FORCE_LATEST_SESSION
+  if (Array.isArray(list) && list.length) {
+      const latest = list[list.length - 1];
+      if (latest) {
+          localStorage.setItem('session', latest);
+      }
+  }
   const profileSession = profile?.session || "";
   const matched = list.find(s => normSession(s) === normSession(profileSession));
   if(matched){
@@ -461,6 +469,10 @@ async function loadLatestExam(){
   const allExams = d.exams || [];
   let filtered = allExams.filter(e => normSession(e.session) === normSession(currentSession));
   // Fallback in case session formats are inconsistent in stored data.
+  if(!filtered.length){
+    const latestLocal = localStorage.getItem("session") || "";
+    filtered = allExams.filter(e => normSession(e.session) === normSession(latestLocal));
+  }
   if(!filtered.length) filtered = allExams;
   if(!filtered.length){
     currentExamName = "";
@@ -574,7 +586,6 @@ init();
   <script src="student_sidebar_shared.js"></script>
 </body>
 </html>
-
 
 
 

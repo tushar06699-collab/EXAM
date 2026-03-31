@@ -82,10 +82,18 @@ async function loadSessions(){
 
     sessionSelect.innerHTML = `<option value="">Select Session</option>`;
     if(data.sessions){
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
         data.sessions.forEach(s=>{
             sessionSelect.innerHTML += `<option value="${s}">${s}</option>`;
         });
-        sessionSelect.value = data.sessions[0];
+        sessionSelect.value = data.sessions[data.sessions.length - 1];
         loadClasses();
     }
 }

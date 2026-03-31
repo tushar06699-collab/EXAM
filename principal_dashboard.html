@@ -184,13 +184,21 @@ async function loadSessions(){
 
     if(!d.sessions || d.sessions.length===0){ sel.innerHTML='<option>No Sessions</option>'; return; }
 
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
+
     d.sessions.forEach(s=>{
        let op=document.createElement("option");
        op.value=s; op.textContent=s;
        sel.appendChild(op);
     });
 
-    if(!d.sessions.includes(currentSession)) currentSession=d.sessions[0];
+    if(!d.sessions.includes(currentSession)) currentSession=d.sessions[sessions.length - 1];
     sel.value=currentSession;
     localStorage.setItem("session", currentSession);
 
@@ -328,7 +336,6 @@ window.onload = loadSessions;
 </script>
 </body>
 </html>
-
 
 
 

@@ -53,6 +53,7 @@ button:hover { background:#233465; }
             <select id="teacherSelect"></select>
         </div>
     </div>
+    <div id="teacherNote" style="margin:-8px 0 12px 0;color:#475569;font-size:13px;"></div>
 
     <table>
         <thead>
@@ -66,12 +67,20 @@ button:hover { background:#233465; }
         <tbody id="timetableBody"></tbody>
     </table>
 
-    <button id="saveBtn">Save Timetable</button>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button id="saveBtn">Save Timetable</button>
+        <button id="copyPrevBtn" type="button">Copy Previous Session Timetable</button>
+        <button id="copyPrevAllBtn" type="button">Copy Full Previous Timetable</button>
+    </div>
 </div>
 
 <script>
-const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/"; 
-const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app/";
+const EXAM_API = String(
+    localStorage.getItem("examApiBaseUrl") || "https://exam-backend-117372286918.asia-south1.run.app/"
+).replace(/\/+$/, "");
+const STUDENT_API = String(
+    localStorage.getItem("studentApiBaseUrl") || "https://student-backend-117372286918.asia-south1.run.app/"
+).replace(/\/+$/, "");
 
 let classes = [];
 let subjectsByClass = {};
@@ -83,6 +92,7 @@ const weekDays = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
 const timetableBody = document.getElementById("timetableBody");
 const sessionSelect = document.getElementById("sessionSelect");
 const teacherSelect = document.getElementById("teacherSelect");
+const teacherNote = document.getElementById("teacherNote");
 
 function normalizeClassName(raw){
     return String(raw || "").trim().replace(/\s+/g, " ");
@@ -96,12 +106,31 @@ function isSeniorStream(className){
     return /^(11|12)\s*(Arts|Commerce|Medical)/i.test(className);
 }
 
+function getPreviousSessionName(sessionName){
+    const m = String(sessionName || "").match(/^(\d+)_/);
+    if(!m) return "";
+    const start = parseInt(m[1], 10);
+    if(!Number.isFinite(start)) return "";
+    const prevStart = start - 1;
+    const prevEnd = String(prevStart + 1).slice(-2);
+    return `${prevStart}_${prevEnd}`;
+}
+
 // ----------------- Load Data -----------------
 async function loadSessions() {
     try {
-        const res = await fetch(`${EXAM_API}/session/list`);
-        const data = await res.json();
-        sessionSelect.innerHTML = data.sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
+    const res = await fetch(`${EXAM_API}/session/list`);
+    const data = await res.json();
+    sessionSelect.innerHTML = data.sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+            sessionSelect.value = latest;
+        }
+    }
     } catch(e){
         console.error(e);
         sessionSelect.innerHTML = `<option value="2024_25">2024_25</option>`;
@@ -112,21 +141,53 @@ async function loadSessions() {
 async function loadTeachers() {
     try {
         const session = sessionSelect.value || "2024_25";
+        // Prefer teachers who actually have timetables in this session
+        const ttRes = await fetch(`${EXAM_API}/timetable/teachers?session=${encodeURIComponent(session)}`);
+        const ttData = await ttRes.json().catch(()=>({}));
+        const ttTeachers = Array.isArray(ttData.teachers) ? ttData.teachers : [];
+        if (ttTeachers.length) {
+            teacherSelect.innerHTML = ttTeachers.map(t=>`<option value="${t.id}">${t.name || t.id}</option>`).join("");
+            teacherNote.textContent = "Showing teachers from timetable entries.";
+            return;
+        }
+
         const res = await fetch(`${EXAM_API}/teacher/list?session=${session}`);
         const data = await res.json();
-        teacherSelect.innerHTML = data.teachers.map(t=>`<option value="${t.id}">${t.name}</option>`).join("");
+        const teachers = Array.isArray(data.teachers) ? data.teachers : [];
+        if (teachers.length) {
+            teacherSelect.innerHTML = teachers.map(t=>`<option value="${t.id}">${t.name}</option>`).join("");
+            teacherNote.textContent = "";
+            return;
+        }
+
+        const prevSession = getPreviousSessionName(session);
+        if (!prevSession) {
+            teacherSelect.innerHTML = `<option value="">-- No teachers --</option>`;
+            teacherNote.textContent = "No teachers found for current session.";
+            return;
+        }
+
+        const prevRes = await fetch(`${EXAM_API}/teacher/list?session=${prevSession}`);
+        const prevData = await prevRes.json();
+        const prevTeachers = Array.isArray(prevData.teachers) ? prevData.teachers : [];
+        teacherSelect.innerHTML = prevTeachers.map(t=>`<option value="${t.id}">${t.name}</option>`).join("");
+        teacherNote.textContent = prevTeachers.length
+            ? `No teachers in ${session}. Showing teachers from ${prevSession}.`
+            : "No teachers found for current or previous session.";
     } catch(e) {
         console.error(e);
         teacherSelect.innerHTML = `<option value="">-- No teachers --</option>`;
+        teacherNote.textContent = "Failed to load teachers.";
     }
 }
 
-async function loadClasses() {
-    timetableBody.innerHTML = `<tr><td colspan="4">Loading classes...</td></tr>`;
+  async function loadClasses() {
+      timetableBody.innerHTML = `<tr><td colspan="4">Loading classes...</td></tr>`;
 
-    try {
-        const res = await fetch(`${STUDENT_API}/students`);
-        const students = await res.json();
+      try {
+          const session = sessionSelect.value || "";
+          const res = await fetch(`${STUDENT_API}/students?session=${encodeURIComponent(session)}&strict=1`);
+          const students = await res.json();
 
         classes = [...new Set(students.map(s => s.class_name).filter(Boolean))];
 
@@ -188,6 +249,18 @@ async function loadExistingTimetable() {
         const data = await res.json();
         return data.timetable || [];
     } catch(e) {
+        console.error(e);
+        return [];
+    }
+}
+
+async function fetchTimetable(session, teacherId){
+    if(!session || !teacherId) return [];
+    try{
+        const res = await fetch(`${EXAM_API}/timetable/get?session=${session}&teacher_id=${teacherId}`);
+        const data = await res.json();
+        return data.timetable || [];
+    }catch(e){
         console.error(e);
         return [];
     }
@@ -413,17 +486,136 @@ if(selClass.value.includes("COMBINED") && match){
     }
 };
 
-// ----------------- Init -----------------
-async function init(){
-    await loadSessions();
-    await loadTeachers();
-    await loadClasses();
+document.getElementById("copyPrevBtn").onclick = async ()=>{
+    const teacherId = teacherSelect.value;
+    const currentSession = sessionSelect.value;
+    if(!teacherId || !currentSession){
+        alert("Select session and teacher first");
+        return;
+    }
+    const prevSession = getPreviousSessionName(currentSession);
+    if(!prevSession){
+        alert("Previous session not found");
+        return;
+    }
+    if(!confirm(`Copy timetable from ${prevSession} to ${currentSession} for this teacher?`)) return;
 
-    sessionSelect.onchange = async ()=>{ 
-        await loadTeachers(); 
-        const existing = await loadExistingTimetable(); 
-        await generateRows(existing); 
-    };
+    const prevTimetable = await fetchTimetable(prevSession, teacherId);
+    if(!prevTimetable.length){
+        alert("No timetable found in previous session");
+        return;
+    }
+    const payload = prevTimetable.map(r => ({
+        period: r.period,
+        class: r.class || "",
+        Monday: r.Monday || "",
+        Tuesday: r.Tuesday || "",
+        Wednesday: r.Wednesday || "",
+        Thursday: r.Thursday || "",
+        Friday: r.Friday || "",
+        Saturday: r.Saturday || "",
+        startDay: r.startDay || 1,
+        endDay: r.endDay || 1
+    }));
+    try{
+        const res = await fetch(`${EXAM_API}/timetable/set`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                session: currentSession,
+                teacher_id: teacherId,
+                timetable: payload
+            })
+        });
+        const data = await res.json().catch(()=>({}));
+        if(!res.ok || data.success === false){
+            alert(data.message || "Failed to copy timetable");
+            return;
+        }
+        alert("Timetable copied from previous session.");
+        const existing = await loadExistingTimetable();
+        await generateRows(existing);
+    }catch(e){
+        console.error(e);
+        alert("Failed to copy timetable");
+    }
+};
+
+document.getElementById("copyPrevAllBtn").onclick = async ()=>{
+    const currentSession = sessionSelect.value;
+    if(!currentSession){
+        alert("Select session first");
+        return;
+    }
+    const prevSession = getPreviousSessionName(currentSession);
+    if(!prevSession){
+        alert("Previous session not found");
+        return;
+    }
+    if(!confirm(`Copy ALL timetables from ${prevSession} to ${currentSession}?`)) return;
+
+    try{
+        const prevRes = await fetch(`${EXAM_API}/teacher/list?session=${prevSession}`);
+        const prevData = await prevRes.json().catch(()=>({}));
+        const prevTeachers = Array.isArray(prevData.teachers) ? prevData.teachers : [];
+        if(!prevTeachers.length){
+            alert("No teachers found in previous session");
+            return;
+        }
+
+        let copied = 0;
+        for (const t of prevTeachers) {
+            const prevTimetable = await fetchTimetable(prevSession, t.id);
+            if(!prevTimetable.length) continue;
+
+            const payload = prevTimetable.map(r => ({
+                period: r.period,
+                class: r.class || "",
+                Monday: r.Monday || "",
+                Tuesday: r.Tuesday || "",
+                Wednesday: r.Wednesday || "",
+                Thursday: r.Thursday || "",
+                Friday: r.Friday || "",
+                Saturday: r.Saturday || "",
+                startDay: r.startDay || 1,
+                endDay: r.endDay || 1
+            }));
+
+            await fetch(`${EXAM_API}/timetable/set`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    session: currentSession,
+                    teacher_id: t.id,
+                    timetable: payload
+                })
+            });
+            copied += 1;
+        }
+
+        alert(`Copied timetable for ${copied} teachers.`);
+        await loadTeachers();
+        const existing = await loadExistingTimetable();
+        await generateRows(existing);
+    }catch(e){
+        console.error(e);
+        alert("Failed to copy full timetable");
+    }
+};
+
+// ----------------- Init -----------------
+  async function init(){
+      await loadSessions();
+      await loadTeachers();
+      await loadClasses();
+
+      sessionSelect.onchange = async ()=>{ 
+          localStorage.setItem("session", sessionSelect.value || "");
+          await loadTeachers(); 
+          await loadClasses();
+          const existing = await loadExistingTimetable(); 
+          await generateRows(existing); 
+      };
     teacherSelect.onchange = async ()=>{ 
         const existing = await loadExistingTimetable(); 
         await generateRows(existing); 

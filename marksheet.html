@@ -436,6 +436,15 @@ async function loadSessions(){
   const r = await fetch(`${EXAM_API}/session/list`);
   const d = await r.json();
   sessionSelect.innerHTML = d.sessions.map(s=>`<option>${s}</option>`).join("");
+
+  // FORCE_LATEST_SESSION
+  if (Array.isArray(d.sessions) && d.sessions.length) {
+      const latest = d.sessions[d.sessions.length - 1];
+      if (latest) {
+          localStorage.setItem('session', latest);
+          sessionSelect.value = latest;
+      }
+  }
   loadClasses();
 }
 loadSessions();
@@ -673,7 +682,6 @@ async function generateMarksheets(){
 
 </body>
 </html>
-
 
 
 

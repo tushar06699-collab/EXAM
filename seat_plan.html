@@ -155,10 +155,18 @@ async function loadSessions(){
   const data = await res.json();
   sessionSelect.innerHTML = `<option value="">Select Session</option>`;
   (data.sessions || []).forEach(s => {
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
     sessionSelect.innerHTML += `<option value="${s}">${s}</option>`;
   });
   if(data.sessions && data.sessions.length){
-    sessionSelect.value = data.sessions[0];
+    sessionSelect.value = data.sessions[data.sessions.length - 1];
     await loadExams();
     await loadClasses();
     await loadRooms();
