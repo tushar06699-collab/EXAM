@@ -51,7 +51,14 @@ button:hover { background:#233465; }
         <div>
             <label for="teacherSelect">Teacher:</label>
             <select id="teacherSelect"></select>
+            
         </div>
+        <button id="downloadFormatBtn" type="button">Download Excel Format</button>
+          <label style="display:flex;align-items:center;gap:8px;background:#eef1f6;padding:6px 10px;border-radius:8px;">
+              <span style="font-size:12px;color:#334155;">Upload Excel</span>
+              <input id="timetableFile" type="file" accept=".xlsx,.xls" style="font-size:12px;">
+          </label>
+          <button id="uploadExcelBtn" type="button">Upload Timetable</button>
     </div>
     <div id="teacherNote" style="margin:-8px 0 12px 0;color:#475569;font-size:13px;"></div>
 
@@ -67,14 +74,16 @@ button:hover { background:#233465; }
         <tbody id="timetableBody"></tbody>
     </table>
 
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button id="saveBtn">Save Timetable</button>
-        <button id="copyPrevBtn" type="button">Copy Previous Session Timetable</button>
-        <button id="copyPrevAllBtn" type="button">Copy Full Previous Timetable</button>
-    </div>
-</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <button id="saveBtn">Save Timetable</button>
+          <button id="copyPrevBtn" type="button">Copy Previous Session Timetable</button>
+          <button id="copyPrevAllBtn" type="button">Copy Full Previous Timetable</button>
+          
+      </div>
+  </div>
 
-<script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script>
 const EXAM_API = String(
     localStorage.getItem("examApiBaseUrl") || "https://exam-backend-117372286918.asia-south1.run.app/"
 ).replace(/\/+$/, "");
@@ -87,7 +96,8 @@ let subjectsByClass = {};
 
 const periods = ["Period 1","Period 2","Period 3","Period 4","Lunch","Period 5","Period 6","Period 7","Period 8"];
 const periodMap = {"Period 1":1,"Period 2":2,"Period 3":3,"Period 4":4,"Period 5":5,"Period 6":6,"Period 7":7,"Period 8":8};
-const weekDays = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const weekDays = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const periodCols = ["Period 1","Period 2","Period 3","Period 4","Period 5","Period 6","Period 7","Period 8"];
 
 const timetableBody = document.getElementById("timetableBody");
 const sessionSelect = document.getElementById("sessionSelect");
@@ -106,7 +116,7 @@ function isSeniorStream(className){
     return /^(11|12)\s*(Arts|Commerce|Medical)/i.test(className);
 }
 
-function getPreviousSessionName(sessionName){
+  function getPreviousSessionName(sessionName){
     const m = String(sessionName || "").match(/^(\d+)_/);
     if(!m) return "";
     const start = parseInt(m[1], 10);
@@ -114,7 +124,57 @@ function getPreviousSessionName(sessionName){
     const prevStart = start - 1;
     const prevEnd = String(prevStart + 1).slice(-2);
     return `${prevStart}_${prevEnd}`;
-}
+  }
+
+  function dayIndex(day){
+      const map = {
+          "mon":1,"monday":1,
+          "tue":2,"tues":2,"tuesday":2,
+          "wed":3,"wednesday":3,
+          "thu":4,"thur":4,"thurs":4,"thursday":4,
+          "fri":5,"friday":5,
+          "sat":6,"saturday":6
+      };
+      return map[String(day||"").trim().toLowerCase()] || 0;
+  }
+
+  function parseDays(value){
+      const raw = String(value || "").trim();
+      if(!raw) return {startDay:1,endDay:1};
+      const parts = raw.split("-").map(s=>s.trim());
+      if(parts.length === 2){
+          const a = dayIndex(parts[0]);
+          const b = dayIndex(parts[1]);
+          if(a && b) return {startDay: Math.min(a,b), endDay: Math.max(a,b)};
+      }
+      const single = dayIndex(raw);
+      if(single) return {startDay: single, endDay: single};
+      return {startDay:1,endDay:1};
+  }
+
+  function parseTeacherWiseCell(cell){
+      const raw = String(cell || "").trim();
+      if(!raw) return null;
+      const parts = raw.split("|").map(s=>s.trim());
+      const className = parts[0] || "";
+      const subject = parts[1] || "";
+      const days = parts[2] || "";
+      if(!className || !subject) return null;
+      const {startDay, endDay} = parseDays(days);
+      return {className, subject, startDay, endDay};
+  }
+
+  function parseClassWiseCell(cell){
+      const raw = String(cell || "").trim();
+      if(!raw) return null;
+      const parts = raw.split("|").map(s=>s.trim());
+      const teacher = parts[0] || "";
+      const subject = parts[1] || "";
+      const days = parts[2] || "";
+      if(!teacher || !subject) return null;
+      const {startDay, endDay} = parseDays(days);
+      return {teacher, subject, startDay, endDay};
+  }
 
 // ----------------- Load Data -----------------
 async function loadSessions() {
@@ -624,7 +684,228 @@ document.getElementById("copyPrevAllBtn").onclick = async ()=>{
     const existing = await loadExistingTimetable();
     await generateRows(existing);
 }
-init();
+  init();
+
+  // ----------------- Excel Format Download -----------------
+  document.getElementById("downloadFormatBtn").onclick = async () => {
+      const teacherName = teacherSelect.options[teacherSelect.selectedIndex]?.text?.trim() || "Teacher";
+      const wb = XLSX.utils.book_new();
+
+      // Sheet 1: Teacher-wise (rows = teachers)
+      const header = ["Teacher", ...periodCols];
+      const rows = [header];
+      const teacherRows = Array.from(teacherSelect.options).map(o => o.text || "").filter(Boolean);
+      teacherRows.forEach(tName => {
+          const row = [tName];
+          periodCols.forEach(() => row.push(""));
+          rows.push(row);
+      });
+      const ws1 = XLSX.utils.aoa_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws1, "TeacherWise");
+
+      // Sheet 2: Class-wise
+      const rows2 = [header];
+      classes.forEach(cls => {
+          const row = [cls];
+          periodCols.forEach(() => row.push(""));
+          rows2.push(row);
+      });
+      const ws2 = XLSX.utils.aoa_to_sheet(rows2);
+      XLSX.utils.book_append_sheet(wb, ws2, "ClassWise");
+
+      // Sheet 3: Guide
+      const guide = [
+          ["Format Guide"],
+          ["TeacherWise sheet:"],
+          ["Cell format: Class | Subject | Mon-Wed  (e.g., 9th | Maths | Mon-Fri)"],
+          ["ClassWise sheet:"],
+          ["Cell format: Teacher Name | Subject | Mon-Wed  (e.g., MR. AJAY | Maths | Tue-Thu)"],
+          ["Days accepted: Mon, Tue, Wed, Thu, Fri, Sat (or full names)."],
+          ["Note: Lunch period is not included in the format."],
+          ["Selected Teacher:", teacherName],
+          ["Selected Session:", sessionSelect.value || ""]
+      ];
+      const ws3 = XLSX.utils.aoa_to_sheet(guide);
+      XLSX.utils.book_append_sheet(wb, ws3, "Guide");
+
+      XLSX.writeFile(wb, `timetable_format_${sessionSelect.value || "session"}.xlsx`);
+  };
+
+  // ----------------- Excel Upload -----------------
+  document.getElementById("uploadExcelBtn").onclick = async () => {
+      const fileInput = document.getElementById("timetableFile");
+      const file = fileInput.files[0];
+      if(!file) return alert("Select Excel file first");
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+          const data = new Uint8Array(e.target.result);
+          const wb = XLSX.read(data, {type:"array"});
+
+          const teacherSheet = wb.Sheets["TeacherWise"];
+          const classSheet = wb.Sheets["ClassWise"];
+          if(!teacherSheet && !classSheet){
+              alert("No TeacherWise or ClassWise sheet found.");
+              return;
+          }
+
+          const session = sessionSelect.value;
+          if(!session) return alert("Select session first");
+
+          // Build teacher lookup
+          const tRes = await fetch(`${EXAM_API}/teacher/list?session=${encodeURIComponent(session)}`);
+          const tData = await tRes.json().catch(()=>({}));
+          const tRows = Array.isArray(tData.teachers) ? tData.teachers : [];
+          const teacherByName = new Map();
+          tRows.forEach(t=>{
+              teacherByName.set(String(t.name||"").trim().toLowerCase(), t.id);
+          });
+
+          const conflicts = [];
+          const teacherDayPeriod = new Map(); // key: teacherId|day|period -> class
+          const saveRequests = [];
+
+          const addEntry = (teacherId, className, periodNum, startDay, endDay, subject) => {
+              for(let d=startDay; d<=endDay; d++){
+                  const key = `${teacherId}|${d}|${periodNum}`;
+                  const existing = teacherDayPeriod.get(key);
+                  if(existing && existing !== className){
+                      conflicts.push(`Teacher conflict: ${teacherId} on day ${d} period ${periodNum} (${existing} vs ${className})`);
+                  }else{
+                      teacherDayPeriod.set(key, className);
+                  }
+              }
+          };
+          const classDayPeriod = new Map(); // key: class|day|period -> teacher
+          const addClassEntry = (teacherId, className, periodNum, startDay, endDay, teacherName) => {
+              for(let d=startDay; d<=endDay; d++){
+                  const key = `${className}|${d}|${periodNum}`;
+                  const existing = classDayPeriod.get(key);
+                  if(existing && existing !== teacherName){
+                      conflicts.push(`Class conflict: ${className} day ${d} period ${periodNum} (${existing} vs ${teacherName})`);
+                  }else{
+                      classDayPeriod.set(key, teacherName);
+                  }
+              }
+          };
+
+          // Parse TeacherWise (rows = teacher names)
+          if(teacherSheet){
+              const rows = XLSX.utils.sheet_to_json(teacherSheet, {header:1});
+              for(let r=1; r<rows.length; r++){
+                  const row = rows[r];
+                  const teacherName = String(row[0]||"").trim();
+                  if(!teacherName) continue;
+                  const teacherId = teacherByName.get(teacherName.toLowerCase());
+                  if(!teacherId){
+                      conflicts.push(`Teacher not found: ${teacherName} (TeacherWise sheet)`);
+                      continue;
+                  }
+                  for(let c=1; c<=periodCols.length; c++){
+                      const cell = row[c];
+                      const parsed = parseTeacherWiseCell(cell);
+                      if(!parsed) continue;
+                      const periodNum = periodMap[periodCols[c-1]];
+                      if(!periodNum) continue;
+                      addEntry(teacherId, parsed.className, periodNum, parsed.startDay, parsed.endDay, parsed.subject);
+                      addClassEntry(teacherId, parsed.className, periodNum, parsed.startDay, parsed.endDay, teacherName);
+                  }
+              }
+          }
+
+          // Parse ClassWise
+          if(classSheet){
+              const rows = XLSX.utils.sheet_to_json(classSheet, {header:1});
+              for(let r=1; r<rows.length; r++){
+                  const row = rows[r];
+                  const cls = String(row[0]||"").trim();
+                  if(!cls) continue;
+                  for(let c=1; c<=periodCols.length; c++){
+                      const cell = row[c];
+                      const parsed = parseClassWiseCell(cell);
+                      if(!parsed) continue;
+                      const periodNum = periodMap[periodCols[c-1]];
+                      if(!periodNum) continue;
+                      const teacherId = teacherByName.get(parsed.teacher.toLowerCase());
+                      if(!teacherId){
+                          conflicts.push(`Teacher not found: ${parsed.teacher} (Class ${cls}, Period ${periodCols[c-1]})`);
+                          continue;
+                      }
+                      addEntry(teacherId, cls, periodNum, parsed.startDay, parsed.endDay, parsed.subject);
+                      addClassEntry(teacherId, cls, periodNum, parsed.startDay, parsed.endDay, parsed.teacher);
+                  }
+              }
+          }
+
+          if(conflicts.length){
+              alert(`Upload blocked:\n${conflicts.slice(0,10).join("\n")}\n${conflicts.length>10?"...more":""}`);
+              return;
+          }
+
+          // Build per-teacher timetable payload
+          const teacherMap = new Map(); // teacherId -> array of period rows
+          const addPeriodRow = (teacherId, periodNum, className, subject, startDay, endDay) => {
+              if(!teacherMap.has(teacherId)) teacherMap.set(teacherId, []);
+              const periodData = { period: periodNum, class: className, startDay, endDay };
+              weekDays.forEach((day, idx)=>{
+                  periodData[day] = (idx+1>=startDay && idx+1<=endDay) ? subject : "";
+              });
+              teacherMap.get(teacherId).push(periodData);
+          };
+
+          // Re-parse to construct payloads (uses the same parse logic but now writes rows)
+          if(teacherSheet){
+              const rows = XLSX.utils.sheet_to_json(teacherSheet, {header:1});
+              for(let r=1; r<rows.length; r++){
+                  const row = rows[r];
+                  const teacherName = String(row[0]||"").trim();
+                  if(!teacherName) continue;
+                  const teacherId = teacherByName.get(teacherName.toLowerCase());
+                  if(!teacherId) continue;
+                  for(let c=1; c<=periodCols.length; c++){
+                      const cell = row[c];
+                      const parsed = parseTeacherWiseCell(cell);
+                      if(!parsed) continue;
+                      const periodNum = periodMap[periodCols[c-1]];
+                      if(!periodNum) continue;
+                      addPeriodRow(teacherId, periodNum, parsed.className, parsed.subject, parsed.startDay, parsed.endDay);
+                  }
+              }
+          }
+
+          if(classSheet){
+              const rows = XLSX.utils.sheet_to_json(classSheet, {header:1});
+              for(let r=1; r<rows.length; r++){
+                  const row = rows[r];
+                  const cls = String(row[0]||"").trim();
+                  if(!cls) continue;
+                  for(let c=1; c<=periodCols.length; c++){
+                      const cell = row[c];
+                      const parsed = parseClassWiseCell(cell);
+                      if(!parsed) continue;
+                      const periodNum = periodMap[periodCols[c-1]];
+                      if(!periodNum) continue;
+                      const teacherId = teacherByName.get(parsed.teacher.toLowerCase());
+                      if(!teacherId) continue;
+                      addPeriodRow(teacherId, periodNum, cls, parsed.subject, parsed.startDay, parsed.endDay);
+                  }
+              }
+          }
+
+          for (const [teacherId, timetable] of teacherMap.entries()){
+              saveRequests.push(fetch(`${EXAM_API}/timetable/set`,{
+                  method:"POST",
+                  headers:{"Content-Type":"application/json"},
+                  body:JSON.stringify({session, teacher_id: teacherId, timetable})
+              }).then(r=>r.json().catch(()=>({}))));
+          }
+
+          await Promise.all(saveRequests);
+          alert("Timetable uploaded successfully.");
+          const existing = await loadExistingTimetable();
+          await generateRows(existing);
+      };
+      reader.readAsArrayBuffer(file);
+  };
 </script>
 
 </body>
