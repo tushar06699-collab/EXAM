@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Request Student Edit</title>
+<style>
+  body{margin:0;font-family:Poppins,Arial,sans-serif;background:#eef1f6;}
+  .topbar{background:#233465;color:#fff;padding:18px 25px;}
+  .main{max-width:980px;margin:18px auto;padding:0 12px 24px;}
+  .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,.08);}
+  .title{margin:0 0 8px;font-size:20px;}
+  .muted{color:#5b6783;font-size:14px;margin-bottom:10px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;}
+  .photo-wrap{grid-column:1/-1;display:flex;gap:14px;align-items:center;flex-wrap:wrap;}
+  .photo-preview{width:110px;height:140px;border-radius:10px;object-fit:cover;border:2px solid #d7dff2;background:#f2f5fb;}
+  .photo-note{font-size:12px;color:#5b6783;}
+  label{font-size:12px;color:#52607c;display:block;margin-bottom:4px;}
+  input,select,textarea{width:100%;padding:8px 10px;border:1px solid #ced6ea;border-radius:8px;font-size:14px;}
+  textarea{min-height:80px;resize:vertical;}
+  .actions{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;}
+  .btn{padding:8px 14px;border:0;border-radius:8px;background:#233465;color:#fff;cursor:pointer;}
+  .btn.secondary{background:#6c7aa1;}
+  .status{margin-top:8px;font-size:14px;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h2 style="margin:0;">Request Student Edit</h2>
+</div>
+
+<main class="main">
+  <section class="card">
+    <h3 class="title" id="studentTitle">Loading...</h3>
+    <div class="muted" id="studentMeta"></div>
+    <div class="grid" id="formGrid"></div>
+    <div class="actions">
+      <button class="btn" id="submitBtn">Send Edit Request</button>
+      <button class="btn secondary" id="backBtn">Back</button>
+    </div>
+    <div class="status" id="statusMsg"></div>
+  </section>
+</main>
+
+<script>
+const STUDENT_API = (localStorage.getItem("studentApiBaseUrl") || "https://student-backend-117372286918.asia-south1.run.app").replace(/\/+$/, "");
+const teacherName = localStorage.getItem("teacher_name") || "";
+const session = localStorage.getItem("session") || "";
+
+const params = new URLSearchParams(location.search);
+const studentId = params.get("id") || "";
+
+const formGrid = document.getElementById("formGrid");
+const studentTitle = document.getElementById("studentTitle");
+const studentMeta = document.getElementById("studentMeta");
+const statusMsg = document.getElementById("statusMsg");
+const submitBtn = document.getElementById("submitBtn");
+
+const fields = [
+  ["student_name","Student Name"],
+  ["father_name","Father Name"],
+  ["mother_name","Mother Name"],
+  ["class_name","Class"],
+  ["section","Section"],
+  ["gender","Gender"],
+  ["dob","DOB"],
+  ["admission_no","Admission No"],
+  ["rollno","Roll No"],
+  ["aadharno","Aadhar No"],
+  ["parent_mobile","Parent Mobile"],
+  ["parent_email","Parent Email"]
+];
+
+const longFields = [
+  ["address","Address"]
+];
+
+let original = {};
+let selectedPhotoData = "";
+
+function clean(v){
+  const t = String(v ?? "").trim();
+  return t.toLowerCase() === "nan" ? "" : t;
+}
+
+function buildInput(key,label,value){
+  const wrap = document.createElement("div");
+  const lab = document.createElement("label");
+  lab.textContent = label;
+  const inp = document.createElement("input");
+  inp.name = key;
+  inp.value = clean(value);
+  wrap.appendChild(lab);
+  wrap.appendChild(inp);
+  return wrap;
+}
+
+function buildTextarea(key,label,value){
+  const wrap = document.createElement("div");
+  wrap.style.gridColumn = "1/-1";
+  const lab = document.createElement("label");
+  lab.textContent = label;
+  const inp = document.createElement("textarea");
+  inp.name = key;
+  inp.value = clean(value);
+  wrap.appendChild(lab);
+  wrap.appendChild(inp);
+  return wrap;
+}
+
+async function loadStudent(){
+  if(!studentId){
+    studentTitle.textContent = "Missing student id";
+    return;
+  }
+  const res = await fetch(`${STUDENT_API}/students/${studentId}`);
+  if(!res.ok){
+    studentTitle.textContent = "Student not found";
+    return;
+  }
+  const s = await res.json();
+  original = s || {};
+  studentTitle.textContent = `${clean(s.student_name) || "-"} (Class ${clean(s.class_name || s.class) || "-"})`;
+  studentMeta.textContent = `Admission: ${clean(s.admission_no) || "-"} | Roll: ${clean(s.rollno) || "-"}`;
+
+  formGrid.innerHTML = "";
+  const photoWrap = document.createElement("div");
+  photoWrap.className = "photo-wrap";
+  photoWrap.innerHTML = `
+    <div>
+      <label>Student Photo (Request Change)</label>
+      <input type="file" id="photoInput" accept="image/*">
+      <div class="photo-note">If you choose a photo, it will be sent for admin approval.</div>
+    </div>
+    <div>
+      <label>Current Photo</label>
+      <img id="photoPreview" class="photo-preview" src="${clean(s.photo_url) || 'images/default.png'}" onerror="this.src='images/default.png'">
+    </div>
+  `;
+  formGrid.appendChild(photoWrap);
+  fields.forEach(([k, label]) => {
+    formGrid.appendChild(buildInput(k, label, s[k]));
+  });
+  longFields.forEach(([k, label]) => {
+    formGrid.appendChild(buildTextarea(k, label, s[k]));
+  });
+
+  const photoInput = document.getElementById("photoInput");
+  const photoPreview = document.getElementById("photoPreview");
+  photoInput.addEventListener("change", () => {
+    const file = photoInput.files && photoInput.files[0];
+    if(!file){
+      selectedPhotoData = "";
+      photoPreview.src = clean(s.photo_url) || "images/default.png";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      selectedPhotoData = reader.result || "";
+      if(selectedPhotoData){
+        photoPreview.src = selectedPhotoData;
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function buildChanges(){
+  const changes = {};
+  const inputs = formGrid.querySelectorAll("input,textarea");
+  inputs.forEach(inp => {
+    if(inp.type === "file") return;
+    const key = inp.name;
+    const val = clean(inp.value);
+    const oldVal = clean(original[key]);
+    if(val !== oldVal){
+      changes[key] = val;
+    }
+  });
+  if(selectedPhotoData){
+    changes.photo_data = selectedPhotoData;
+  }
+  return changes;
+}
+
+async function submitRequest(){
+  statusMsg.textContent = "";
+  const changes = buildChanges();
+  if(!Object.keys(changes).length){
+    statusMsg.textContent = "No changes detected.";
+    return;
+  }
+  submitBtn.disabled = true;
+  try{
+    const res = await fetch(`${STUDENT_API}/student-edit-requests`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        student_id: studentId,
+        teacher_name: teacherName,
+        session,
+        changes
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if(!res.ok || !data.success){
+      statusMsg.textContent = data.message || "Failed to submit request.";
+      return;
+    }
+    statusMsg.textContent = "Request sent to admin for approval.";
+  }catch(e){
+    statusMsg.textContent = "Network error while submitting request.";
+  }finally{
+    submitBtn.disabled = false;
+  }
+}
+
+submitBtn.addEventListener("click", submitRequest);
+document.getElementById("backBtn").addEventListener("click", () => history.back());
+
+loadStudent();
+</script>
+</body>
+</html>

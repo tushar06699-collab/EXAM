@@ -80,6 +80,12 @@ button:hover { background:#233465; }
           <button id="copyPrevAllBtn" type="button">Copy Full Previous Timetable</button>
           
       </div>
+      <div style="margin-top:12px;padding:10px;border:1px solid #d9e2ec;border-radius:8px;background:#f8fafc;display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
+          <div style="font-weight:600;">Clear Periods (Selected Teacher):</div>
+          <div id="periodChecks" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;"></div>
+          <button id="clearSelectedBtn" type="button">Clear Selected Periods</button>
+          <button id="clearAllBtn" type="button" style="background:#c0392b;">Clear All Periods</button>
+      </div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -103,6 +109,7 @@ const timetableBody = document.getElementById("timetableBody");
 const sessionSelect = document.getElementById("sessionSelect");
 const teacherSelect = document.getElementById("teacherSelect");
 const teacherNote = document.getElementById("teacherNote");
+const periodChecks = document.getElementById("periodChecks");
 
 function normalizeClassName(raw){
     return String(raw || "").trim().replace(/\s+/g, " ");
@@ -114,6 +121,17 @@ function isSeniorCombined(className){
 
 function isSeniorStream(className){
     return /^(11|12)\s*(Arts|Commerce|Medical)/i.test(className);
+}
+
+function buildPeriodChecks(){
+    if(!periodChecks) return;
+    const labels = ["Period 1","Period 2","Period 3","Period 4","Period 5","Period 6","Period 7","Period 8"];
+    periodChecks.innerHTML = labels.map(p => {
+        const num = periodMap[p];
+        return `<label style="display:flex;gap:4px;align-items:center;font-size:12px;">
+            <input type="checkbox" class="periodCheck" value="${num}"> ${p}
+        </label>`;
+    }).join("");
 }
 
   function getPreviousSessionName(sessionName){
@@ -546,6 +564,45 @@ if(selClass.value.includes("COMBINED") && match){
     }
 };
 
+// ----------------- Clear Timetable Periods -----------------
+async function clearPeriods({all=false} = {}){
+    const teacherId = teacherSelect.value;
+    const session = sessionSelect.value;
+    if(!teacherId || !session){
+        alert("Select session and teacher first");
+        return;
+    }
+    const existing = await loadExistingTimetable();
+    let filtered = [];
+    if(all){
+        filtered = [];
+    }else{
+        const selected = [...document.querySelectorAll(".periodCheck:checked")].map(c => parseInt(c.value,10)).filter(Boolean);
+        if(!selected.length){
+            alert("Select at least one period to clear.");
+            return;
+        }
+        filtered = existing.filter(r => !selected.includes(parseInt(r.period,10)));
+    }
+
+    if(!confirm(all ? "Clear ALL periods for this teacher?" : "Clear selected periods for this teacher?")) return;
+
+    try{
+        const res = await fetch(`${EXAM_API}/timetable/set`,{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({session, teacher_id:teacherId, timetable: filtered})
+        });
+        const data = await res.json();
+        alert(data.message || "Cleared successfully!");
+        const refreshed = await loadExistingTimetable();
+        await generateRows(refreshed);
+    }catch(e){
+        console.error(e);
+        alert("Failed to clear periods.");
+    }
+}
+
 document.getElementById("copyPrevBtn").onclick = async ()=>{
     const teacherId = teacherSelect.value;
     const currentSession = sessionSelect.value;
@@ -600,6 +657,9 @@ document.getElementById("copyPrevBtn").onclick = async ()=>{
         alert("Failed to copy timetable");
     }
 };
+
+document.getElementById("clearSelectedBtn").onclick = () => clearPeriods({all:false});
+document.getElementById("clearAllBtn").onclick = () => clearPeriods({all:true});
 
 document.getElementById("copyPrevAllBtn").onclick = async ()=>{
     const currentSession = sessionSelect.value;
@@ -684,6 +744,7 @@ document.getElementById("copyPrevAllBtn").onclick = async ()=>{
     const existing = await loadExistingTimetable();
     await generateRows(existing);
 }
+  buildPeriodChecks();
   init();
 
   // ----------------- Excel Format Download -----------------
@@ -910,9 +971,5 @@ document.getElementById("copyPrevAllBtn").onclick = async ()=>{
 
 </body>
 </html>
-
-
-
-
 
 

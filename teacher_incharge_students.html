@@ -91,6 +91,22 @@ select,input{
 .row b{
     color:#243762;
 }
+.actions{
+    margin-top:10px;
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+}
+.btn{
+    padding:6px 10px;
+    border:0;
+    border-radius:8px;
+    background:#233465;
+    color:#fff;
+    cursor:pointer;
+    font-size:13px;
+}
+.btn.secondary{background:#6c7aa1;}
 .empty{
     text-align:center;
     padding:24px;
@@ -207,8 +223,16 @@ function renderStudents(){
                 <div class="row"><b>Session:</b> ${s.session || "-"}</div>
                 <div class="row" style="grid-column:1/-1"><b>Address:</b> ${s.address || "-"}</div>
             </div>
+            <div class="actions">
+                <button class="btn" onclick="requestEdit('${s._id}')">Request Edit</button>
+            </div>
         </article>
     `).join("");
+}
+
+function requestEdit(id){
+    if(!id) return;
+    window.location.href = `teacher_student_edit.html?id=${encodeURIComponent(id)}`;
 }
 
 async function loadData(){
