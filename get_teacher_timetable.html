@@ -86,6 +86,7 @@ tr:nth-child(even){ background:#f2f4f7; }
 <script>
 const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/"; // use deployed backend
 const STUDENT_API = localStorage.getItem("studentApiBaseUrl") || "https://student-backend-117372286918.asia-south1.run.app/";
+const SCHOOL_NAME = localStorage.getItem("schoolName") || "P.S. Public School";
 
 
 const periods = ["Period 1","Period 2","Period 3","Period 4","Lunch","Period 5","Period 6","Period 7","Period 8"];
@@ -236,55 +237,222 @@ function renderTable() {
     timetableBody.innerHTML = rows.join("");
 }
 
+function buildTeacherPage(teacher){
+    const wrap = document.createElement("div");
+    wrap.style.width = "1120px";
+    wrap.style.background = "#fff";
+    wrap.style.padding = "14px";
+    wrap.style.fontFamily = "Poppins, sans-serif";
+
+    // Stats
+    const classSet = new Set();
+    const subjectSet = new Set();
+    let slots = 0;
+    classes.forEach(cls => {
+        const items = timetableData[cls].filter(item => Number(item.period));
+        items.forEach(item => {
+            weekDays.forEach(day => {
+                const v = item[day] || "";
+                if(v && v.startsWith(teacher + " - ")){
+                    const subject = v.split(" - ")[1];
+                    classSet.add(cls);
+                    if(subject) subjectSet.add(subject);
+                    slots += 1;
+                }
+            });
+        });
+    });
+    wrap.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div>
+          <div style="font-size:18px;font-weight:700;">${SCHOOL_NAME}</div>
+          <div style="font-size:12px;color:#475569;">Teacher Timetable</div>
+        </div>
+        <div style="text-align:right;font-size:12px;color:#475569;">
+          Session: ${sessionSelect.value || "-"}<br>
+          Teacher: ${teacher}
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;font-size:12px;color:#334155;">
+        <div><b>Total Classes:</b> ${classSet.size}</div>
+        <div><b>Total Subjects:</b> ${subjectSet.size}</div>
+        <div><b>Total Slots:</b> ${slots}</div>
+      </div>
+    `;
+
+    const table = document.createElement("table");
+    table.style.width = "100%";
+    table.style.borderCollapse = "collapse";
+    table.style.fontSize = "11px";
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th style="border:1px solid #cbd5e1;padding:6px;background:#324a87;color:#fff;">Day</th>
+          ${periods.map(p=>`<th style="border:1px solid #cbd5e1;padding:6px;background:#324a87;color:#fff;">${p}</th>`).join("")}
+        </tr>
+      </thead>
+    `;
+    const tbody = document.createElement("tbody");
+    weekDays.forEach(day => {
+        let row = `<tr><td style="border:1px solid #cbd5e1;padding:6px;background:#f8fafc;font-weight:600;">${day}</td>`;
+        periods.forEach(p=>{
+            if(p==="Lunch"){
+                row += `<td style="border:1px solid #cbd5e1;padding:6px;text-align:center;background:#f0f0f0;font-weight:600;">Lunch</td>`;
+                return;
+            }
+            const periodNum = periodMap[p];
+            const lines = [];
+            classes.forEach(cls => {
+                const items = timetableData[cls].filter(item => Number(item.period) === periodNum);
+                items.forEach(item => {
+                    const v = item[day] || "";
+                    if(v && v.startsWith(teacher + " - ")){
+                        const subject = v.split(" - ")[1];
+                        lines.push(`${cls}: ${subject}`);
+                    }
+                });
+            });
+            row += `<td style="border:1px solid #cbd5e1;padding:6px;vertical-align:top;">${lines.join("<br>")}</td>`;
+        });
+        row += "</tr>";
+        tbody.innerHTML += row;
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+}
+
+function buildOfficeSummaryPages(){
+    const pages = [];
+    const chunkSize = 6; // 6 classes per page for office copy
+    const dayShort = ["Mon","Tue","Wed","Thu","Fri","Sat"];
+    const dayKey = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    const formatDays = (set) => {
+        return dayShort.map((d, idx) => set.has(dayKey[idx]) ? d : "---").join(",");
+    };
+    for(let i=0; i<classes.length; i+=chunkSize){
+        const chunk = classes.slice(i, i+chunkSize);
+        const wrap = document.createElement("div");
+        wrap.style.width = "1100px";
+        wrap.style.background = "#fff";
+        wrap.style.padding = "14px";
+        wrap.style.fontFamily = "Poppins, sans-serif";
+        wrap.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div>
+              <div style="font-size:18px;font-weight:700;">${SCHOOL_NAME}</div>
+              <div style="font-size:12px;color:#475569;">Office Copy - Class Summary</div>
+            </div>
+            <div style="text-align:right;font-size:12px;color:#475569;">
+              Session: ${sessionSelect.value || "-"}<br>
+              Page ${Math.floor(i/chunkSize)+1}
+            </div>
+          </div>
+        `;
+
+        const table = document.createElement("table");
+        table.style.width = "100%";
+        table.style.borderCollapse = "collapse";
+        table.style.fontSize = "11px";
+        table.style.tableLayout = "fixed";
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th style="border:1px solid #cbd5e1;padding:5px;background:#324a87;color:#fff;">Class</th>
+              ${periods.map(p=>`<th style="border:1px solid #cbd5e1;padding:5px;background:#324a87;color:#fff;">${p}</th>`).join("")}
+            </tr>
+          </thead>
+        `;
+        const tbody = document.createElement("tbody");
+        chunk.forEach(cls => {
+            let row = `<tr><td style="border:1px solid #cbd5e1;padding:5px;background:#f8fafc;font-weight:600;word-break:break-word;">${cls}</td>`;
+            periods.forEach(p=>{
+                if(p==="Lunch"){
+                    row += `<td style="border:1px solid #cbd5e1;padding:5px;text-align:center;background:#f0f0f0;font-weight:600;">Lunch</td>`;
+                    return;
+                }
+                const periodNum = periodMap[p];
+                const items = (timetableData[cls] || []).filter(item => Number(item.period) === periodNum);
+                const grouped = new Map(); // key: teacher||subject -> Set(days)
+                items.forEach(item => {
+                    weekDays.forEach(day => {
+                        const v = item[day] || "";
+                        if(v && v.includes(" - ")){
+                            const [t,s] = v.split(" - ");
+                            const key = `${t}||${s}`;
+                            if(!grouped.has(key)) grouped.set(key, new Set());
+                            grouped.get(key).add(day);
+                        }
+                    });
+                });
+                const blocks = [];
+                grouped.forEach((days, key) => {
+                    const [t, s] = key.split("||");
+                    blocks.push(`<div style="margin-bottom:6px;">
+                        <div><b>${s}</b></div>
+                        <div>${t}</div>
+                        <div>${formatDays(days)}</div>
+                    </div>`);
+                });
+                row += `<td style="border:1px solid #cbd5e1;padding:5px;vertical-align:top;word-break:break-word;">${blocks.join("")}</td>`;
+            });
+            row += "</tr>";
+            tbody.innerHTML += row;
+        });
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+        pages.push(wrap);
+    }
+    return pages;
+}
+
 async function downloadPDF(){
-    const table = document.querySelector(".main table");
-    if(!table) return alert("No timetable to export.");
+    if(!teachers.length) return alert("No teachers found.");
     const jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
     if(!jsPDFCtor || typeof window.html2canvas === "undefined"){
         return alert("PDF library not loaded. Refresh and try again.");
     }
-
+    const pdf = new jsPDFCtor("l", "pt", "a4");
+    let first = true;
     const host = document.createElement("div");
     host.style.position = "fixed";
     host.style.left = "-99999px";
     host.style.top = "0";
-    host.style.width = "1600px";
-    host.style.background = "#fff";
-    host.style.padding = "10px";
-    host.innerHTML = `<h3 style="margin:0 0 10px 0;font-family:Poppins,sans-serif;">Teacher-wise Timetable (${sessionSelect.value})</h3>`;
-    host.appendChild(table.cloneNode(true));
     document.body.appendChild(host);
-
     try{
-        const canvas = await window.html2canvas(host, {scale:2, useCORS:true, backgroundColor:"#fff"});
-        const img = canvas.toDataURL("image/jpeg", 0.95);
-        const pdf = new jsPDFCtor("l","mm","a4");
-        const pageW=297,pageH=210,margin=6,maxW=pageW-margin*2,maxH=pageH-margin*2;
-        let w=maxW,h=(canvas.height*w)/canvas.width;
-        if(h<=maxH){
-            const x=(pageW-w)/2,y=(pageH-h)/2;
-            pdf.addImage(img,"JPEG",x,y,w,h);
-        }else{
-            const pageCanvas=document.createElement("canvas");
-            const ctx=pageCanvas.getContext("2d");
-            const sliceHeightPx=Math.floor(canvas.width*(maxH/maxW));
-            pageCanvas.width=canvas.width;
-            let yPx=0,page=0;
-            while(yPx<canvas.height){
-                const cur=Math.min(sliceHeightPx, canvas.height-yPx);
-                pageCanvas.height=cur;
-                ctx.clearRect(0,0,pageCanvas.width,pageCanvas.height);
-                ctx.drawImage(canvas,0,yPx,canvas.width,cur,0,0,canvas.width,cur);
-                const slice=pageCanvas.toDataURL("image/jpeg",0.95);
-                const sliceH=(cur*maxW)/canvas.width;
-                if(page>0) pdf.addPage();
-                pdf.addImage(slice,"JPEG",margin,margin,maxW,sliceH);
-                yPx+=cur; page+=1;
-            }
+        for(const teacher of teachers){
+            host.innerHTML = "";
+            const page = buildTeacherPage(teacher);
+            host.appendChild(page);
+            const canvas = await window.html2canvas(page, {scale:2, useCORS:true, backgroundColor:"#fff"});
+            const img = canvas.toDataURL("image/jpeg", 0.95);
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const ratio = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
+            const imgW = canvas.width * ratio;
+            const imgH = canvas.height * ratio;
+            if(!first) pdf.addPage();
+            first = false;
+            pdf.addImage(img, "JPEG", (pageWidth-imgW)/2, 20, imgW, imgH);
         }
-        pdf.save(`teacher_timetable_${sessionSelect.value}.pdf`);
-    }catch(e){
-        console.error(e);
+        // Office copy summary at end (split across pages)
+        const summaryPages = buildOfficeSummaryPages();
+        for(const summary of summaryPages){
+            host.innerHTML = "";
+            host.appendChild(summary);
+            const canvas = await window.html2canvas(summary, {scale:2, useCORS:true, backgroundColor:"#fff"});
+            const img = canvas.toDataURL("image/jpeg", 0.95);
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const ratio = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
+            const imgW = canvas.width * ratio;
+            const imgH = canvas.height * ratio;
+            pdf.addPage();
+            pdf.addImage(img, "JPEG", (pageWidth-imgW)/2, 20, imgW, imgH);
+        }
+        pdf.save(`teacher_timetable_${sessionSelect.value || "session"}.pdf`);
+    }catch(err){
+        console.error(err);
         alert("Unable to generate PDF.");
     }finally{
         if(host.parentNode) host.parentNode.removeChild(host);

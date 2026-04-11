@@ -143,6 +143,8 @@ button:hover { background: #3730a3; }
                 <th>Subject 6</th>
                 <th>Subject 7</th>
                 <th>Subject 8</th>
+                <th>Subject 9</th>
+                <th>Subject 10</th>
                 <th>Action</th>
             </tr>
         </thead>
@@ -213,7 +215,7 @@ function getPreviousSessionName(sessionName){
 
 async function loadAllClasses() {
 
-    classSubjectTable.innerHTML = `<tr><td colspan="9">Loading...</td></tr>`;
+    classSubjectTable.innerHTML = `<tr><td colspan="11">Loading...</td></tr>`;
 
     const res = await fetch(`${STUDENT_API}/students`);
     const students = await res.json();
@@ -240,6 +242,8 @@ async function createClassRow(className) {
         <td><input id="${className}-6"></td>
         <td><input id="${className}-7"></td>
         <td><input id="${className}-8"></td>
+        <td><input id="${className}-9"></td>
+        <td><input id="${className}-10"></td>
         <td><button onclick="saveSubjects('${className}')">Save</button></td>
     `;
     classSubjectTable.appendChild(row);
@@ -290,7 +294,7 @@ async function saveSubjects(className, options = {}) {
     if (Array.isArray(options.forceSubjects) && options.forceSubjects.length) {
         subjects = options.forceSubjects.filter(Boolean);
     } else {
-        for (let i = 1; i <= 8; i++) {
+        for (let i = 1; i <= 10; i++) {
             let value = document.getElementById(`${className}-${i}`).value.trim();
             if (value) subjects.push(value);
         }

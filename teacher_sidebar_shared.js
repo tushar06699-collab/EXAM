@@ -6,12 +6,19 @@
     'https://student-backend-117372286918.asia-south1.run.app',
     'http://127.0.0.1:8080'
   ];
+  var CLOUDINARY_TEACHER_BASE = 'https://res.cloudinary.com/djq1jjet6/image/upload/school_teachers/';
   var DEFAULT_AVATAR = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='260'%3E%3Crect width='100%25' height='100%25' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%236b7280' font-size='18'%3ENo%20Photo%3C/text%3E%3C/svg%3E";
 
   function escHtml(v){
     return String(v || '').replace(/[&<>"']/g, function(m){
       return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]);
     });
+  }
+  function resolvePhotoUrl(v){
+    var raw = String(v || '').trim();
+    if(!raw) return '';
+    if(/^https?:\/\//i.test(raw) || /^data:/i.test(raw) || /^blob:/i.test(raw)) return raw;
+    return CLOUDINARY_TEACHER_BASE + raw.replace(/^\/+/, '');
   }
   function norm(v){ return String(v || '').trim().toUpperCase(); }
   function code4(v){ return String(v || '').replace(/\D/g,'').padStart(4,'0').slice(-4); }
@@ -85,7 +92,7 @@
     strip.id = 'teacherProfileInline';
     strip.className = 'teacher-profile-inline';
     strip.innerHTML =
-      '<img class="tp-avatar" src="' + escHtml(profile.photo_url || DEFAULT_AVATAR) + '" onerror="this.onerror=null;this.src=\'' + DEFAULT_AVATAR + '\';">' +
+      '<img class="tp-avatar" src="' + escHtml(resolvePhotoUrl(profile.photo_url) || DEFAULT_AVATAR) + '" onerror="this.onerror=null;this.src=\'' + DEFAULT_AVATAR + '\';">' +
       '<div class="tp-meta">' +
       '<div class="tp-name">' + escHtml(profile.name || 'Teacher') + '</div>' +
       '<div class="tp-sub">ID: ' + escHtml(profile.teacher_code || '-') + '</div>' +
@@ -147,7 +154,7 @@
                   rows.find(function(t){ return norm(t.employee_id) === sUser; }) ||
                   rows.find(function(t){ return norm(t.teacher_name) === sName; });
       if(match){
-        profile.photo_url = String(match.photo_url || '').trim();
+        profile.photo_url = resolvePhotoUrl(match.photo_url);
         if(!profile.teacher_code) profile.teacher_code = match.teacher_code || '';
       }
     }

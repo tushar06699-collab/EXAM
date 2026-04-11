@@ -120,7 +120,7 @@ function isSeniorCombined(className){
 }
 
 function isSeniorStream(className){
-    return /^(11|12)\s*(Arts|Commerce|Medical)/i.test(className);
+    return /^(11|12)(st|nd|rd|th)?\s*(Arts|Commerce|Medical)/i.test(String(className || "").trim());
 }
 
 function buildPeriodChecks(){
@@ -157,8 +157,9 @@ function buildPeriodChecks(){
   }
 
   function parseDays(value){
-      const raw = String(value || "").trim();
+      let raw = String(value || "").trim();
       if(!raw) return {startDay:1,endDay:1};
+      raw = raw.replace(/[–—]/g, "-").replace(/\s+to\s+/i, "-");
       const parts = raw.split("-").map(s=>s.trim());
       if(parts.length === 2){
           const a = dayIndex(parts[0]);
@@ -172,26 +173,41 @@ function buildPeriodChecks(){
 
   function parseTeacherWiseCell(cell){
       const raw = String(cell || "").trim();
-      if(!raw) return null;
-      const parts = raw.split("|").map(s=>s.trim());
-      const className = parts[0] || "";
-      const subject = parts[1] || "";
-      const days = parts[2] || "";
-      if(!className || !subject) return null;
-      const {startDay, endDay} = parseDays(days);
-      return {className, subject, startDay, endDay};
+      if(!raw) return [];
+      const segments = raw.split(",").map(s=>s.trim()).filter(Boolean);
+      const parsed = [];
+      segments.forEach(seg => {
+          const parts = seg.split("|").map(s=>s.trim());
+          const className = parts[0] || "";
+          const subject = parts[1] || "";
+          const days = parts[2] || "";
+          if(!className || !subject) return;
+          const {startDay, endDay} = parseDays(days);
+          const classParts = className.split("+").map(s=>s.trim()).filter(Boolean);
+          if(classParts.length){
+              classParts.forEach(cn => parsed.push({className: cn, subject, startDay, endDay}));
+          }else{
+              parsed.push({className, subject, startDay, endDay});
+          }
+      });
+      return parsed;
   }
 
   function parseClassWiseCell(cell){
       const raw = String(cell || "").trim();
-      if(!raw) return null;
-      const parts = raw.split("|").map(s=>s.trim());
-      const teacher = parts[0] || "";
-      const subject = parts[1] || "";
-      const days = parts[2] || "";
-      if(!teacher || !subject) return null;
-      const {startDay, endDay} = parseDays(days);
-      return {teacher, subject, startDay, endDay};
+      if(!raw) return [];
+      const segments = raw.split(",").map(s=>s.trim()).filter(Boolean);
+      const parsed = [];
+      segments.forEach(seg => {
+          const parts = seg.split("|").map(s=>s.trim());
+          const teacher = parts[0] || "";
+          const subject = parts[1] || "";
+          const days = parts[2] || "";
+          if(!teacher || !subject) return;
+          const {startDay, endDay} = parseDays(days);
+          parsed.push({teacher, subject, startDay, endDay});
+      });
+      return parsed;
   }
 
 // ----------------- Load Data -----------------
@@ -755,7 +771,30 @@ document.getElementById("copyPrevAllBtn").onclick = async ()=>{
       // Sheet 1: Teacher-wise (rows = teachers)
       const header = ["Teacher", ...periodCols];
       const rows = [header];
-      const teacherRows = Array.from(teacherSelect.options).map(o => o.text || "").filter(Boolean);
+      let teacherRows = [];
+      try{
+          const ses = sessionSelect.value || "";
+          const examRes = await fetch(`${EXAM_API}/teacher/list?session=${encodeURIComponent(ses)}`);
+          const examData = await examRes.json().catch(()=>({}));
+          const examTeachers = Array.isArray(examData.teachers) ? examData.teachers : [];
+          const examNames = examTeachers.map(t=>t.name || t.teacher_name || t.id || "").filter(Boolean);
+
+          const stuRes = await fetch(`${STUDENT_API}/teachers?session=${encodeURIComponent(ses)}`);
+          const stuData = await stuRes.json().catch(()=>({}));
+          const stuTeachers = Array.isArray(stuData) ? stuData : (Array.isArray(stuData.teachers) ? stuData.teachers : []);
+          const stuNames = stuTeachers.map(t=>t.teacher_name || t.name || t.employee_id || t.teacher_code || "").filter(Boolean);
+
+          if(stuNames.length > examNames.length){
+              teacherRows = stuNames;
+          }else{
+              teacherRows = examNames;
+          }
+      }catch(e){
+          teacherRows = [];
+      }
+      if(!teacherRows.length){
+          teacherRows = Array.from(teacherSelect.options).map(o => o.text || "").filter(Boolean);
+      }
       teacherRows.forEach(tName => {
           const row = [tName];
           periodCols.forEach(() => row.push(""));
@@ -779,8 +818,11 @@ document.getElementById("copyPrevAllBtn").onclick = async ()=>{
           ["Format Guide"],
           ["TeacherWise sheet:"],
           ["Cell format: Class | Subject | Mon-Wed  (e.g., 9th | Maths | Mon-Fri)"],
+          ["Multiple slots in one cell: separate with commas (e.g., 2nd | DRAWING | Mon-Wed, 2nd | SPORTS | Thu-Sat)"],
+          ["Multi-class in one slot: use + (e.g., 11th Commerce + 11th Medical | HINDI | Mon-Sat)"],
           ["ClassWise sheet:"],
           ["Cell format: Teacher Name | Subject | Mon-Wed  (e.g., MR. AJAY | Maths | Tue-Thu)"],
+          ["Multiple slots in one cell: separate with commas (e.g., MR. AJAY | Maths | Mon-Wed, MR. AJAY | Sports | Thu-Sat)"],
           ["Days accepted: Mon, Tue, Wed, Thu, Fri, Sat (or full names)."],
           ["Note: Lunch period is not included in the format."],
           ["Selected Teacher:", teacherName],
@@ -820,6 +862,70 @@ document.getElementById("copyPrevAllBtn").onclick = async ()=>{
           tRows.forEach(t=>{
               teacherByName.set(String(t.name||"").trim().toLowerCase(), t.id);
           });
+          const teacherNameToId = new Map(teacherByName);
+
+          // Also fetch teachers from student backend for matching by name.
+          let studentTeachers = [];
+          try{
+              const sRes = await fetch(`${STUDENT_API}/teachers?session=${encodeURIComponent(session)}`);
+              const sData = await sRes.json().catch(()=>({}));
+              studentTeachers = Array.isArray(sData) ? sData : (Array.isArray(sData.teachers) ? sData.teachers : []);
+              studentTeachers.forEach(t=>{
+                  const n = String(t.teacher_name || t.name || "").trim().toLowerCase();
+                  if(n && !teacherNameToId.has(n)){
+                      teacherNameToId.set(n, null);
+                  }
+              });
+          }catch(e){
+              studentTeachers = [];
+          }
+
+          function normalizeTeacherCode(v){
+              const txt = String(v || "").trim();
+              if(!txt) return "";
+              const digits = txt.replace(/\D/g, "");
+              return digits ? digits.padStart(4,"0").slice(-4) : "";
+          }
+
+          async function resolveTeacherIdByName(name){
+              const key = String(name||"").trim().toLowerCase();
+              if(!key) return null;
+              if(teacherByName.has(key)) return teacherByName.get(key);
+              // If teacher exists in student backend but not in exam backend, create in exam backend.
+              const sRow = studentTeachers.find(t => String(t.teacher_name || t.name || "").trim().toLowerCase() === key);
+              if(!sRow) return null;
+              try{
+                  const teacherCode = normalizeTeacherCode(sRow.teacher_code || sRow.teacher_id || sRow.employee_id);
+                  const username = String(sRow.employee_id || sRow.teacher_code || sRow.teacher_name || sRow.name || name).trim().toUpperCase().replace(/\s+/g,"");
+                  const dob = String(sRow.dob || sRow.date_of_birth || "").trim();
+                  const password = dob ? `${username}@${dob}` : `${username}@0000`;
+                  const payload = {
+                      session,
+                      username,
+                      password,
+                      name: sRow.teacher_name || sRow.name || name,
+                      teacher_id: teacherCode
+                  };
+                  const res = await fetch(`${EXAM_API}/teacher/add`, {
+                      method:"POST",
+                      headers:{"Content-Type":"application/json"},
+                      body: JSON.stringify(payload)
+                  });
+                  const data = await res.json().catch(()=>({}));
+                  if(res.ok && data && data.success){
+                      // refresh list to get new id
+                      const r2 = await fetch(`${EXAM_API}/teacher/list?session=${encodeURIComponent(session)}`);
+                      const d2 = await r2.json().catch(()=>({}));
+                      const rows2 = Array.isArray(d2.teachers) ? d2.teachers : [];
+                      const match = rows2.find(t => String(t.name||"").trim().toLowerCase() === key);
+                      if(match){
+                          teacherByName.set(key, match.id);
+                          return match.id;
+                      }
+                  }
+              }catch(e){}
+              return null;
+          }
 
           const conflicts = [];
           const teacherDayPeriod = new Map(); // key: teacherId|day|period -> class
@@ -830,7 +936,12 @@ document.getElementById("copyPrevAllBtn").onclick = async ()=>{
                   const key = `${teacherId}|${d}|${periodNum}`;
                   const existing = teacherDayPeriod.get(key);
                   if(existing && existing !== className){
-                      conflicts.push(`Teacher conflict: ${teacherId} on day ${d} period ${periodNum} (${existing} vs ${className})`);
+                      // Allow multiple senior stream classes (11th/12th Arts/Commerce/Medical) in same slot.
+                      if(isSeniorStream(existing) && isSeniorStream(className)){
+                          // no conflict
+                      }else{
+                          conflicts.push(`Teacher conflict: ${teacherId} on day ${d} period ${periodNum} (${existing} vs ${className})`);
+                      }
                   }else{
                       teacherDayPeriod.set(key, className);
                   }
@@ -842,57 +953,96 @@ document.getElementById("copyPrevAllBtn").onclick = async ()=>{
                   const key = `${className}|${d}|${periodNum}`;
                   const existing = classDayPeriod.get(key);
                   if(existing && existing !== teacherName){
-                      conflicts.push(`Class conflict: ${className} day ${d} period ${periodNum} (${existing} vs ${teacherName})`);
+                      // Allow multiple senior stream classes (11th/12th Arts/Commerce/Medical) in same slot.
+                      if(isSeniorStream(className)){
+                          // no conflict
+                      }else{
+                          conflicts.push(`Class conflict: ${className} day ${d} period ${periodNum} (${existing} vs ${teacherName})`);
+                      }
                   }else{
                       classDayPeriod.set(key, teacherName);
                   }
               }
           };
 
+          const sheetHasData = (rows) => {
+              for(let r=1; r<rows.length; r++){
+                  const row = rows[r] || [];
+                  for(let c=1; c<=periodCols.length; c++){
+                      const v = row[c];
+                      if(String(v || "").trim()) return true;
+                  }
+              }
+              return false;
+          };
+
+          const teacherRows = teacherSheet ? XLSX.utils.sheet_to_json(teacherSheet, {header:1}) : [];
+          const classRows = classSheet ? XLSX.utils.sheet_to_json(classSheet, {header:1}) : [];
+          const hasTeacherData = teacherRows.length ? sheetHasData(teacherRows) : false;
+          const hasClassData = classRows.length ? sheetHasData(classRows) : false;
+
+          let useTeacherSheet = hasTeacherData;
+          let useClassSheet = hasClassData;
+          if(hasTeacherData && hasClassData){
+              // Avoid double-booking conflicts when both sheets are filled.
+              useClassSheet = false;
+              alert("Both TeacherWise and ClassWise have data. Using TeacherWise only to avoid conflicts.");
+          }
+
           // Parse TeacherWise (rows = teacher names)
-          if(teacherSheet){
-              const rows = XLSX.utils.sheet_to_json(teacherSheet, {header:1});
+          if(teacherSheet && useTeacherSheet){
+              const rows = teacherRows;
               for(let r=1; r<rows.length; r++){
                   const row = rows[r];
                   const teacherName = String(row[0]||"").trim();
                   if(!teacherName) continue;
-                  const teacherId = teacherByName.get(teacherName.toLowerCase());
+                  let teacherId = teacherByName.get(teacherName.toLowerCase());
+                  if(!teacherId){
+                      teacherId = await resolveTeacherIdByName(teacherName);
+                  }
                   if(!teacherId){
                       conflicts.push(`Teacher not found: ${teacherName} (TeacherWise sheet)`);
                       continue;
                   }
                   for(let c=1; c<=periodCols.length; c++){
                       const cell = row[c];
-                      const parsed = parseTeacherWiseCell(cell);
-                      if(!parsed) continue;
+                      const parsedList = parseTeacherWiseCell(cell);
+                      if(!parsedList || !parsedList.length) continue;
                       const periodNum = periodMap[periodCols[c-1]];
                       if(!periodNum) continue;
-                      addEntry(teacherId, parsed.className, periodNum, parsed.startDay, parsed.endDay, parsed.subject);
-                      addClassEntry(teacherId, parsed.className, periodNum, parsed.startDay, parsed.endDay, teacherName);
+                      parsedList.forEach(parsed => {
+                          addEntry(teacherId, parsed.className, periodNum, parsed.startDay, parsed.endDay, parsed.subject);
+                          addClassEntry(teacherId, parsed.className, periodNum, parsed.startDay, parsed.endDay, teacherName);
+                      });
                   }
               }
           }
 
           // Parse ClassWise
-          if(classSheet){
-              const rows = XLSX.utils.sheet_to_json(classSheet, {header:1});
+          if(classSheet && useClassSheet){
+              const rows = classRows;
               for(let r=1; r<rows.length; r++){
                   const row = rows[r];
                   const cls = String(row[0]||"").trim();
                   if(!cls) continue;
                   for(let c=1; c<=periodCols.length; c++){
                       const cell = row[c];
-                      const parsed = parseClassWiseCell(cell);
-                      if(!parsed) continue;
+                      const parsedList = parseClassWiseCell(cell);
+                      if(!parsedList || !parsedList.length) continue;
                       const periodNum = periodMap[periodCols[c-1]];
                       if(!periodNum) continue;
-                      const teacherId = teacherByName.get(parsed.teacher.toLowerCase());
-                      if(!teacherId){
-                          conflicts.push(`Teacher not found: ${parsed.teacher} (Class ${cls}, Period ${periodCols[c-1]})`);
-                          continue;
+                      for(const parsed of parsedList){
+                          let teacherId = teacherByName.get(parsed.teacher.toLowerCase());
+                          if(!teacherId){
+                              teacherId = await resolveTeacherIdByName(parsed.teacher);
+                          }
+                          if(!teacherId){
+                              conflicts.push(`Teacher not found: ${parsed.teacher} (Class ${cls}, Period ${periodCols[c-1]})`);
+                              continue;
+                          }
+                          addEntry(teacherId, cls, periodNum, parsed.startDay, parsed.endDay, parsed.subject);
+                          addClassEntry(teacherId, cls, periodNum, parsed.startDay, parsed.endDay, parsed.teacher);
                       }
-                      addEntry(teacherId, cls, periodNum, parsed.startDay, parsed.endDay, parsed.subject);
-                      addClassEntry(teacherId, cls, periodNum, parsed.startDay, parsed.endDay, parsed.teacher);
                   }
               }
           }
@@ -914,40 +1064,50 @@ document.getElementById("copyPrevAllBtn").onclick = async ()=>{
           };
 
           // Re-parse to construct payloads (uses the same parse logic but now writes rows)
-          if(teacherSheet){
-              const rows = XLSX.utils.sheet_to_json(teacherSheet, {header:1});
+          if(teacherSheet && useTeacherSheet){
+              const rows = teacherRows;
               for(let r=1; r<rows.length; r++){
                   const row = rows[r];
                   const teacherName = String(row[0]||"").trim();
                   if(!teacherName) continue;
-                  const teacherId = teacherByName.get(teacherName.toLowerCase());
+                  let teacherId = teacherByName.get(teacherName.toLowerCase());
+                  if(!teacherId){
+                      teacherId = await resolveTeacherIdByName(teacherName);
+                  }
                   if(!teacherId) continue;
                   for(let c=1; c<=periodCols.length; c++){
                       const cell = row[c];
-                      const parsed = parseTeacherWiseCell(cell);
-                      if(!parsed) continue;
+                      const parsedList = parseTeacherWiseCell(cell);
+                      if(!parsedList || !parsedList.length) continue;
                       const periodNum = periodMap[periodCols[c-1]];
                       if(!periodNum) continue;
-                      addPeriodRow(teacherId, periodNum, parsed.className, parsed.subject, parsed.startDay, parsed.endDay);
+                      parsedList.forEach(parsed => {
+                          addPeriodRow(teacherId, periodNum, parsed.className, parsed.subject, parsed.startDay, parsed.endDay);
+                      });
                   }
               }
           }
 
-          if(classSheet){
-              const rows = XLSX.utils.sheet_to_json(classSheet, {header:1});
+          if(classSheet && useClassSheet){
+              const rows = classRows;
               for(let r=1; r<rows.length; r++){
                   const row = rows[r];
                   const cls = String(row[0]||"").trim();
                   if(!cls) continue;
                   for(let c=1; c<=periodCols.length; c++){
                       const cell = row[c];
-                      const parsed = parseClassWiseCell(cell);
-                      if(!parsed) continue;
+                      const parsedList = parseClassWiseCell(cell);
+                      if(!parsedList || !parsedList.length) continue;
                       const periodNum = periodMap[periodCols[c-1]];
                       if(!periodNum) continue;
-                      const teacherId = teacherByName.get(parsed.teacher.toLowerCase());
-                      if(!teacherId) continue;
-                      addPeriodRow(teacherId, periodNum, cls, parsed.subject, parsed.startDay, parsed.endDay);
+                      for(const parsed of parsedList){
+                          let teacherId = teacherByName.get(parsed.teacher.toLowerCase());
+                          if(!teacherId){
+                              teacherId = await resolveTeacherIdByName(parsed.teacher);
+                          }
+                          if(!teacherId) continue;
+                          addPeriodRow(teacherId, periodNum, cls, parsed.subject, parsed.startDay, parsed.endDay);
+                      }
                   }
               }
           }
@@ -971,5 +1131,3 @@ document.getElementById("copyPrevAllBtn").onclick = async ()=>{
 
 </body>
 </html>
-
-

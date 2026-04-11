@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>School E-Library</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800;900&display=swap");
+    :root{
+      --ink:#0b1b36;
+      --muted:#5b6b84;
+      --brand:#0f5bff;
+      --accent:#ffb703;
+      --bg:#f6f8fb;
+      --card:#ffffff;
+      --chip:#e9efff;
+      --chipText:#1b3a8a;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:"Manrope", Arial, sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(15,91,255,0.12), transparent 40%),
+        radial-gradient(circle at bottom right, rgba(255,183,3,0.15), transparent 45%),
+        var(--bg);
+      min-height:100vh;
+    }
+    header{
+      padding:28px 22px 8px;
+      max-width:1200px;
+      margin:0 auto;
+    }
+    .title{
+      font-size:30px;
+      font-weight:900;
+      letter-spacing:0.3px;
+    }
+    .subtitle{
+      color:var(--muted);
+      margin-top:6px;
+      font-size:14px;
+      font-weight:600;
+    }
+    .filters{
+      max-width:1200px;
+      margin:16px auto 8px;
+      padding:0 22px;
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .filter-card{
+      background:var(--card);
+      border:1px solid #e3e9f4;
+      border-radius:12px;
+      padding:12px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      box-shadow:0 6px 18px rgba(10,20,40,0.06);
+    }
+    select, input[type="search"]{
+      border:1px solid #d3dbea;
+      border-radius:10px;
+      padding:8px 10px;
+      font-weight:700;
+      outline:none;
+      background:#fff;
+    }
+    .chips{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .chip{
+      padding:6px 10px;
+      background:var(--chip);
+      color:var(--chipText);
+      border-radius:999px;
+      font-size:12px;
+      font-weight:800;
+      border:1px solid #d7e2ff;
+    }
+    .grid{
+      max-width:1200px;
+      margin:14px auto 40px;
+      padding:0 22px;
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+      gap:16px;
+    }
+    .card{
+      background:var(--card);
+      border:1px solid #e3e9f4;
+      border-radius:16px;
+      padding:16px;
+      box-shadow:0 8px 24px rgba(10,20,40,0.08);
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      min-height:210px;
+    }
+    .card h3{
+      margin:0;
+      font-size:18px;
+      font-weight:900;
+    }
+    .card p{
+      margin:0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:600;
+      line-height:1.4;
+    }
+    .tags{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .tag{
+      font-size:11px;
+      font-weight:800;
+      padding:4px 8px;
+      border-radius:999px;
+      background:#eef2ff;
+      color:#243b7b;
+      border:1px solid #dfe7ff;
+    }
+    .actions{
+      margin-top:auto;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .btn{
+      text-decoration:none;
+      padding:8px 12px;
+      border-radius:10px;
+      font-weight:800;
+      font-size:12px;
+      border:1px solid transparent;
+      cursor:pointer;
+    }
+    .btn.primary{
+      background:var(--brand);
+      color:#fff;
+    }
+    .btn.secondary{
+      background:#f1f5ff;
+      color:#2443a3;
+      border-color:#d7e2ff;
+    }
+    .note{
+      max-width:1200px;
+      margin:10px auto 30px;
+      padding:0 22px;
+      color:#6b7280;
+      font-size:12px;
+      font-weight:600;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="title">School E-Library (Classes 1–12)</div>
+    <div class="subtitle">Free legal resources for Hindi + English. Use the filters to find the best place to read online.</div>
+  </header>
+
+  <div class="filters">
+    <div class="filter-card">
+      <label for="classFilter" style="font-weight:800;font-size:12px;color:#475569">Class</label>
+      <select id="classFilter">
+        <option value="all">All</option>
+        <option value="1">Class 1</option>
+        <option value="2">Class 2</option>
+        <option value="3">Class 3</option>
+        <option value="4">Class 4</option>
+        <option value="5">Class 5</option>
+        <option value="6">Class 6</option>
+        <option value="7">Class 7</option>
+        <option value="8">Class 8</option>
+        <option value="9">Class 9</option>
+        <option value="10">Class 10</option>
+        <option value="11">Class 11</option>
+        <option value="12">Class 12</option>
+      </select>
+    </div>
+    <div class="filter-card">
+      <label for="langFilter" style="font-weight:800;font-size:12px;color:#475569">Language</label>
+      <select id="langFilter">
+        <option value="all">Both</option>
+        <option value="en">English</option>
+        <option value="hi">Hindi</option>
+      </select>
+    </div>
+    <div class="filter-card">
+      <label for="subjectFilter" style="font-weight:800;font-size:12px;color:#475569">Subject</label>
+      <select id="subjectFilter">
+        <option value="all">All</option>
+        <option value="textbooks">Textbooks</option>
+        <option value="literature">Literature</option>
+        <option value="science">Science</option>
+        <option value="social">Social</option>
+        <option value="math">Math</option>
+        <option value="general">General</option>
+      </select>
+    </div>
+    <div class="filter-card">
+      <label for="searchBox" style="font-weight:800;font-size:12px;color:#475569">Search</label>
+      <input id="searchBox" type="search" placeholder="Search resources..." />
+    </div>
+  </div>
+
+  <div class="note">
+    Only open or officially provided resources are listed here. For copyrighted textbooks, use official portals or licensed libraries.
+  </div>
+
+  <div class="filters">
+    <div class="filter-card">
+      <div style="font-weight:800;font-size:12px;color:#475569">ePathshala Catalog</div>
+      <button class="btn primary" id="loadEpathshalaBtn" type="button">Load eTextbooks</button>
+      <button class="btn secondary" id="loadEpathshalaHiBtn" type="button">Hindi</button>
+      <button class="btn secondary" id="loadEpathshalaEnBtn" type="button">English</button>
+    </div>
+    <div class="filter-card">
+      <label for="epathshalaSearch" style="font-weight:800;font-size:12px;color:#475569">Search ePathshala</label>
+      <input id="epathshalaSearch" type="search" placeholder="Search in ePathshala list..." />
+    </div>
+  </div>
+
+  <div class="grid" id="epathshalaGrid"></div>
+
+  <div class="grid" id="grid"></div>
+
+  <script>
+  const resources = [
+    {
+      name: "ePathshala (NCERT eTextbooks)",
+      url: "https://epathshala.gov.in/",
+      desc: "Official NCERT digital textbooks, flipbooks, audio/video resources. Hindi + English.",
+      langs: ["hi","en"],
+      classes: [1,2,3,4,5,6,7,8,9,10,11,12],
+      subjects: ["textbooks","science","social","math","literature","general"],
+      tags: ["NCERT", "Official"]
+    },
+    {
+      name: "DIKSHA Digital Textbooks",
+      url: "https://diksha.gov.in/",
+      desc: "Government learning platform with digital textbooks and resources across subjects.",
+      langs: ["hi","en"],
+      classes: [1,2,3,4,5,6,7,8,9,10,11,12],
+      subjects: ["textbooks","science","social","math","literature","general"],
+      tags: ["Govt", "Digital Textbooks"]
+    },
+    {
+      name: "NDLI (National Digital Library of India)",
+      url: "https://www.ndl.gov.in/",
+      desc: "Large national digital library with searchable resources across subjects and classes.",
+      langs: ["hi","en"],
+      classes: [1,2,3,4,5,6,7,8,9,10,11,12],
+      subjects: ["general","literature","science","social","math"],
+      tags: ["National Library"]
+    },
+    {
+      name: "NCERT Official Site",
+      url: "https://www.ncert.nic.in/",
+      desc: "NCERT official site with curriculum frameworks and educational resources.",
+      langs: ["hi","en"],
+      classes: [1,2,3,4,5,6,7,8,9,10,11,12],
+      subjects: ["general","textbooks"],
+      tags: ["NCERT"]
+    },
+    {
+      name: "Project Gutenberg (Literature)",
+      url: "https://www.gutenberg.org/",
+      desc: "Public-domain literature library. Great for English reading.",
+      langs: ["en"],
+      classes: [6,7,8,9,10,11,12],
+      subjects: ["literature"],
+      tags: ["Public Domain"]
+    },
+    {
+      name: "Open Library",
+      url: "https://openlibrary.org/",
+      desc: "Online library with millions of books (availability varies).",
+      langs: ["en"],
+      classes: [6,7,8,9,10,11,12],
+      subjects: ["general","literature","science","social"],
+      tags: ["Online Library"]
+    },
+    {
+      name: "OpenStax (Free Textbooks)",
+      url: "https://openstax.org/",
+      desc: "Free, open textbooks (mostly higher classes).",
+      langs: ["en"],
+      classes: [11,12],
+      subjects: ["textbooks","science","math","social"],
+      tags: ["Open Textbook"]
+    }
+  ];
+
+  const grid = document.getElementById("grid");
+  const epathshalaGrid = document.getElementById("epathshalaGrid");
+  const classFilter = document.getElementById("classFilter");
+  const langFilter = document.getElementById("langFilter");
+  const subjectFilter = document.getElementById("subjectFilter");
+  const searchBox = document.getElementById("searchBox");
+  const epathshalaSearch = document.getElementById("epathshalaSearch");
+  const LIBRARY_API = localStorage.getItem("libraryApiBaseUrl")
+    || `${window.location.protocol}//${window.location.hostname}:5001`;
+  let epathshalaBooks = [];
+
+  function render(){
+    const cls = classFilter.value;
+    const lang = langFilter.value;
+    const subj = subjectFilter.value;
+    const q = searchBox.value.trim().toLowerCase();
+
+    const filtered = resources.filter(r => {
+      if (cls !== "all" && !r.classes.includes(Number(cls))) return false;
+      if (lang !== "all" && !r.langs.includes(lang)) return false;
+      if (subj !== "all" && !r.subjects.includes(subj)) return false;
+      if (q && !(r.name.toLowerCase().includes(q) || r.desc.toLowerCase().includes(q))) return false;
+      return true;
+    });
+
+    grid.innerHTML = filtered.map(r => `
+      <div class="card">
+        <div class="chips">
+          ${r.tags.map(t => `<span class="chip">${t}</span>`).join("")}
+        </div>
+        <h3>${r.name}</h3>
+        <p>${r.desc}</p>
+        <div class="tags">
+          ${r.subjects.map(s => `<span class="tag">${s}</span>`).join("")}
+          ${r.langs.map(l => `<span class="tag">${l === "hi" ? "Hindi" : "English"}</span>`).join("")}
+        </div>
+        <div class="actions">
+          <a class="btn primary" href="${r.url}" target="_blank" rel="noopener">Open</a>
+          <a class="btn secondary" href="${r.url}" target="_blank" rel="noopener">Read Online</a>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  render();
+
+  function normalizeStr(v){
+    return String(v || "").trim();
+  }
+
+  function guessLink(item){
+    return item.pdf || item.pdf_url || item.download_url || item.bookurl || item.url || item.link || "";
+  }
+
+  function guessTitle(item){
+    return item.title || item.booktitle || item.book_title || item.name || item.textbook_name || "Untitled";
+  }
+
+  function guessLang(item){
+    return item.language || item.lang || item.ln || "";
+  }
+
+  function renderEpathshala(){
+    const q = normalizeStr(epathshalaSearch.value).toLowerCase();
+    if (!epathshalaBooks.length) {
+      epathshalaGrid.innerHTML = `
+        <div class="card">
+          <h3>No ePathshala data loaded</h3>
+          <p>Click “Load eTextbooks” above (English or Hindi), then search.</p>
+        </div>`;
+      return;
+    }
+    const list = epathshalaBooks.filter(b => {
+      if (!q) return true;
+      return (
+        normalizeStr(b.title).toLowerCase().includes(q) ||
+        normalizeStr(b.subject).toLowerCase().includes(q) ||
+        normalizeStr(b.class_name).toLowerCase().includes(q)
+      );
+    });
+
+    epathshalaGrid.innerHTML = list.map(b => `
+      <div class="card">
+        <div class="chips">
+          <span class="chip">ePathshala</span>
+          ${b.class_name ? `<span class="chip">${b.class_name}</span>` : ""}
+          ${b.lang ? `<span class="chip">${b.lang}</span>` : ""}
+        </div>
+        <h3>${b.title}</h3>
+        <p>${b.subject || "Textbook"}</p>
+        <div class="actions">
+          ${b.url ? `<a class="btn primary" href="${b.url}" target="_blank" rel="noopener">Open</a>` : ""}
+          <a class="btn secondary" href="https://epathshala.gov.in/" target="_blank" rel="noopener">Open ePathshala</a>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  async function loadEpathshala(lang){
+    const ln = lang || "en";
+    // ePathshala blocks embedding. Open in a new tab instead.
+    const direct = `https://epathshala.gov.in/process.php?id=students&type=eTextbooks&ln=${encodeURIComponent(ln)}`;
+    window.open(direct, "_blank", "noopener");
+    epathshalaGrid.innerHTML = `
+      <div class="card" style="grid-column:1/-1;">
+        <h3>ePathshala opened in a new tab</h3>
+        <p>ePathshala blocks embedding inside other websites. Please use the new tab to browse and read books.</p>
+      </div>
+    `;
+    epathshalaBooks = [];
+  }
+
+  [classFilter, langFilter, subjectFilter, searchBox].forEach(el => {
+    el.addEventListener("input", render);
+    el.addEventListener("change", render);
+  });
+  document.getElementById("loadEpathshalaBtn").addEventListener("click", () => loadEpathshala("en"));
+  document.getElementById("loadEpathshalaEnBtn").addEventListener("click", () => loadEpathshala("en"));
+  document.getElementById("loadEpathshalaHiBtn").addEventListener("click", () => loadEpathshala("hi"));
+  epathshalaSearch.addEventListener("input", renderEpathshala);
+  renderEpathshala();
+  </script>
+</body>
+</html>
