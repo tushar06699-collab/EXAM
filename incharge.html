@@ -89,7 +89,9 @@ tr:nth-child(even){
     <label>Session:</label>
     <select id="sessionSelect" onchange="loadPage()"></select>
 
-    <br><br>
+    <div style="margin:12px 0;display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn" onclick="autoAssignIncharge()">Auto Assign Incharge (Period 1)</button>
+    </div>
 
     <table>
         <thead>
@@ -124,6 +126,20 @@ function legacyNormalizeClassName(raw){
     return normalizeClassName(raw).replace(/\s+[AB]$/i, "");
 }
 
+function pickTeacherFromPeriod1Rows(rows){
+    if (!Array.isArray(rows) || !rows.length) return "";
+    const weekDays = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    for (const row of rows) {
+        for (const d of weekDays) {
+            const v = String(row?.[d] || "").trim();
+            if (!v || !v.includes(" - ")) continue;
+            const teacher = String(v.split(" - ")[0] || "").trim();
+            if (teacher) return teacher;
+        }
+    }
+    return "";
+}
+
 function normalizeSessionList(raw){
     const arr = Array.isArray(raw) ? raw : [];
     return arr.map(s => {
@@ -151,10 +167,11 @@ async function loadSessions() {
     let data = await res.json();
     const sessions = normalizeSessionList(data.sessions);
 
-    // FORCE_LATEST_SESSION
+    // Only default to latest if nothing is saved yet.
     if (Array.isArray(data.sessions) && data.sessions.length) {
         const latest = data.sessions[data.sessions.length - 1];
-        if (latest) {
+        const savedSession = localStorage.getItem('session');
+        if (!savedSession && latest) {
             localStorage.setItem('session', latest);
         }
     }
@@ -189,15 +206,25 @@ async function loadPage() {
         // Fetch teacher list for selector
         let teacherNames = [];
         try{
-            const resTeachers = await fetch(`${EXAM_API}/teacher/list?session=${encodeURIComponent(session)}`);
-            const tData = await resTeachers.json().catch(() => ({}));
-            const tRows = Array.isArray(tData?.teachers) ? tData.teachers : (Array.isArray(tData) ? tData : []);
-            teacherNames = [...new Set(tRows.map(t => String(t.name || t.teacher_name || "").trim()).filter(Boolean))];
-            teacherNames.sort((a,b) => a.localeCompare(b, undefined, { sensitivity:"base" }));
+            // Prefer student backend teachers (source of truth for staff list)
+            const sRes = await fetch(`${STUDENT_API}/teachers?session=${encodeURIComponent(session)}`);
+            const sData = await sRes.json().catch(() => ({}));
+            const sRows = Array.isArray(sData) ? sData : (Array.isArray(sData?.teachers) ? sData.teachers : []);
+            teacherNames = [...new Set(sRows.map(t => String(t.teacher_name || t.name || "").trim()).filter(Boolean))];
         }catch(_){
             teacherNames = [];
         }
-        // Only use teachers from current session; removed fallbacks to prevent deleted teachers showing up.
+        if(!teacherNames.length){
+            try{
+                const resTeachers = await fetch(`${EXAM_API}/teacher/list?session=${encodeURIComponent(session)}`);
+                const tData = await resTeachers.json().catch(() => ({}));
+                const tRows = Array.isArray(tData?.teachers) ? tData.teachers : (Array.isArray(tData) ? tData : []);
+                teacherNames = [...new Set(tRows.map(t => String(t.name || t.teacher_name || "").trim()).filter(Boolean))];
+            }catch(_){
+                teacherNames = [];
+            }
+        }
+        teacherNames.sort((a,b) => a.localeCompare(b, undefined, { sensitivity:"base" }));
 
         // Fetch students for session
         let resStudents = await fetch(`${STUDENT_API}/students?session=${session}`);
@@ -255,6 +282,58 @@ async function loadPage() {
     } catch(err){
         console.error("Error loading page:", err);
         tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:red;">Error loading</td></tr>`;
+    }
+}
+
+async function autoAssignIncharge(){
+    const session = document.getElementById("sessionSelect").value;
+    if (!session) {
+        alert("Select session first");
+        return;
+    }
+
+    const tbody = document.getElementById("inchargeTable");
+    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Assigning...</td></tr>`;
+
+    try{
+        let resStudents = await fetch(`${STUDENT_API}/students?session=${encodeURIComponent(session)}`);
+        let students = await resStudents.json();
+        if(!Array.isArray(students)) students = students.students || students || [];
+        const classes = [...new Set(students.map(s => normalizeClassName(s.class_name ?? s.class)).filter(Boolean))];
+
+        let success = 0;
+        let skipped = 0;
+        let failed = 0;
+
+        for (const cls of classes) {
+            try{
+                const res = await fetch(`${EXAM_API}/timetable/classwise?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}`);
+                const data = await res.json().catch(()=>({}));
+                const rows = Array.isArray(data.timetable) ? data.timetable : [];
+                const period1Rows = rows.filter(item => Number(item.period) === 1);
+                const teacher = pickTeacherFromPeriod1Rows(period1Rows);
+                if (!teacher) { skipped += 1; continue; }
+                const r = await fetch(`${EXAM_API}/incharge/set`, {
+                    method: "POST",
+                    headers: { "Content-Type":"application/json" },
+                    body: JSON.stringify({
+                        session,
+                        class_name: normalizeClassName(cls),
+                        incharge: teacher
+                    })
+                });
+                if (r.ok) success += 1; else failed += 1;
+            }catch(_e){
+                failed += 1;
+            }
+        }
+
+        alert(`Auto assign complete: Saved ${success}, Skipped ${skipped}, Failed ${failed}`);
+        loadPage();
+    }catch(e){
+        console.error(e);
+        alert("Auto assign failed.");
+        loadPage();
     }
 }
 

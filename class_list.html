@@ -122,20 +122,22 @@ async function loadSession() {
         let data = await res.json();
         const sessions = normalizeSessionList(data.sessions);
 
-    // FORCE_LATEST_SESSION
-    if (Array.isArray(data.sessions) && data.sessions.length) {
-        const latest = data.sessions[data.sessions.length - 1];
-        if (latest) {
-            localStorage.setItem('session', latest);
+        // Only default to latest if nothing is saved yet.
+        if (Array.isArray(data.sessions) && data.sessions.length) {
+            const latest = data.sessions[data.sessions.length - 1];
+            const savedSession = localStorage.getItem('session');
+            if (!savedSession && latest) {
+                localStorage.setItem('session', latest);
+            }
         }
-    }
         if (!sessions.length) {
             document.getElementById("currentSession").innerText = "No sessions found!";
             return;
         }
 
-        // Use LAST session (latest added)
-        CURRENT_SESSION = sessions[sessions.length - 1];
+        // Use saved session if present; otherwise latest
+        const saved = localStorage.getItem('session');
+        CURRENT_SESSION = (saved && sessions.includes(saved)) ? saved : sessions[sessions.length - 1];
 
         document.getElementById("currentSession").innerText =
             "Current Session: " + CURRENT_SESSION;
@@ -228,50 +230,12 @@ async function loadClasses() {
             return map[legacy] || "";
         };
 
-        const fetchTeacherFromTimetable = async (cls) => {
-            const variants = [...new Set([String(cls || "").trim(), normalizeClass(cls), legacyNormalizeClass(cls)])].filter(Boolean);
-            for (const className of variants) {
-                try {
-                    const tRes = await fetch(`${EXAM_API}/timetable/classwise?session=${encodeURIComponent(CURRENT_SESSION)}&class_name=${encodeURIComponent(className)}`);
-                    if (!tRes.ok) continue;
-                    const tData = await safeJson(tRes);
-                    const rows = Array.isArray(tData?.timetable) ? tData.timetable : [];
-                    const period1Rows = rows.filter(item => Number(item?.period) === 1);
-                    const teacher = pickTeacherFromPeriod1Rows(period1Rows);
-                    if (teacher) return teacher;
-                } catch (_e) {
-                    // try next variant
-                }
-            }
-            return "";
-        };
-
         const resolvedTeachers = await Promise.all(uniqueClasses.map(async (cls) => {
             const normalized = normalizeClass(cls);
             const mappedTeacher = getMappedTeacher(cls);
-            const timetableTeacher = await fetchTeacherFromTimetable(cls);
-
-            // Prefer timetable-derived teacher so stale manual entries get corrected.
-            const teacher = timetableTeacher || mappedTeacher;
+            // Show only saved incharge; do not infer from timetable.
+            const teacher = mappedTeacher;
             if (!teacher) return "Not Assigned";
-
-            // Persist/refresh when derived value differs from stored map.
-            if (timetableTeacher && timetableTeacher !== mappedTeacher) {
-                map[normalized] = timetableTeacher;
-                try {
-                    await fetch(`${EXAM_API}/incharge/set`, {
-                        method: "POST",
-                        headers: { "Content-Type":"application/json" },
-                        body: JSON.stringify({
-                            session: CURRENT_SESSION,
-                            class_name: normalized,
-                            incharge: timetableTeacher
-                        })
-                    });
-                } catch (_e) {
-                    // no-op: UI still shows resolved teacher
-                }
-            }
             return teacher;
         }));
 

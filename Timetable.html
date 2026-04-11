@@ -235,22 +235,78 @@ async function loadSessions() {
 async function loadTeachers() {
     try {
         const session = sessionSelect.value || "2024_25";
+        const normalizeName = (v) => String(v || "").trim().toLowerCase();
+        const normalizeTeacherCode = (v) => {
+            const txt = String(v || "").trim();
+            if (!txt) return "";
+            const digits = txt.replace(/\D/g, "");
+            return digits ? digits.padStart(4, "0").slice(-4) : "";
+        };
+
+        const fetchExamTeachers = async () => {
+            const res = await fetch(`${EXAM_API}/teacher/list?session=${encodeURIComponent(session)}`);
+            const data = await res.json().catch(() => ({}));
+            return Array.isArray(data.teachers) ? data.teachers : [];
+        };
+
+        let examTeachers = await fetchExamTeachers();
+
+        let studentTeachers = [];
+        try{
+            const sRes = await fetch(`${STUDENT_API}/teachers?session=${encodeURIComponent(session)}`);
+            const sData = await sRes.json().catch(()=>({}));
+            studentTeachers = Array.isArray(sData) ? sData : (Array.isArray(sData.teachers) ? sData.teachers : []);
+        }catch(e){
+            studentTeachers = [];
+        }
+
+        if (studentTeachers.length) {
+            const examByName = new Map();
+            examTeachers.forEach(t => {
+                const key = normalizeName(t.name || t.teacher_name || "");
+                if (key) examByName.set(key, t);
+            });
+
+            for (const sRow of studentTeachers) {
+                const name = String(sRow.teacher_name || sRow.name || "").trim();
+                const key = normalizeName(name);
+                if (!key || examByName.has(key)) continue;
+                try{
+                    const teacherCode = normalizeTeacherCode(sRow.teacher_code || sRow.teacher_id || sRow.employee_id);
+                    const username = String(sRow.employee_id || sRow.teacher_code || name).trim().toUpperCase().replace(/\s+/g,"");
+                    const dob = String(sRow.dob || sRow.date_of_birth || "").trim();
+                    const password = dob ? `${username}@${dob}` : `${username}@0000`;
+                    const payload = {
+                        session,
+                        username,
+                        password,
+                        name,
+                        teacher_id: teacherCode
+                    };
+                    const addRes = await fetch(`${EXAM_API}/teacher/add`, {
+                        method:"POST",
+                        headers:{"Content-Type":"application/json"},
+                        body: JSON.stringify(payload)
+                    });
+                    const addData = await addRes.json().catch(()=>({}));
+                    if(addRes.ok && addData && addData.success){
+                        examByName.set(key, { name });
+                    }
+                }catch(e){}
+            }
+            examTeachers = await fetchExamTeachers();
+        }
+
         // Prefer teachers who actually have timetables in this session
         const ttRes = await fetch(`${EXAM_API}/timetable/teachers?session=${encodeURIComponent(session)}`);
         const ttData = await ttRes.json().catch(()=>({}));
         const ttTeachers = Array.isArray(ttData.teachers) ? ttData.teachers : [];
-        if (ttTeachers.length) {
-            teacherSelect.innerHTML = ttTeachers.map(t=>`<option value="${t.id}">${t.name || t.id}</option>`).join("");
-            teacherNote.textContent = "Showing teachers from timetable entries.";
-            return;
-        }
+        teacherNote.textContent = ttTeachers.length ? "Showing all teachers (including those with timetables)." : "";
 
-        const res = await fetch(`${EXAM_API}/teacher/list?session=${session}`);
-        const data = await res.json();
-        const teachers = Array.isArray(data.teachers) ? data.teachers : [];
-        if (teachers.length) {
-            teacherSelect.innerHTML = teachers.map(t=>`<option value="${t.id}">${t.name}</option>`).join("");
-            teacherNote.textContent = "";
+        if (examTeachers.length) {
+            teacherSelect.innerHTML = examTeachers
+                .map(t=>`<option value="${t.id}">${t.name || t.teacher_name || t.id}</option>`)
+                .join("");
             return;
         }
 
@@ -262,9 +318,9 @@ async function loadTeachers() {
         }
 
         const prevRes = await fetch(`${EXAM_API}/teacher/list?session=${prevSession}`);
-        const prevData = await prevRes.json();
+        const prevData = await prevRes.json().catch(()=>({}));
         const prevTeachers = Array.isArray(prevData.teachers) ? prevData.teachers : [];
-        teacherSelect.innerHTML = prevTeachers.map(t=>`<option value="${t.id}">${t.name}</option>`).join("");
+        teacherSelect.innerHTML = prevTeachers.map(t=>`<option value="${t.id}">${t.name || t.teacher_name || t.id}</option>`).join("");
         teacherNote.textContent = prevTeachers.length
             ? `No teachers in ${session}. Showing teachers from ${prevSession}.`
             : "No teachers found for current or previous session.";
@@ -511,7 +567,6 @@ document.getElementById("saveBtn").onclick = async ()=>{
     const teacherId = teacherSelect.value;
     const session = sessionSelect.value;
     const timetable = [];
-    const periodOneClasses = new Set();
     const teacherName = teacherSelect.options[teacherSelect.selectedIndex]?.text?.trim() || "";
 
     document.querySelectorAll('tbody tr[data-period]').forEach(row=>{
@@ -545,9 +600,6 @@ if(selClass.value.includes("COMBINED") && match){
             periodData[day] = (idx+1>=startDay && idx+1<=endDay) ? subjSel.value : "";
         });
         timetable.push(periodData);
-        if (periodNum === 1) {
-            periodOneClasses.add(normalizeClassName(className));
-        }
     });
 });
     
@@ -559,18 +611,6 @@ if(selClass.value.includes("COMBINED") && match){
             body:JSON.stringify({session, teacher_id:teacherId, timetable})
         });
         const data = await res.json();
-        if (res.ok && teacherName && periodOneClasses.size) {
-            const jobs = [...periodOneClasses].map(className => fetch(`${EXAM_API}/incharge/set`, {
-                method: "POST",
-                headers: {"Content-Type":"application/json"},
-                body: JSON.stringify({
-                    session,
-                    class_name: className,
-                    incharge: teacherName
-                })
-            }).catch(() => null));
-            await Promise.all(jobs);
-        }
         alert(data.message || "Saved successfully!");
         const existing = await loadExistingTimetable();
         await generateRows(existing);
