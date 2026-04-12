@@ -496,6 +496,26 @@ async function verifyOtp(){
 }
 
 generateCaptcha();
+
+// Auto-login for mobile app (standalone/TWA) if already logged in
+(function autoLoginIfApp(){
+    try{
+        const role = String(localStorage.getItem("role") || "").toLowerCase();
+        const token = localStorage.getItem("token");
+        if(!role || !token) return;
+        const isStandalone = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
+        const ua = navigator.userAgent || "";
+        const isAndroidWebView = /Android/i.test(ua) && /wv|Version\\/.*Chrome/i.test(ua);
+        const isTwa = /TWA|TrustedWebActivity/i.test(ua);
+        const isApp = isStandalone || isAndroidWebView || isTwa;
+        if(!isApp) return;
+
+        if(role === "admin") { window.location.href = "dashboard.html"; return; }
+        if(role === "principal") { window.location.href = "principal_dashboard.html"; return; }
+        if(role === "teacher") { window.location.href = "teacher_dashboard.html"; return; }
+        if(role === "student") { window.location.href = "student_portal.html"; return; }
+    }catch(_e){}
+})();
 </script>
 
 </body>
