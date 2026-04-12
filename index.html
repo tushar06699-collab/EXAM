@@ -177,7 +177,7 @@ body::before{
         <button type="button" class="toggle-pass" onclick="togglePassword()">👁️</button>
     </div>
     <div class="captcha-row">
-        <div id="captchaText" class="captcha-box"></div>
+        <div id="captchaText" class="captcha-box">------</div>
         <button class="mini-btn" type="button" onclick="generateCaptcha()">↻</button>
     </div>
     <input id="captchaInput" placeholder="Enter Captcha" autocomplete="off">
@@ -246,6 +246,12 @@ function generateCaptcha(){
     currentCaptcha = out;
     captchaText.textContent = out;
 }
+
+window.generateCaptcha = generateCaptcha;
+
+setTimeout(() => {
+    try{ generateCaptcha(); }catch(_e){}
+}, 200);
 
 function togglePassword(){
     const passEl = document.getElementById("pass");
@@ -513,7 +519,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if(!role || !token) return;
         const isStandalone = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
         const ua = navigator.userAgent || "";
-        const isAndroidWebView = /Android/i.test(ua) && /wv|Version\\/.*Chrome/i.test(ua);
+        const isAndroidWebView = /Android/i.test(ua) && new RegExp("wv|Version/.*Chrome","i").test(ua);
         const isTwa = /TWA|TrustedWebActivity/i.test(ua);
         const isApp = isStandalone || isAndroidWebView || isTwa;
         if(!isApp) return;
@@ -528,6 +534,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
 </body>
 </html>
+
+
+
+
+
+
 
 
 
