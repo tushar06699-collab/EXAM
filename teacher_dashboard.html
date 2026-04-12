@@ -22,6 +22,23 @@ body{
     padding:18px 25px;
     display:flex;
     align-items:center;
+    gap:14px;
+}
+.topbar-title{
+    margin:0;
+    font-size:22px;
+}
+.topbar-spacer{
+    flex:0.3;
+}
+.topbar-logout{
+    background:#e63946;
+    color:#fff;
+    border:none;
+    padding:8px 14px;
+    border-radius:8px;
+    font-weight:600;
+    cursor:pointer;
 }
 
 .menu-btn {
@@ -268,7 +285,9 @@ h3{ font-size:clamp(18px, 2.2vw, 22px); }
 <!-- Topbar -->
 <div class="topbar">
     <span class="menu-btn" onclick="toggleMenu()"></span>
-    <h2 style="margin:0;">Teacher Dashboard</h2>
+    <h2 class="topbar-title">Teacher Dashboard</h2>
+    <div class="topbar-spacer"></div>
+    <button class="topbar-logout" type="button" onclick="logout()">Logout</button>
 </div>
 
 <!-- Sliding Sidebar -->
