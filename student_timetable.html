@@ -214,11 +214,18 @@ function renderTable(data){
         }
 
         days.forEach(day=>{
-            const e = data.find(x=>Number(x.period)===p.num && x[day]);
-            if(e){
-                const [t,s] = e[day].split(" - ");
-                row += `<td class="cell"><b>${s}</b>${t}</td>`;
-            } else row += `<td></td>`;
+            const entries = data.filter(x=>Number(x.period)===p.num && x[day]);
+            if(entries.length){
+                const cell = entries.map(e=>{
+                    const parts = String(e[day] || "").split(" - ");
+                    const t = parts[0] || "";
+                    const s = parts[1] || "";
+                    return `<div class="cell"><b>${s}</b>${t}</div>`;
+                }).join("");
+                row += `<td>${cell}</td>`;
+            } else {
+                row += `<td></td>`;
+            }
         });
 
         row += "</tr>";

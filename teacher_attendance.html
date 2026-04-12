@@ -205,7 +205,9 @@ const sessionSelect = document.getElementById("sessionSelect");
 const classSelect = document.getElementById("classSelect");
 const attendanceDate = document.getElementById("attendanceDate");
 
-const TEACHER_ID = localStorage.getItem("teacher_id");
+function getTeacherId(){
+    return localStorage.getItem("teacher_id_latest") || localStorage.getItem("teacher_id") || "";
+}
 
 function normalizedStudentId(student){
     const raw = student?._id ?? student?.id ?? student?.student_id ?? "";
@@ -233,13 +235,7 @@ async function loadSessions(){
     sessionSelect.innerHTML = `<option value="">Select Session</option>`;
     data.sessions.forEach(s=>{
 
-    // FORCE_LATEST_SESSION
-    if (Array.isArray(data.sessions) && data.sessions.length) {
-        const latest = data.sessions[data.sessions.length - 1];
-        if (latest) {
-            localStorage.setItem('session', latest);
-        }
-    }
+    // Do not overwrite localStorage session in teacher pages
         sessionSelect.innerHTML += `<option value="${s}">${s}</option>`;
     });
 
@@ -250,10 +246,16 @@ async function loadSessions(){
 }
 loadSessions();
 
+// Re-load classes once header latest-session logic settles
+window.addEventListener("load", () => {
+    setTimeout(loadTeacherClasses, 1200);
+});
+
 sessionSelect.addEventListener("change", loadTeacherClasses);
 
 /* ------------------ LOAD TEACHER CLASSES ------------------ */
 async function loadTeacherClasses(){
+    const TEACHER_ID = getTeacherId();
     if(!TEACHER_ID) return;
 
     const session = sessionSelect.value;

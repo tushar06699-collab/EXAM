@@ -168,11 +168,10 @@ async function loadSessions(){
     const data = await res.json();
     sessionSelect.innerHTML = data.sessions.map(s=>`<option>${s}</option>`).join("");
 
-    // FORCE_LATEST_SESSION
+    // Use latest in the selector, but do not overwrite localStorage session
     if (Array.isArray(data.sessions) && data.sessions.length) {
         const latest = data.sessions[data.sessions.length - 1];
         if (latest) {
-            localStorage.setItem('session', latest);
             sessionSelect.value = latest;
         }
     }
@@ -218,6 +217,7 @@ function getClassShortName(cls){
     if (n.includes("art")) return num+" Arts";
     if (n.includes("comm")) return num+" Commerce";
     if (n.includes("sci")) return num+" Science";
+    if (n.includes("non medical") || n.includes("nonmedical")) return num+" Non Medical";
     if (n.includes("med")) return num+" Medical";
     return cls;
 }
@@ -234,13 +234,19 @@ function renderTable(){
         }
         week.forEach(day=>{
             let cell="";
+            const seen = new Set();
             for (let cls of classes){
                 (timetableData[cls]||[])
                     .filter(i=>i.period==periodMap[p] && i[day]?.startsWith(teacherName+" - "))
                     .forEach(i=>{
+                        const subject = i[day].split(" - ")[1] || "";
+                        const label = getClassShortName(cls);
+                        const key = subject + "|" + label;
+                        if(seen.has(key)) return;
+                        seen.add(key);
                         cell+=`<div class="timetable-cell">
-                            <strong>${i[day].split(" - ")[1]}</strong>
-                            <small>${getClassShortName(cls)}</small>
+                            <strong>${subject}</strong>
+                            <small>${label}</small>
                         </div>`;
                     });
             }

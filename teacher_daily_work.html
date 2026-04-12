@@ -99,7 +99,9 @@ button:hover{background:#3730a3;}
 
 <script>
 const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/";
-const TEACHER_ID = localStorage.getItem("teacher_id");
+function getTeacherId(){
+  return localStorage.getItem("teacher_id_latest") || localStorage.getItem("teacher_id") || "";
+}
 const TEACHER_NAME = localStorage.getItem("teacher_name") || "";
 
 const sessionSelect = document.getElementById("sessionSelect");
@@ -116,6 +118,9 @@ window.addEventListener("DOMContentLoaded", () => {
   workDate.value = t.toISOString().split("T")[0];
   workDate.max = workDate.value;
 });
+window.addEventListener("load", () => {
+  setTimeout(loadTeacherClasses, 1200);
+});
 
 async function loadSessions(){
   const res = await fetch(`${EXAM_API}/session/list`);
@@ -124,11 +129,10 @@ async function loadSessions(){
   (data.sessions || []).forEach(s => {
     sessionSelect.innerHTML += `<option value="${s}">${s}</option>`;
   });
-  // FORCE_LATEST_SESSION
+  // Use latest in the selector, but do not overwrite localStorage session
   if (Array.isArray(data.sessions) && data.sessions.length) {
       const latest = data.sessions[data.sessions.length - 1];
       if (latest) {
-          localStorage.setItem('session', latest);
           sessionSelect.value = latest;
       }
   }
@@ -138,6 +142,7 @@ async function loadSessions(){
 }
 
 async function loadTeacherClasses(){
+  const TEACHER_ID = getTeacherId();
   if(!TEACHER_ID) return;
   const session = sessionSelect.value;
   const res = await fetch(`${EXAM_API}/timetable/get?session=${encodeURIComponent(session)}&teacher_id=${encodeURIComponent(TEACHER_ID)}`);
@@ -158,6 +163,7 @@ async function loadSubjects(){
   const session = sessionSelect.value;
   const cls = classSelect.value;
   subjectSelect.innerHTML = `<option value="">Select Subject</option>`;
+  const TEACHER_ID = getTeacherId();
   if(!session || !cls || !TEACHER_ID) return;
   try{
     const res = await fetch(`${EXAM_API}/timetable/get?session=${encodeURIComponent(session)}&teacher_id=${encodeURIComponent(TEACHER_ID)}`);
@@ -193,6 +199,7 @@ async function loadExistingWork(){
   const cls = classSelect.value;
   const date = workDate.value;
   workText.value = "";
+  const TEACHER_ID = getTeacherId();
   if(!session || !cls || !date || !TEACHER_ID) return;
   const subject = subjectSelect.value.trim();
   if(!subject) return;

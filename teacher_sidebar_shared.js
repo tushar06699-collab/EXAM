@@ -3,10 +3,12 @@
     localStorage.getItem('examApiBaseUrl') || 'https://exam-backend-117372286918.asia-south1.run.app'
   ).replace(/\/+$/, '');
   var STUDENT_API_CANDIDATES = [
+    (localStorage.getItem('studentApiBaseUrl') || '').replace(/\/+$/, ''),
     'https://student-backend-117372286918.asia-south1.run.app',
     'http://127.0.0.1:8080'
-  ];
-  var CLOUDINARY_TEACHER_BASE = 'https://res.cloudinary.com/djq1jjet6/image/upload/school_teachers/';
+  ].filter(Boolean);
+  var CLOUDINARY_ROOT = 'https://res.cloudinary.com/djq1jjet6/image/upload/';
+  var CLOUDINARY_TEACHER_BASE = CLOUDINARY_ROOT + 'school_teachers/';
   var DEFAULT_AVATAR = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='260'%3E%3Crect width='100%25' height='100%25' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%236b7280' font-size='18'%3ENo%20Photo%3C/text%3E%3C/svg%3E";
 
   function escHtml(v){
@@ -18,10 +20,26 @@
     var raw = String(v || '').trim();
     if(!raw) return '';
     if(/^https?:\/\//i.test(raw) || /^data:/i.test(raw) || /^blob:/i.test(raw)) return raw;
-    return CLOUDINARY_TEACHER_BASE + raw.replace(/^\/+/, '');
+    var cleaned = raw.replace(/^\/+/, '');
+    if(/^(v\d+\/)?school_teachers\//i.test(cleaned)){
+      return CLOUDINARY_ROOT + cleaned;
+    }
+    return CLOUDINARY_TEACHER_BASE + cleaned;
+  }
+  function safePhotoUrl(v){
+    var url = resolvePhotoUrl(v);
+    if(!url || /\/school_teachers\/?$/.test(url)) return '';
+    return url;
   }
   function norm(v){ return String(v || '').trim().toUpperCase(); }
+  function normLoose(v){ return String(v || '').trim().toUpperCase().replace(/[^A-Z0-9]+/g,''); }
   function code4(v){ return String(v || '').replace(/\D/g,'').padStart(4,'0').slice(-4); }
+  function sessionRank(s, orderMap){
+    var key = String(s || '').trim();
+    if(orderMap && orderMap.has(key)) return orderMap.get(key);
+    var m = key.match(/^(\d+)_/);
+    return m ? parseInt(m[1],10) : -1;
+  }
   function currentPage(){
     return (location.pathname.split('/').pop() || '').toLowerCase();
   }
@@ -91,8 +109,16 @@
     var strip = document.createElement('div');
     strip.id = 'teacherProfileInline';
     strip.className = 'teacher-profile-inline';
+    var cached = localStorage.getItem('teacher_photo_url') || '';
+    var domPhoto = '';
+    var dashImg = document.getElementById('teacherPhoto');
+    if(dashImg && dashImg.src){
+      domPhoto = dashImg.src;
+    }
+    var resolvedSrc = resolvePhotoUrl(profile.photo_url || cached || domPhoto);
+    var safeSrc = resolvedSrc || DEFAULT_AVATAR;
     strip.innerHTML =
-      '<img class="tp-avatar" src="' + escHtml(resolvePhotoUrl(profile.photo_url) || DEFAULT_AVATAR) + '" onerror="this.onerror=null;this.src=\'' + DEFAULT_AVATAR + '\';">' +
+      '<img class="tp-avatar" src="' + escHtml(safeSrc) + '" onerror="this.onerror=null;this.src=\'' + DEFAULT_AVATAR + '\';">' +
       '<div class="tp-meta">' +
       '<div class="tp-name">' + escHtml(profile.name || 'Teacher') + '</div>' +
       '<div class="tp-sub">ID: ' + escHtml(profile.teacher_code || '-') + '</div>' +
@@ -101,6 +127,14 @@
       strip.style.right = '16px';
     }
     host.appendChild(strip);
+    // Force-apply cached photo if available (covers timing issues)
+    try{
+      var cachedNow = localStorage.getItem('teacher_photo_url') || '';
+      if(cachedNow){
+        var imgEl = strip.querySelector('.tp-avatar');
+        if(imgEl) imgEl.src = cachedNow;
+      }
+    }catch(_e){}
   }
 
   function injectDashboardProfile(profile){
@@ -113,16 +147,7 @@
     var teacherUsername = localStorage.getItem('teacher_username') || '';
     var teacherSession = localStorage.getItem('session') || '';
 
-    try{
-      var sRes = await fetchJson(EXAM_API + '/session/list');
-      if(sRes && Array.isArray(sRes.sessions) && sRes.sessions.length){
-        var latest = sRes.sessions[sRes.sessions.length - 1];
-        if(latest){
-          teacherSession = latest;
-          localStorage.setItem('session', latest);
-        }
-      }
-    }catch(_e){}
+    // Do not override session here; use saved session from login/localStorage.
 
     var examTeacher = null;
     if(teacherId){
@@ -142,23 +167,77 @@
     var sName = norm(profile.name);
 
     var rows = [];
-    for(var i=0;i<STUDENT_API_CANDIDATES.length;i++){
-      var base = STUDENT_API_CANDIDATES[i];
-      var data = await fetchJson(base + '/teachers?session=' + encodeURIComponent(profile.session || ''));
-      rows = Array.isArray(data) ? data : (data && Array.isArray(data.teachers) ? data.teachers : []);
-      if(rows.length) break;
+    var latestSession = '';
+    try{
+      var sRes = await fetchJson(EXAM_API + '/session/list');
+      var sessions = sRes && Array.isArray(sRes.sessions) ? sRes.sessions : [];
+      if(sessions.length){
+        latestSession = String(sessions[sessions.length - 1] || '');
+        profile.session = latestSession;
+      }
+    }catch(_e){}
+    if(latestSession){
+      for(var i=0;i<STUDENT_API_CANDIDATES.length;i++){
+        var base = STUDENT_API_CANDIDATES[i];
+        var data = await fetchJson(base + '/teachers?session=' + encodeURIComponent(latestSession));
+        rows = Array.isArray(data) ? data : (data && Array.isArray(data.teachers) ? data.teachers : []);
+        if(rows.length) break;
+      }
     }
 
     if(rows.length){
-      var match = rows.find(function(t){ return code4(t.teacher_code) === sCode; }) ||
-                  rows.find(function(t){ return norm(t.employee_id) === sUser; }) ||
-                  rows.find(function(t){ return norm(t.teacher_name) === sName; });
-      if(match){
-        profile.photo_url = resolvePhotoUrl(match.photo_url);
+      var matches = rows.filter(function(t){
+        return (code4(t.teacher_code) === sCode) ||
+               (norm(t.employee_id) === sUser) ||
+               (norm(t.teacher_name) === sName) ||
+               (norm(t.name) === sName) ||
+               (normLoose(t.teacher_name) === normLoose(sName)) ||
+               (normLoose(t.name) === normLoose(sName));
+      });
+      if(matches.length){
+        var match = matches[0];
+        var photo = match.photo_url || match.photo || match.photo_path || match.photo_filename || '';
+        profile.photo_url = resolvePhotoUrl(photo) || '';
+        try{
+          if(profile.photo_url){
+            localStorage.setItem('teacher_photo_url', profile.photo_url);
+          }else{
+            localStorage.removeItem('teacher_photo_url');
+          }
+        }catch(_e){}
         if(!profile.teacher_code) profile.teacher_code = match.teacher_code || '';
+        if(match.session) profile.session = match.session;
+      }else{
+        try{ localStorage.removeItem('teacher_photo_url'); }catch(_e){}
       }
+    }else{
+      try{ localStorage.removeItem('teacher_photo_url'); }catch(_e){}
     }
     return profile;
+  }
+
+  async function resolveLatestTeacherId(profile){
+    if(!profile || !profile.session) return;
+    try{
+      var list = await fetchJson(EXAM_API + '/teacher/list?session=' + encodeURIComponent(profile.session));
+      var rows = list && Array.isArray(list.teachers) ? list.teachers : [];
+      if(!rows.length) return;
+      var tName = norm(profile.name);
+      var tUser = norm(profile.username);
+      var tCode = code4(profile.teacher_code);
+      var rawId = String(localStorage.getItem('teacher_id') || '').trim();
+      var by = rows.find(function(t){ return code4(t.teacher_id) === tCode && tCode; }) ||
+               rows.find(function(t){ return norm(t.username) === tUser && tUser; }) ||
+               rows.find(function(t){ return norm(t.name) === tName && tName; });
+      if(!by && rawId){
+        by = rows.find(function(t){ return String(t.id || '') === rawId; }) ||
+             rows.find(function(t){ return code4(t.teacher_id) === code4(rawId); });
+      }
+      if(by && by.id){
+        localStorage.setItem('teacher_id_latest', String(by.id));
+        localStorage.setItem('teacher_latest_session', String(profile.session));
+      }
+    }catch(_e){}
   }
 
   var sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar');
@@ -288,6 +367,16 @@
     var profile = await resolveTeacherProfile();
     injectHeaderProfile(profile);
     injectDashboardProfile(profile);
+    resolveLatestTeacherId(profile);
+    // Re-apply header photo after dashboard caches it.
+    setTimeout(function(){
+      var cached = localStorage.getItem('teacher_photo_url') || '';
+      var img = document.querySelector('#teacherProfileInline .tp-avatar');
+      if(!img) return;
+      if(cached && img.src !== cached){
+        img.src = cached;
+      }
+    }, 800);
   })();
 
   closeMenu();

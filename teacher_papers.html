@@ -116,7 +116,9 @@ function toggleSidebar(){
 const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/";
 const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app/";
 
-const TEACHER_ID = localStorage.getItem("teacher_id"); // teacher login id
+function getTeacherId(){
+    return localStorage.getItem("teacher_id_latest") || localStorage.getItem("teacher_id") || "";
+}
 let TEACHER_CLASSES = {}; // {className: [subject1, subject2]}
 let EXAMS = [];
 let EXAM_DETAILS = {};
@@ -130,13 +132,7 @@ async function loadSessions() {
         const data = await res.json();
         sessionSelect.innerHTML = data.sessions.map(s => `<option>${s}</option>`).join("");
 
-    // FORCE_LATEST_SESSION
-    if (Array.isArray(data.sessions) && data.sessions.length) {
-        const latest = data.sessions[data.sessions.length - 1];
-        if (latest) {
-            localStorage.setItem('session', latest);
-        }
-    }
+    // Do not overwrite localStorage session in teacher pages
         if (data.sessions.length>0) {
             sessionSelect.value = data.sessions[data.sessions.length - 1];
             await loadTeacherClasses();
@@ -145,12 +141,16 @@ async function loadSessions() {
 }
 loadSessions();
 sessionSelect.addEventListener("change", loadTeacherClasses);
+window.addEventListener("load", () => {
+    setTimeout(loadTeacherClasses, 1200);
+});
 
 // -------------------------
 // LOAD TEACHER CLASSES & SUBJECTS
 // -------------------------
 async function loadTeacherClasses() {
     const session = sessionSelect.value;
+    const TEACHER_ID = getTeacherId();
     if (!session || !TEACHER_ID) return;
 
     try {
@@ -199,9 +199,10 @@ subjectSelect.addEventListener("change", checkExistingPaper);
 // -------------------------
 async function loadExams() {
     try{
+        const session = sessionSelect.value;
         const res = await fetch(`${EXAM_API}/exam/list-all`);
         const data = await res.json();
-        EXAMS = data.exams || [];
+        EXAMS = (data.exams || []).filter(e => !session || e.session === session);
         examSelect.innerHTML = `<option value="">Select Exam</option>` + EXAMS.map(e => `<option value="${e.exam_id}">${e.exam_name}</option>`).join("");
     } catch(err){ console.error(err); }
 }

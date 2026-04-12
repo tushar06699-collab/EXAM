@@ -318,6 +318,8 @@ h3{ font-size:clamp(18px, 2.2vw, 22px); }
 <script>
 const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/";
 const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app";
+const CLOUDINARY_ROOT = "https://res.cloudinary.com/djq1jjet6/image/upload/";
+const CLOUDINARY_TEACHER_BASE = CLOUDINARY_ROOT + "school_teachers/";
 
 /* MENU OPEN/CLOSE */
 function toggleMenu() {
@@ -341,21 +343,24 @@ document.getElementById("teacherName").textContent = teacherName;
 
 async function refreshTeacherSession(){
     try{
-        const res = await fetch(`${EXAM_API}/session/list`);
-        const data = await res.json();
-        if (Array.isArray(data.sessions) && data.sessions.length) {
-            const latest = data.sessions[data.sessions.length - 1];
-            if (latest) {
-                localStorage.setItem("session", latest);
-                teacherSession = latest;
-                document.getElementById("session").textContent = latest;
-            }
+        // Keep teacher session from localStorage; do not force latest.
+        if (teacherSession) {
+            const el = document.getElementById("session");
+            if (el) el.textContent = teacherSession;
         }
     }catch(_e){}
 }
 
 function normalizeText(v){
     return String(v || "").trim().replace(/\s+/g, " ").toUpperCase();
+}
+function resolveTeacherPhotoUrl(v){
+    const raw = String(v || "").trim();
+    if(!raw) return "";
+    if(/^https?:\/\//i.test(raw) || /^data:/i.test(raw) || /^blob:/i.test(raw)) return raw;
+    const cleaned = raw.replace(/^\/+/, "");
+    if(/^(v\d+\/)?school_teachers\//i.test(cleaned)) return CLOUDINARY_ROOT + cleaned;
+    return CLOUDINARY_TEACHER_BASE + cleaned;
 }
 
 function isMale(v){
@@ -373,7 +378,6 @@ let classStudents = [];
 let teacherId = localStorage.getItem("teacher_id") || "";
 
 const TEACHER_PROGRESS_ITEMS = [
-    { key: "my_timetable", label: "My Time Table", page: "teacher_my_classes.html" },
     { key: "daily_attendance", label: "Daily Attendance", page: "teacher_attendance.html" },
     { key: "daily_class_work", label: "Daily Class Work", page: "teacher_daily_work.html" },
     { key: "upload_papers", label: "Upload Question Papers", page: "teacher_papers.html" },
@@ -579,18 +583,35 @@ async function loadTeacherClassStats(){
         renderStats();
         loadTeacherProgressPanel();
 
-        // Load teacher photo from student backend teachers list
+        // Load teacher photo from latest session (teacher header uses latest)
         try{
-            const tRes = await fetch(`${STUDENT_API}/teachers?session=${encodeURIComponent(teacherSession || "")}`);
-            const tData = await tRes.json().catch(() => ({}));
-            const tRows = Array.isArray(tData) ? tData : (Array.isArray(tData?.teachers) ? tData.teachers : []);
+            let latestSession = teacherSession || "";
+            try{
+                const sRes = await fetch(`${EXAM_API}/session/list`);
+                const sData = await sRes.json().catch(()=>({}));
+                if (Array.isArray(sData.sessions) && sData.sessions.length) {
+                    latestSession = sData.sessions[sData.sessions.length - 1];
+                }
+            }catch(_e){}
+
+            const fetchRows = async (url) => {
+                const r = await fetch(url);
+                const j = await r.json().catch(() => ({}));
+                return Array.isArray(j) ? j : (Array.isArray(j?.teachers) ? j.teachers : []);
+            };
+
+            let tRows = await fetchRows(`${STUDENT_API}/teachers?session=${encodeURIComponent(latestSession || "")}`);
+
             const tMatch = tRows.find(t => normalizeText(t.teacher_name) === myName) ||
+                           tRows.find(t => normalizeText(t.name) === myName) ||
                            tRows.find(t => normalizeText(t.employee_id) === normalizeText(teacherName)) ||
                            tRows.find(t => normalizeText(t.teacher_code) === normalizeText(localStorage.getItem("teacher_id") || ""));
             const photo = tMatch?.photo_url || tMatch?.photo || "";
             if(photo){
                 const img = document.getElementById("teacherPhoto");
-                if(img) img.src = photo;
+                const resolved = resolveTeacherPhotoUrl(photo);
+                if(img) img.src = resolved || photo;
+                try{ localStorage.setItem("teacher_photo_url", resolved || photo); }catch(_e){}
             }
         }catch(e){}
     }catch(e){

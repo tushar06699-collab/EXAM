@@ -255,14 +255,6 @@ async function loadCurrentSession(){
     const data=await res.json();
 
     if(!data.sessions.length){
-
-    // FORCE_LATEST_SESSION
-    if (Array.isArray(data.sessions) && data.sessions.length) {
-        const latest = data.sessions[data.sessions.length - 1];
-        if (latest) {
-            localStorage.setItem('session', latest);
-        }
-    }
         currentSessionBox.innerText="No Session Found!";
         return;
     }
