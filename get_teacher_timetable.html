@@ -42,6 +42,30 @@ tr:nth-child(even){ background:#f2f4f7; }
 
 .timetable-cell { display:flex; flex-direction:column; gap:2px; font-size:13px; }
 .timetable-cell span { display:block; }
+.empty-wrap{
+    background:#fff;
+    border-radius:10px;
+    padding:12px;
+    box-shadow:0 3px 10px rgba(0,0,0,0.08);
+    margin-bottom:16px;
+}
+.empty-wrap h3{
+    margin:0 0 6px 0;
+    font-size:16px;
+}
+.pill-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+}
+.pill{
+    background:#eef1f7;
+    border:1px solid #d4dcef;
+    padding:6px 10px;
+    border-radius:999px;
+    font-size:12px;
+    color:#2d3b5f;
+}
 </style>
 </head>
 
@@ -73,6 +97,11 @@ tr:nth-child(even){ background:#f2f4f7; }
         </div>
     </div>
 
+    <div id="emptyTeachersWrap" class="empty-wrap" style="display:none;">
+        <h3>Teachers With Empty Timetable</h3>
+        <div id="emptyTeachersList" class="pill-list"></div>
+    </div>
+
     <table>
         <thead>
             <tr id="theadRow"><th>Teacher</th></tr>
@@ -96,9 +125,13 @@ const weekDays = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
 const sessionSelect = document.getElementById("sessionSelect");
 const theadRow = document.getElementById("theadRow");
 const timetableBody = document.getElementById("timetableBody");
+const emptyTeachersWrap = document.getElementById("emptyTeachersWrap");
+const emptyTeachersList = document.getElementById("emptyTeachersList");
 
 let classes = [];
 let teachers = [];
+let allTeachers = [];
+let emptyTeachers = [];
 let timetableData = {};
 
 // LOAD SESSIONS
@@ -157,6 +190,23 @@ async function loadClasses() {
     }
 }
 
+function normalizeTeacherName(v){
+    return String(v || "").trim().replace(/\s+/g, " ").toUpperCase();
+}
+
+async function loadTeacherList(){
+    try{
+        const session = sessionSelect.value;
+        const res = await fetch(`${EXAM_API}/teacher/list?session=${encodeURIComponent(session)}`);
+        const data = await res.json();
+        const rows = Array.isArray(data.teachers) ? data.teachers : [];
+        allTeachers = rows.map(t => String(t.name || "").trim()).filter(Boolean);
+    }catch(e){
+        console.error("Error loading teachers:", e);
+        allTeachers = [];
+    }
+}
+
 // LOAD TIMETABLE AND EXTRACT TEACHERS
 async function loadTimetableAndTeachers() {
     const session = sessionSelect.value;
@@ -183,6 +233,9 @@ async function loadTimetableAndTeachers() {
     await Promise.all(jobs);
 
     teachers = Array.from(tempTeachers).sort();
+
+    const usedSet = new Set(teachers.map(t => normalizeTeacherName(t)));
+    emptyTeachers = (allTeachers || []).filter(t => !usedSet.has(normalizeTeacherName(t)));
 }
 
 // RENDER TABLE
@@ -235,6 +288,16 @@ function renderTable() {
         rows.push(rowHTML);
     }
     timetableBody.innerHTML = rows.join("");
+}
+
+function renderEmptyTeachers(){
+    if(!emptyTeachers || !emptyTeachers.length){
+        emptyTeachersWrap.style.display = "none";
+        emptyTeachersList.innerHTML = "";
+        return;
+    }
+    emptyTeachersWrap.style.display = "block";
+    emptyTeachersList.innerHTML = emptyTeachers.map(t => `<span class="pill">${t}</span>`).join("");
 }
 
 function buildTeacherPage(teacher){
@@ -463,16 +526,20 @@ async function downloadPDF(){
 async function init() {
     await loadSessions();
     await loadClasses();
+    await loadTeacherList();
 
     sessionSelect.onchange = async () => {
         localStorage.setItem("session", sessionSelect.value || "");
         await loadClasses();
+        await loadTeacherList();
         await loadTimetableAndTeachers();
         renderTable();
+        renderEmptyTeachers();
     };
 
     await loadTimetableAndTeachers();
     renderTable();
+    renderEmptyTeachers();
 }
 
 init();

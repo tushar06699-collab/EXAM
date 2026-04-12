@@ -143,12 +143,55 @@ th, td {
 .reset-btn:hover {
     background: #0b5f58;
 }
+.edit-btn{
+    background:#2563eb;
+    color:#fff;
+    border:none;
+    padding:5px 10px;
+    border-radius:6px;
+    cursor:pointer;
+    margin-right:6px;
+}
+.edit-btn:hover{
+    background:#1d4ed8;
+}
 
 .session-box {
     display: flex;
     align-items: center;
     gap: 10px;
     margin-bottom: 20px;
+}
+.modal-backdrop{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.4);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:2000;
+}
+.modal{
+    background:#fff;
+    border-radius:12px;
+    width:min(520px, 92vw);
+    padding:18px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.2);
+}
+.modal h3{
+    margin:0 0 12px 0;
+}
+.modal .row{
+    margin-top:10px;
+}
+.modal .actions{
+    display:flex;
+    gap:10px;
+    justify-content:flex-end;
+    margin-top:16px;
+}
+.modal .actions button{
+    margin-top:0;
 }
 </style>
 </head>
@@ -223,9 +266,31 @@ th, td {
 </main>
 </div>
 
+<div id="editModalBackdrop" class="modal-backdrop" onclick="closeEditModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+        <h3>Edit Teacher</h3>
+        <div class="row">
+            <label for="editName">Teacher Name</label>
+            <input id="editName" placeholder="Full Name">
+        </div>
+        <div class="row">
+            <label for="editUsername">Username</label>
+            <input id="editUsername" placeholder="Username">
+        </div>
+        <div class="row">
+            <label for="editPassword">Password (leave blank to keep)</label>
+            <input id="editPassword" type="password" placeholder="New Password">
+        </div>
+        <div class="actions">
+            <button class="reset-btn" type="button" onclick="closeEditModal()">Cancel</button>
+            <button class="edit-btn" type="button" onclick="saveEditTeacher()">Save</button>
+        </div>
+    </div>
+</div>
+
 <script>
 const EXAM_API = String(
-    localStorage.getItem("examApiBaseUrl") || "https://exam-backend-117372286918.asia-south1.run.app"
+    localStorage.getItem("examApiBaseUrl") || "http://127.0.0.1:8080"
 ).replace(/\/+$/, "");
 const STUDENT_API = String(
     localStorage.getItem("studentApiBaseUrl") || "https://student-backend-117372286918.asia-south1.run.app"
@@ -270,14 +335,14 @@ async function fetchExamTeachers(session) {
                 id: t.id,
                 name: t.name || d.name || "",
                 username: t.username || d.username || "",
-                teacher_id: d.teacher_id || ""
+                teacher_id: d.teacher_id || t.teacher_id || t.teacher_code || ""
             };
         } catch {
             return {
                 id: t.id,
                 name: t.name || "",
                 username: t.username || "",
-                teacher_id: ""
+                teacher_id: t.teacher_id || t.teacher_code || ""
             };
         }
     }));
@@ -332,7 +397,7 @@ function buildExamUsername(studentTeacher) {
 
 function buildExamPassword(studentTeacher) {
     const dobPass = dobToDDMMYYYY(studentTeacher.dob);
-    const code = normalizeCode(studentTeacher.teacher_code);
+    const code = normalizeCode(studentTeacher.teacher_code || studentTeacher.teacher_id || studentTeacher.id);
     if (dobPass && code) return `${code}@${dobPass}`;
     if (dobPass) return dobPass;
     return `T${code}@${code}`;
@@ -552,7 +617,7 @@ async function loadTeachers() {
         const examByUsername = new Map();
         const examByName = new Map();
         examTeachers.forEach(t => {
-            const code = normalizeCode(t.teacher_id);
+            const code = normalizeCode(t.teacher_id || t.teacher_code || t.id);
             if (/^\d{4}$/.test(code)) examByCode.set(code, t);
             const uname = normalizeText(t.username);
             if (uname) examByUsername.set(uname, t);
@@ -578,7 +643,7 @@ async function loadTeachers() {
             const code = normalizeCode(t.teacher_code);
             const e = findMatchingExamTeacher(t, examByCode, examByUsername, examByName);
             const name = t.teacher_name || e?.name || "";
-            const userOrEmp = e?.username || t.employee_id || "-";
+            const userOrEmp = e?.username || "-";
             const studentId = t._id || "";
             const examId = e?.id || "";
             const resetUsername = (e?.username || t.employee_id || "").toUpperCase();
@@ -595,6 +660,7 @@ async function loadTeachers() {
                     <td>${userOrEmp}</td>
                     <td>${t.session || currentSession}</td>
                     <td>
+                        <button class="edit-btn" onclick="openEditModal('${examId}','${String(name).replace(/'/g, "\\'")}','${String(e?.username || "").replace(/'/g, "\\'")}')">Edit</button>
                         <button class="reset-btn" onclick="resetTeacherPassword('${examId}','${code}','${resetUsername.replace(/'/g, "\\'")}')">Reset Password</button>
                         <button class="delete-btn" onclick="delTeacher('${studentId}','${examId}')">Delete</button>
                     </td>
@@ -950,6 +1016,51 @@ async function showOrphanTeachers(){
           alert("Failed to sync exam teachers.");
       }
   }
+
+let editTeacherId = "";
+
+function openEditModal(examId, name, username){
+    if(!examId){
+        alert("Teacher not found in exam backend.");
+        return;
+    }
+    editTeacherId = examId;
+    document.getElementById("editName").value = name || "";
+    document.getElementById("editUsername").value = username || "";
+    document.getElementById("editPassword").value = "";
+    document.getElementById("editModalBackdrop").style.display = "flex";
+}
+
+function closeEditModal(){
+    document.getElementById("editModalBackdrop").style.display = "none";
+    editTeacherId = "";
+}
+
+async function saveEditTeacher(){
+    if(!editTeacherId) return;
+    const name = document.getElementById("editName").value.trim();
+    const username = document.getElementById("editUsername").value.trim();
+    const password = document.getElementById("editPassword").value.trim();
+    if(!name || !username){
+        alert("Name and username are required.");
+        return;
+    }
+    const payload = { name, username, session: currentSession };
+    if(password) payload.password = password;
+
+    const res = await fetch(`${EXAM_API}/teacher/update/${encodeURIComponent(editTeacherId)}`, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload)
+    });
+    const data = await parseJson(res);
+    if(!res.ok || data.success === false){
+        alert(data.message || "Failed to update teacher.");
+        return;
+    }
+    closeEditModal();
+    loadTeachers();
+}
 
 /* Delete teacher */
 async function delTeacher(studentId, examId) {
