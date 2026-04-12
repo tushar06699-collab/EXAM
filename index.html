@@ -49,6 +49,7 @@ input{
     font-weight:700;
     letter-spacing:3px;
     user-select:none;
+    color:#1f2937;
 }
 .mini-btn{
     width:auto;
@@ -496,6 +497,13 @@ async function verifyOtp(){
 }
 
 generateCaptcha();
+
+// Ensure captcha renders even if early script error happens
+document.addEventListener("DOMContentLoaded", () => {
+    if (!captchaText.textContent || !captchaText.textContent.trim()) {
+        generateCaptcha();
+    }
+});
 
 // Auto-login for mobile app (standalone/TWA) if already logged in
 (function autoLoginIfApp(){
