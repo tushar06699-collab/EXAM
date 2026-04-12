@@ -280,8 +280,7 @@ async function populateSessions(){
 
     // Do not overwrite localStorage session in teacher pages
       sessionSelect.innerHTML = data.sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
-      if (teacher.session && data.sessions.includes(teacher.session)) sessionSelect.value = teacher.session;
-      else if (data.sessions.length) sessionSelect.selectedIndex = 0;
+      if (data.sessions.length) sessionSelect.value = data.sessions[data.sessions.length - 1];
     }
   } catch (e) {
     sessionSelect.innerHTML = `<option value="">--</option>`;

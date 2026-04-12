@@ -145,9 +145,9 @@ const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app";
 const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app";
 
 const teacherName = localStorage.getItem("teacher_name");
-const session = localStorage.getItem("session");
+let session = localStorage.getItem("session");
 
-if(!teacherName || !session){
+if(!teacherName){
     alert("Login expired. Please login again.");
     location.href = "index.html";
 }
@@ -237,6 +237,13 @@ function requestEdit(id){
 
 async function loadData(){
     try{
+        const sessionRes = await fetch(`${EXAM_API}/session/list`);
+        const sessionData = await sessionRes.json().catch(() => ({}));
+        const sessionList = Array.isArray(sessionData?.sessions) ? sessionData.sessions : [];
+        if(sessionList.length){
+            session = sessionList[sessionList.length - 1];
+        }
+
         const [inchargeRes, studentsRes] = await Promise.all([
             fetch(`${EXAM_API}/incharge/get?session=${encodeURIComponent(session)}`),
             fetch(`${STUDENT_API}/students?session=${encodeURIComponent(session)}`)
