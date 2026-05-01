@@ -360,10 +360,25 @@ if(!teacherName){
 
 document.getElementById("teacherName").textContent = teacherName;
 
+async function resolveLatestSession(){
+    let latestSession = String(teacherSession || "").trim();
+    try{
+        const res = await fetch(`${EXAM_API}/session/list`);
+        const data = await res.json().catch(() => ({}));
+        const sessions = Array.isArray(data?.sessions) ? data.sessions : [];
+        if(sessions.length){
+            latestSession = String(sessions[sessions.length - 1] || "").trim() || latestSession;
+        }
+    }catch(_e){}
+    return latestSession;
+}
+
 async function refreshTeacherSession(){
     try{
-        // Keep teacher session from localStorage; do not force latest.
-        if (teacherSession) {
+        const latestSession = await resolveLatestSession();
+        if(latestSession){
+            teacherSession = latestSession;
+            try{ localStorage.setItem("session", latestSession); }catch(_e){}
             const el = document.getElementById("session");
             if (el) el.textContent = teacherSession;
         }
@@ -602,16 +617,9 @@ async function loadTeacherClassStats(){
         renderStats();
         loadTeacherProgressPanel();
 
-        // Load teacher photo from latest session (teacher header uses latest)
+        // Load teacher photo from latest session
         try{
-            let latestSession = teacherSession || "";
-            try{
-                const sRes = await fetch(`${EXAM_API}/session/list`);
-                const sData = await sRes.json().catch(()=>({}));
-                if (Array.isArray(sData.sessions) && sData.sessions.length) {
-                    latestSession = sData.sessions[sData.sessions.length - 1];
-                }
-            }catch(_e){}
+            const latestSession = await resolveLatestSession();
 
             const fetchRows = async (url) => {
                 const r = await fetch(url);

@@ -362,6 +362,52 @@
     if(e.key === 'Escape') closeMenu();
   });
 
+  var touchStartX = 0;
+  var touchStartY = 0;
+  var touchCurrentX = 0;
+  var touchCurrentY = 0;
+  var trackingOpenSwipe = false;
+  var trackingCloseSwipe = false;
+
+  function isTouchSwipeEnabled(){
+    return window.innerWidth <= 900;
+  }
+
+  document.addEventListener('touchstart', function(e){
+    if(!isTouchSwipeEnabled() || !e.touches || !e.touches.length) return;
+    var touch = e.touches[0];
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+    touchCurrentX = touch.clientX;
+    touchCurrentY = touch.clientY;
+    trackingOpenSwipe = !sidebar.classList.contains('is-open') && touchStartX <= 30;
+    trackingCloseSwipe = sidebar.classList.contains('is-open') && touchStartX <= Math.min(sidebar.offsetWidth + 40, window.innerWidth);
+  }, { passive: true });
+
+  document.addEventListener('touchmove', function(e){
+    if((!trackingOpenSwipe && !trackingCloseSwipe) || !e.touches || !e.touches.length) return;
+    var touch = e.touches[0];
+    touchCurrentX = touch.clientX;
+    touchCurrentY = touch.clientY;
+  }, { passive: true });
+
+  document.addEventListener('touchend', function(){
+    if(!isTouchSwipeEnabled()) return;
+
+    var deltaX = touchCurrentX - touchStartX;
+    var deltaY = Math.abs(touchCurrentY - touchStartY);
+    var isHorizontalSwipe = Math.abs(deltaX) > 60 && deltaY < 80 && Math.abs(deltaX) > deltaY;
+
+    if(trackingOpenSwipe && isHorizontalSwipe && deltaX > 0){
+      openMenu();
+    }else if(trackingCloseSwipe && isHorizontalSwipe && deltaX < 0){
+      closeMenu();
+    }
+
+    trackingOpenSwipe = false;
+    trackingCloseSwipe = false;
+  }, { passive: true });
+
   (async function(){
     ensureProfileStyles();
     var profile = await resolveTeacherProfile();
