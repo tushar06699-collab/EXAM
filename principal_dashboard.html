@@ -20,6 +20,90 @@ body{margin:0;font-family:Poppins,sans-serif;background:#eef1f6;display:flex;}
 .principal-meta{line-height:1.2}
 .principal-name{font-size:14px;font-weight:700;color:#1f2a44;}
 .principal-sub{font-size:12px;color:#556384;}
+.notif-wrap{position:relative;}
+.notif-btn{
+  position:relative;
+  width:44px;
+  height:44px;
+  border:none;
+  border-radius:12px;
+  background:#eef4ff;
+  color:#233465;
+  font-size:20px;
+  cursor:pointer;
+}
+.notif-count{
+  position:absolute;
+  top:-5px;
+  right:-4px;
+  min-width:20px;
+  height:20px;
+  padding:0 5px;
+  border-radius:999px;
+  background:#dc2626;
+  color:#fff;
+  font-size:11px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+}
+.notif-panel{
+  position:absolute;
+  top:54px;
+  right:0;
+  width:min(380px, 92vw);
+  max-height:420px;
+  overflow:auto;
+  background:#fff;
+  border:1px solid #dbe3f0;
+  border-radius:16px;
+  box-shadow:0 18px 40px rgba(15,23,42,0.18);
+  display:none;
+  z-index:20;
+}
+.notif-panel.open{display:block;}
+.notif-head{
+  padding:12px 14px;
+  border-bottom:1px solid #e2e8f0;
+  font-weight:700;
+  color:#1f2a44;
+  background:#f8fbff;
+}
+.notif-list{padding:8px;}
+.notif-group{
+  margin-bottom:12px;
+}
+.notif-group:last-child{
+  margin-bottom:0;
+}
+.notif-group-title{
+  font-size:12px;
+  font-weight:700;
+  color:#64748b;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  padding:4px 6px 8px;
+}
+.notif-item{
+  padding:10px 12px;
+  border-radius:12px;
+  margin-bottom:8px;
+  background:#f8fafc;
+  border:1px solid #e2e8f0;
+}
+.notif-item.recent{
+  background:#eef6ff;
+  border-color:#bfdbfe;
+}
+.notif-item:last-child{margin-bottom:0;}
+.notif-title{font-size:13px;font-weight:700;color:#1e293b;}
+.notif-text{font-size:12px;color:#475569;margin-top:4px;line-height:1.4;}
+.notif-empty{
+  padding:18px 14px;
+  color:#64748b;
+  font-size:13px;
+}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px;margin-top:20px;} 
 .card{background:white;padding:20px;border-radius:10px;box-shadow:0 3px 10px rgba(0,0,0,0.1);} 
 .card h3{margin:0 0 10px;} 
@@ -56,6 +140,17 @@ body{margin:0;font-family:Poppins,sans-serif;background:#eef1f6;display:flex;}
           <div class="principal-sub" id="principalInfoLabel">Designation: PRINCIPAL</div>
         </div>
       </div>
+      <div class="notif-wrap">
+        <button id="notifBtn" class="notif-btn" type="button" onclick="toggleNotifications()" title="Notifications">🔔
+          <span id="notifCount" class="notif-count" style="display:none;">0</span>
+        </button>
+        <div id="notifPanel" class="notif-panel">
+          <div class="notif-head">Notifications</div>
+          <div id="notifList" class="notif-list">
+            <div class="notif-empty">Loading notifications...</div>
+          </div>
+        </div>
+      </div>
       <div>
       Session: <select id="sessionSelect" style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;"></select>
       </div>
@@ -84,21 +179,6 @@ body{margin:0;font-family:Poppins,sans-serif;background:#eef1f6;display:flex;}
   </div>
 
   <div class="section">
-    <h2>Teacher Leave Requests</h2>
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Teacher</th>
-          <th>Date</th>
-          <th>Reason</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody id="leaveTable"></tbody>
-    </table>
-  </div>
-
-  <div class="section">
     <h2>Class Strength Overview</h2>
     <table class="table">
       <thead>
@@ -112,12 +192,50 @@ body{margin:0;font-family:Poppins,sans-serif;background:#eef1f6;display:flex;}
 <script>
 const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app/";
 const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/";
-const LEAVE_API = EXAM_API;
-
 let currentSession = localStorage.getItem("session") || "";
 const DEFAULT_AVATAR = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Crect width='100%25' height='100%25' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%236b7280' font-size='10'%3ENo%20Photo%3C/text%3E%3C/svg%3E";
+let principalNotifications = [];
+let unreadNotificationIds = [];
+let currentRecentNotificationIds = [];
 
 function norm(v){ return String(v || "").trim().toUpperCase(); }
+
+function normalizeClassOrderKey(value){
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function classOrderRank(className){
+  const key = normalizeClassOrderKey(className);
+  const ordered = [
+    "pp1",
+    "pp2",
+    "pp3",
+    "1st",
+    "2nd",
+    "3rd",
+    "4th",
+    "5th",
+    "6th",
+    "7th",
+    "8th",
+    "9th",
+    "10th",
+    "11th arts",
+    "11th commerce",
+    "11th non medical",
+    "11th medical",
+    "12th arts",
+    "12th commerce",
+    "12th non medical",
+    "12th medical"
+  ];
+  const rank = ordered.indexOf(key);
+  return rank === -1 ? 999 : rank;
+}
 
 async function loadPrincipalProfile(){
   const principalName = localStorage.getItem("principal_name") || "School Principal";
@@ -141,30 +259,34 @@ async function loadPrincipalProfile(){
     img.onerror = function(){ this.onerror = null; this.src = DEFAULT_AVATAR; };
   }
 
+  function scorePrincipalRow(t){
+    let score = 0;
+    if(norm(t?.designation) === "PRINCIPAL") score += 5;
+    if(norm(t?.employee_id) === pUser) score += 4;
+    if(norm(t?.teacher_name).includes("PRINCIPAL")) score += 3;
+    if(norm(t?.teacher_name) === norm(principalName)) score += 2;
+    if(String(t?.photo_url || t?.photo || t?.image_url || t?.profile_image || "").trim()) score += 1;
+    return score;
+  }
+
   try{
-    // 1) Direct server-side filter by designation.
-    let r = await fetch(`${STUDENT_API}/teachers?designation=PRINCIPAL&session=${encodeURIComponent(currentSession || "")}`);
-    let teachers = asList(await r.json());
+    const latestSession = currentSession || localStorage.getItem("session") || "";
+    let r = await fetch(`${STUDENT_API}/teachers?session=${encodeURIComponent(latestSession)}`);
+    let allTeachers = asList(await r.json());
 
-    // 2) Fallback without session, in case principal row has different/missing session.
-    if(!teachers.length){
-      r = await fetch(`${STUDENT_API}/teachers?designation=PRINCIPAL`);
-      teachers = asList(await r.json());
+    // Fallback to unfiltered list if session-specific list is empty or weak.
+    if(!allTeachers.length){
+      r = await fetch(`${STUDENT_API}/teachers`);
+      allTeachers = asList(await r.json());
     }
 
-    // 3) Last fallback: broad search by employee/name patterns.
-    if(!teachers.length){
-      r = await fetch(`${STUDENT_API}/teachers?session=${encodeURIComponent(currentSession || "")}`);
-      const all = asList(await r.json());
-      const found =
-        all.find(t => norm(t.employee_id) === pUser) ||
-        all.find(t => norm(t.teacher_name).includes("PRINCIPAL")) ||
-        all.find(t => norm(t.teacher_name) === norm(principalName));
-      if(found) teachers = [found];
-    }
+    const ranked = allTeachers
+      .map(t => ({ row: t, score: scorePrincipalRow(t) }))
+      .filter(x => x.score > 0)
+      .sort((a, b) => b.score - a.score);
 
-    if(teachers.length){
-      setPrincipal(teachers[0]);
+    if(ranked.length){
+      setPrincipal(ranked[0].row);
     }else{
       setPrincipal(null);
       document.getElementById("principalInfoLabel").textContent = "Designation: PRINCIPAL";
@@ -184,12 +306,10 @@ async function loadSessions(){
 
     if(!d.sessions || d.sessions.length===0){ sel.innerHTML='<option>No Sessions</option>'; return; }
 
-    // FORCE_LATEST_SESSION
-    if (Array.isArray(data.sessions) && data.sessions.length) {
-        const latest = data.sessions[data.sessions.length - 1];
-        if (latest) {
-            localStorage.setItem('session', latest);
-        }
+    const latest = d.sessions[d.sessions.length - 1];
+    if (latest) {
+        currentSession = latest;
+        localStorage.setItem("session", latest);
     }
 
     d.sessions.forEach(s=>{
@@ -198,7 +318,7 @@ async function loadSessions(){
        sel.appendChild(op);
     });
 
-    if(!d.sessions.includes(currentSession)) currentSession=d.sessions[sessions.length - 1];
+    if(!d.sessions.includes(currentSession)) currentSession = latest;
     sel.value=currentSession;
     localStorage.setItem("session", currentSession);
 
@@ -219,15 +339,181 @@ function loadStats(){
     loadClassCount(); 
     loadExamCount(); 
     loadRecentExams(); 
-    loadLeaveRequests(); 
     loadClassStrength(); 
+    loadNotifications();
+}
+
+function asStudentRows(rows){
+    return Array.isArray(rows) ? rows : (Array.isArray(rows?.students) ? rows.students : []);
+}
+
+function normalizeSession(v){
+    return String(v || "").trim().replace(/[-/ ]/g, "_");
+}
+
+function filterStudentsForCurrentSession(rows){
+    const target = normalizeSession(currentSession);
+    return asStudentRows(rows).filter(s => normalizeSession(s.session) === target);
+}
+
+function notificationStorageKey(){
+    return `principal_seen_notifications_${normalizeSession(currentSession) || "default"}`;
+}
+
+function getSeenNotificationIds(){
+    try{
+        const raw = localStorage.getItem(notificationStorageKey());
+        const parsed = JSON.parse(raw || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+    }catch(_e){
+        return [];
+    }
+}
+
+function setSeenNotificationIds(ids){
+    try{
+        localStorage.setItem(notificationStorageKey(), JSON.stringify(ids));
+    }catch(_e){}
+}
+
+function notificationTimeValue(){
+    for(const value of arguments){
+        if(!value) continue;
+        const ts = Date.parse(value);
+        if(!Number.isNaN(ts)) return ts;
+    }
+    return 0;
+}
+
+function toggleNotifications(){
+    const panel = document.getElementById("notifPanel");
+    panel.classList.toggle("open");
+    if(panel.classList.contains("open")){
+        currentRecentNotificationIds = [...unreadNotificationIds];
+        renderNotifications();
+        markNotificationsSeen();
+    }else{
+        currentRecentNotificationIds = [];
+    }
+}
+
+function closeNotifications(){
+    document.getElementById("notifPanel").classList.remove("open");
+    currentRecentNotificationIds = [];
+}
+
+function markNotificationsSeen(){
+    const ids = principalNotifications.map(n => n.id).filter(Boolean);
+    setSeenNotificationIds(ids);
+    unreadNotificationIds = [];
+    renderNotifications();
+}
+
+function renderNotifications(){
+    const countEl = document.getElementById("notifCount");
+    const listEl = document.getElementById("notifList");
+    const count = unreadNotificationIds.length;
+    countEl.textContent = count > 99 ? "99+" : String(count);
+    countEl.style.display = count ? "flex" : "none";
+
+    const recentIdSet = new Set(currentRecentNotificationIds);
+    const recentItems = principalNotifications
+        .filter(n => recentIdSet.has(n.id))
+        .slice(0, 5);
+    const viewedItems = principalNotifications
+        .filter(n => !recentIdSet.has(n.id))
+        .slice(0, 5);
+
+    if(!recentItems.length && !viewedItems.length){
+        listEl.innerHTML = `<div class="notif-empty">No notifications available.</div>`;
+        return;
+    }
+
+    const renderGroup = (title, items, extraClass = "") => {
+        if(!items.length) return "";
+        return `
+            <div class="notif-group">
+                <div class="notif-group-title">${title}</div>
+                ${items.map(n => `
+                    <div class="notif-item ${extraClass}">
+                        <div class="notif-title">${n.title}</div>
+                        <div class="notif-text">${n.text}</div>
+                    </div>
+                `).join("")}
+            </div>
+        `;
+    };
+
+    listEl.innerHTML = `
+        ${renderGroup("Recent", recentItems, "recent")}
+        ${renderGroup("Viewed", viewedItems)}
+    `;
+}
+
+async function loadNotifications(){
+    const items = [];
+    try{
+        const [leaveRes, examRes] = await Promise.all([
+            fetch(`${EXAM_API}/leave/list`),
+            fetch(`${EXAM_API}/exam/list-all`)
+        ]);
+        const leaveData = await leaveRes.json().catch(() => ({}));
+        const examData = await examRes.json().catch(() => ({}));
+
+        const leaves = Array.isArray(leaveData.leaves)
+            ? leaveData.leaves.filter(l => normalizeSession(l.session) === normalizeSession(currentSession))
+            : [];
+        const exams = Array.isArray(examData.exams)
+            ? examData.exams.filter(ex => ex.session === currentSession)
+            : [];
+
+        leaves.slice(0,6).forEach(l => {
+            items.push({
+                id: `leave|${l.teacher_name || ""}|${l.start_date || ""}|${l.end_date || ""}|${l.status || ""}`,
+                title: `Leave Request: ${l.teacher_name || "Teacher"}`,
+                text: `${l.start_date || "-"} to ${l.end_date || "-"} | ${l.status || "Pending"}`,
+                ts: notificationTimeValue(
+                    l.created_at,
+                    l.updated_at,
+                    l.applied_at,
+                    l.requested_at,
+                    l.start_date,
+                    l.end_date
+                )
+            });
+        });
+
+        exams.slice(0,4).forEach(ex => {
+            items.push({
+                id: `exam|${ex.session || ""}|${ex.exam_name || ""}|${ex.total_marks || ""}`,
+                title: `Exam Active: ${ex.exam_name || "Exam"}`,
+                text: `Session ${ex.session || "-"} | Total Marks ${ex.total_marks || "-"}`,
+                ts: notificationTimeValue(
+                    ex.created_at,
+                    ex.updated_at,
+                    ex.exam_date,
+                    ex.date,
+                    ex.start_date
+                )
+            });
+        });
+    }catch(_e){}
+
+    principalNotifications = items.sort((a, b) => {
+        const diff = Number(b.ts || 0) - Number(a.ts || 0);
+        if(diff !== 0) return diff;
+        return String(b.id || "").localeCompare(String(a.id || ""));
+    });
+    const seenIds = new Set(getSeenNotificationIds());
+    unreadNotificationIds = principalNotifications.map(n => n.id).filter(id => id && !seenIds.has(id));
+    renderNotifications();
 }
 
 async function loadStudentCount(){
  try{
-    const r = await fetch(`${STUDENT_API}/students`);
+    const r = await fetch(`${STUDENT_API}/students?session=${encodeURIComponent(currentSession)}&strict=1`);
     const d = await r.json();
-    document.getElementById("totalStudents").textContent = d.length;
+    document.getElementById("totalStudents").textContent = filterStudentsForCurrentSession(d).length;
  }catch(e){ document.getElementById("totalStudents").textContent=0; }
 }
 async function loadTeacherCount() {
@@ -249,10 +535,11 @@ async function loadTeacherCount() {
 
 async function loadClassCount(){
  try{
-    const r = await fetch(`${STUDENT_API}/students`);
+    const r = await fetch(`${STUDENT_API}/students?session=${encodeURIComponent(currentSession)}&strict=1`);
     const d = await r.json();
+    const students = filterStudentsForCurrentSession(d);
     const set = new Set();
-    d.forEach(s=>{ if(s.class_name) set.add(s.class_name.trim()); });
+    students.forEach(s=>{ if(s.class_name) set.add(s.class_name.trim()); });
     document.getElementById("totalClasses").textContent = set.size;
  }catch(e){ document.getElementById("totalClasses").textContent=0; }
 }
@@ -270,8 +557,9 @@ async function loadRecentExams(){
  try{
     const r = await fetch(`${EXAM_API}/exam/list-all`);
     const d = await r.json();
+    const exams = Array.isArray(d.exams) ? d.exams.filter(ex=>ex.session===currentSession) : [];
     let html="";
-    d.exams.slice(0,3).forEach(ex=>{
+    exams.slice(0,3).forEach(ex=>{
        html += `<tr><td>${ex.exam_name}</td><td>${ex.session}</td><td>${ex.total_marks}</td></tr>`;
     });
     document.getElementById("examTable").innerHTML = html;
@@ -282,8 +570,9 @@ async function loadLeaveRequests(){
  try{
     const r = await fetch(`${LEAVE_API}/leave/list`);
     const d = await r.json();
+    const leaves = Array.isArray(d.leaves) ? d.leaves.filter(l => normalizeSession(l.session) === normalizeSession(currentSession)) : [];
     let html="";
-    d.leaves.slice(0,5).forEach(l=>{
+    leaves.slice(0,5).forEach(l=>{
         html += `<tr>
             <td>${l.teacher_name}</td>
             <td>${l.start_date} → ${l.end_date}</td>
@@ -297,13 +586,14 @@ async function loadLeaveRequests(){
 
 async function loadClassStrength() {
     try {
-        const r = await fetch(`${STUDENT_API}/students`);
+        const r = await fetch(`${STUDENT_API}/students?session=${encodeURIComponent(currentSession)}&strict=1`);
         const d = await r.json();
+        const students = filterStudentsForCurrentSession(d);
 
         let map = {};
 
         // Group students by class + section
-        d.forEach(s => {
+        students.forEach(s => {
             const cls = s.class_name || "Unknown";
             const sec = s.section || "A";
             const key = `${cls}-${sec}`;
@@ -312,9 +602,17 @@ async function loadClassStrength() {
             map[key].count++;
         });
 
+        const rows = Object.values(map).sort((a, b) => {
+            const classDiff = classOrderRank(a.class_name) - classOrderRank(b.class_name);
+            if (classDiff !== 0) return classDiff;
+            const nameDiff = String(a.class_name || "").localeCompare(String(b.class_name || ""), undefined, { numeric: true, sensitivity: "base" });
+            if (nameDiff !== 0) return nameDiff;
+            return String(a.section || "").localeCompare(String(b.section || ""), undefined, { numeric: true, sensitivity: "base" });
+        });
+
         // Build table rows
         let html = "";
-        Object.values(map).forEach(row => {
+        rows.forEach(row => {
             html += `
                 <tr>
                   <td>${row.class_name}</td>
@@ -333,6 +631,10 @@ async function loadClassStrength() {
     }
 }
 window.onload = loadSessions;
+document.addEventListener("click", (ev) => {
+    const wrap = ev.target.closest(".notif-wrap");
+    if(!wrap) closeNotifications();
+});
 </script>
 </body>
 </html>

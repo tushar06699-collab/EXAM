@@ -119,7 +119,6 @@ button:hover {background:#1b2854;}
 <div class="sidebar">
     <h2>ADMIN ERP</h2>
     <a href="principal_dashboard.html">Dashboard</a>
-    <a href="principal_student_exam_access.html">Student Exam Access</a>
     <a href="principal_notice.html" class="active">Notices</a>
 </div>
 <!-- Content -->
@@ -162,23 +161,28 @@ button:hover {background:#1b2854;}
 
 <script>
 const API = "https://exam-backend-117372286918.asia-south1.run.app/";
+let currentSession = localStorage.getItem("session") || "";
 
 /* Load Sessions */
 async function loadSessions(){
     try{
         const res = await fetch(`${API}/session/list`);
         const data = await res.json();
-        sessionSelect.innerHTML = data.sessions.map(s =>
-
-    // FORCE_LATEST_SESSION
-    if (Array.isArray(data.sessions) && data.sessions.length) {
-        const latest = data.sessions[data.sessions.length - 1];
-        if (latest) {
-            localStorage.setItem('session', latest);
+        if(!Array.isArray(data.sessions) || !data.sessions.length){
+            sessionSelect.innerHTML = `<option value="">No Sessions</option>`;
+            return;
         }
-    }
-            `<option value="${s}">${s}</option>`
-        ).join("");
+        const latest = data.sessions[data.sessions.length - 1];
+        currentSession = data.sessions.includes(currentSession) ? currentSession : latest;
+        localStorage.setItem('session', currentSession);
+        sessionSelect.innerHTML = data.sessions.map(s => `<option value="${s}">${s}</option>`).join("");
+        sessionSelect.value = currentSession;
+        sessionSelect.onchange = () => {
+            currentSession = sessionSelect.value;
+            localStorage.setItem('session', currentSession);
+            loadNotices();
+        };
+        loadNotices();
     }catch{}
 }
 loadSessions();
@@ -201,6 +205,7 @@ async function uploadNotice(){
     fd.append("description", description);
     fd.append("date", date);
     fd.append("target", target); //  NEW FIELD
+    fd.append("session", currentSession || sessionSelect.value || "");
     if(pdf) fd.append("pdf", pdf);
 
     try{
@@ -230,7 +235,8 @@ async function uploadNotice(){
 /* Load Notices */
 async function loadNotices(){
     try{
-        const res = await fetch(`${API}/notice/list`);
+        const session = currentSession || sessionSelect.value || "";
+        const res = await fetch(`${API}/notice/list?session=${encodeURIComponent(session)}`);
         const data = await res.json();
 
         if(!data.success){
@@ -247,6 +253,7 @@ async function loadNotices(){
                 </span>
                 <span><b>${n.title}</b></span>
                 <span>${n.description || ""}</span>
+                <span>Session: ${n.session || "-"}</span>
                 <span>Date: ${n.date}</span>
                 ${n.file ? `<button class="view-btn" onclick="viewNotice('${n.file}')">View PDF</button>` : ""}
                 <button class="delete-btn" onclick="deleteNotice('${n.id}')">Delete</button>
@@ -256,7 +263,6 @@ async function loadNotices(){
         noticeList.innerHTML="<p>Error loading notices</p>";
     }
 }
-loadNotices();
 
 /* View */
 function viewNotice(file){
