@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Certificate Generator - Exam ERP</title>
+  <link rel="stylesheet" href="admin_theme.css">
+  <style>
+    :root{
+      --brand:#233465;
+      --brand-2:#1a2648;
+      --line:#dbe3f0;
+      --muted:#64748b;
+      --card:#ffffff;
+      --bg:#f3f5fb;
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
+      font-family:Poppins, sans-serif;
+      background:var(--bg);
+      color:#0f172a;
+    }
+    .sidebar{
+      width:230px;
+      height:100vh;
+      background:var(--brand);
+      color:#fff;
+      position:fixed;
+      left:0;
+      top:0;
+      padding:25px;
+      overflow:auto;
+      z-index:1000;
+      transition:transform .2s ease;
+    }
+    .sidebar h2{font-size:22px;margin-bottom:30px;}
+    .sidebar a{
+      display:block;
+      padding:14px;
+      margin:8px 0;
+      color:#fff;
+      text-decoration:none;
+      border-radius:10px;
+      font-size:15px;
+    }
+    .sidebar a:hover,.sidebar a.active{background:var(--brand-2);}
+    .menu-toggle{
+      display:none;
+      position:fixed;
+      top:12px;
+      left:12px;
+      z-index:1100;
+      width:40px;
+      height:40px;
+      border:none;
+      border-radius:10px;
+      background:var(--brand);
+      color:#fff;
+      cursor:pointer;
+      box-shadow:0 6px 14px rgba(0,0,0,.2);
+    }
+    .backdrop{
+      display:none;
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.35);
+      z-index:900;
+    }
+    .backdrop.show{display:block;}
+    .sidebar.closed{transform:translateX(-110%) !important;}
+    .sidebar.open{transform:translateX(0) !important;}
+    .main{
+      margin-left:250px;
+      padding:28px;
+      width:calc(100% - 250px);
+    }
+    .topbar,.panel,.preview-card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:14px;
+      box-shadow:0 8px 20px rgba(15,23,42,.06);
+    }
+    .topbar{
+      padding:16px 18px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      margin-bottom:20px;
+      flex-wrap:wrap;
+    }
+    .topbar h1{
+      margin:0;
+      font-size:28px;
+      color:#1f2937;
+    }
+    .topbar p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:14px;
+    }
+    .version-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      margin-top:8px;
+      padding:4px 10px;
+      border-radius:999px;
+      background:#e0e7ff;
+      color:#1e3a8a;
+      font-size:12px;
+      font-weight:700;
+    }
+    .content-grid{
+      display:grid;
+      grid-template-columns:minmax(320px,420px) minmax(0,1fr);
+      gap:18px;
+      align-items:start;
+    }
+    .panel{padding:18px;}
+    .panel h2,.preview-card h2{
+      margin:0 0 14px;
+      font-size:20px;
+      color:#1f2937;
+    }
+    .fields{
+      display:grid;
+      gap:14px;
+    }
+    .field label{
+      display:block;
+      font-weight:600;
+      margin-bottom:6px;
+      color:#334155;
+      font-size:14px;
+    }
+    .field select,.field input,.field textarea{
+      width:100%;
+      padding:11px 12px;
+      border:1px solid var(--line);
+      border-radius:10px;
+      font:inherit;
+      background:#fff;
+    }
+    .field textarea{
+      min-height:90px;
+      resize:vertical;
+    }
+    .student-checklist{
+      max-height:220px;
+      overflow:auto;
+      border:1px solid var(--line);
+      border-radius:10px;
+      background:#fff;
+      padding:8px;
+    }
+    .student-check-item{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 6px;
+      border-bottom:1px solid #eef2f7;
+      font-size:14px;
+    }
+    .student-check-item:last-child{border-bottom:none;}
+    .student-check-item input{width:auto;}
+    .inline-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:8px;
+    }
+    .mini-btn{
+      border:none;
+      border-radius:8px;
+      padding:7px 10px;
+      background:#e2e8f0;
+      color:#1f2937;
+      cursor:pointer;
+      font:inherit;
+      font-size:13px;
+      font-weight:600;
+    }
+    .hidden{display:none !important;}
+    .muted{
+      color:var(--muted);
+      font-size:13px;
+    }
+    .btn-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:6px;
+    }
+    .btn{
+      border:none;
+      border-radius:10px;
+      padding:11px 16px;
+      font:inherit;
+      font-weight:700;
+      cursor:pointer;
+      color:#fff;
+      background:var(--brand);
+    }
+    .btn.secondary{background:#475569;}
+    .btn:hover{opacity:.94;}
+    .status{
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:10px;
+      font-size:14px;
+      display:none;
+    }
+    .status.show{display:block;}
+    .status.error{background:#fee2e2;color:#991b1b;}
+    .status.success{background:#dcfce7;color:#166534;}
+    .preview-card{
+      padding:18px;
+      overflow:hidden;
+    }
+    .certificate-paper{
+      background:#fff;
+      max-width:860px;
+      margin:0 auto;
+      min-height:auto;
+      border:8px solid #d9b45f;
+      outline:1px solid #c7d2fe;
+      padding:42px 48px;
+      position:relative;
+    }
+    .certificate-paper:before{
+      content:"";
+      position:absolute;
+      inset:14px;
+      border:2px solid #233465;
+      pointer-events:none;
+    }
+    .cert-school{
+      text-align:center;
+      margin-bottom:18px;
+    }
+    .cert-school h3{
+      margin:0;
+      font-size:34px;
+      letter-spacing:.5px;
+      color:#1e3a8a;
+    }
+    .cert-school p{
+      margin:6px 0;
+      color:#334155;
+      font-size:14px;
+    }
+    .cert-title{
+      text-align:center;
+      margin:24px 0 30px;
+    }
+    .cert-title span{
+      display:inline-block;
+      padding:8px 28px;
+      border-bottom:3px solid #233465;
+      font-size:28px;
+      font-weight:800;
+      letter-spacing:1px;
+      color:#111827;
+    }
+    .cert-meta{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-bottom:20px;
+      font-size:15px;
+      color:#334155;
+    }
+    .cert-body{
+      font-size:20px;
+      line-height:1.95;
+      color:#111827;
+      white-space:pre-line;
+      text-align:justify;
+    }
+    .cert-footer{
+      margin-top:28px;
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-end;
+      gap:18px;
+    }
+    .signature{
+      text-align:center;
+      min-width:180px;
+    }
+    .signature-line{
+      border-top:1px solid #0f172a;
+      margin-top:44px;
+      padding-top:8px;
+      font-weight:700;
+    }
+    .watermark{
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      pointer-events:none;
+      opacity:.05;
+      font-size:84px;
+      font-weight:800;
+      color:#233465;
+      transform:rotate(-28deg);
+      letter-spacing:4px;
+    }
+    @media (max-width:900px){
+      .menu-toggle{display:block;}
+      .main{
+        margin-left:0;
+        width:100%;
+        padding:68px 14px 20px;
+      }
+      .content-grid{
+        grid-template-columns:1fr;
+      }
+    }
+    @media print{
+      @page{
+        size:A4 portrait;
+        margin:10mm;
+      }
+      body{background:#fff;}
+      .sidebar,.menu-toggle,.backdrop,.topbar,.panel,.preview-card h2,.muted,.btn-row,#status{display:none !important;}
+      .main{margin:0;padding:0;width:100%;}
+      .preview-card{
+        border:none;
+        box-shadow:none;
+        padding:0;
+      }
+      .certificate-paper{
+        border:none;
+        outline:none;
+        margin:0;
+        width:100%;
+        min-height:auto;
+        padding:18mm 16mm 16mm;
+        box-shadow:none;
+        display:block;
+      }
+      .certificate-paper:before{border:none;}
+      .cert-school h3{font-size:30px;}
+      .cert-title span{font-size:24px;}
+      .cert-meta{font-size:13px;}
+      .cert-body{
+        display:block;
+        flex:none;
+        min-height:0;
+        font-size:17px;
+        line-height:1.8;
+      }
+      .cert-footer{
+        margin-top:24px;
+      }
+      .signature-line{
+        margin-top:28px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button class="menu-toggle" id="menuToggle">MENU</button>
+  <div class="backdrop" id="backdrop"></div>
+
+  <div class="sidebar closed" id="sidebar">
+    <h2>EXAM ERP</h2>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="admin_notice.html">Notices and Calander</a>
+    <a href="admin_leave.html">Teachers Leaves</a>
+    <a href="admin_attendence.html">Student Attendance</a>
+    <a href="subject_add.html">School Corner</a>
+    <a href="exam_create.html">Pre Exam Corner</a>
+    <a href="exam_paper.html">Exams Corner</a>
+    <a href="result_upload.html">Post Exam Corner</a>
+    <a href="admin_export.html">Export Data</a>
+    <a href="admin_certificate_generator.html" class="active">Certificate Generator</a>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h1>Certificate Generator</h1>
+        <p>Generate printable certificates for a selected student from a selected class.</p>
+        <div class="version-badge">Version: 2026-05-01-2</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn secondary" type="button" id="refreshBtn">Refresh Students</button>
+        <button class="btn" type="button" id="printBtn">Print Certificate</button>
+      </div>
+    </div>
+
+    <div class="content-grid">
+      <section class="panel">
+        <h2>Certificate Setup</h2>
+        <div class="fields">
+          <div class="field">
+            <label for="sessionSelect">Session</label>
+            <select id="sessionSelect"></select>
+          </div>
+          <div class="field">
+            <label for="classSelect">Class</label>
+            <select id="classSelect"></select>
+          </div>
+          <div class="field">
+            <label for="studentSelect">Student</label>
+            <select id="studentSelect"></select>
+          </div>
+          <div class="field">
+            <label for="printMode">Print Mode</label>
+            <select id="printMode">
+              <option value="single">Single Student</option>
+              <option value="selected">Selected Students</option>
+              <option value="full_class">Full Class</option>
+            </select>
+          </div>
+          <div class="field hidden" id="selectedStudentsWrap">
+            <label>Choose Students</label>
+            <div class="student-checklist" id="studentChecklist"></div>
+            <div class="inline-actions">
+              <button type="button" class="mini-btn" id="selectAllStudentsBtn">Select All</button>
+              <button type="button" class="mini-btn" id="clearSelectedStudentsBtn">Clear</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="certificateType">Certificate Type</label>
+            <select id="certificateType">
+              <option value="bonafide">Bonafide Certificate</option>
+              <option value="character">Character Certificate</option>
+              <option value="study">Study Certificate</option>
+              <option value="promotion">Promotion Certificate</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="issueDate">Issue Date</label>
+            <input id="issueDate" type="date">
+          </div>
+          <div class="field">
+            <label for="referenceNo">Reference No.</label>
+            <input id="referenceNo" type="text" placeholder="Auto generated if left blank">
+          </div>
+          <div class="field">
+            <label for="purposeText">Purpose / Additional Text</label>
+            <textarea id="purposeText" placeholder="Optional. Example: for bank account opening / scholarship / passport application"></textarea>
+          </div>
+          <div class="field">
+            <label for="conductText">Conduct / Remark</label>
+            <textarea id="conductText" placeholder="Used mainly in Character Certificate. Example: His conduct has been good."></textarea>
+          </div>
+        </div>
+        <div id="status" class="status"></div>
+      </section>
+
+      <section class="preview-card">
+        <h2>Preview</h2>
+        <div class="certificate-paper" id="certificatePaper">
+          <div class="watermark">SCHOOL ERP</div>
+          <div class="cert-school">
+            <h3>P.S. Public School</h3>
+            <p>Recognized Senior Secondary School</p>
+            <p>Certificate generated by School ERP Administration</p>
+          </div>
+          <div class="cert-title"><span id="certTitleText">BONAFIDE CERTIFICATE</span></div>
+          <div class="cert-meta">
+            <div><strong>Ref No:</strong> <span id="certRefText">-</span></div>
+            <div><strong>Date:</strong> <span id="certDateText">-</span></div>
+          </div>
+          <div class="cert-body" id="certBodyText">Select session, class and student to generate certificate preview.</div>
+          <div class="cert-footer">
+            <div>
+              <strong>Place:</strong> School Office
+            </div>
+            <div class="signature">
+              <div class="signature-line">Principal / Authorized Signatory</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app";
+    const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app";
+
+    const sidebar = document.getElementById("sidebar");
+    const backdrop = document.getElementById("backdrop");
+    const menuToggle = document.getElementById("menuToggle");
+    const sessionSelect = document.getElementById("sessionSelect");
+    const classSelect = document.getElementById("classSelect");
+    const studentSelect = document.getElementById("studentSelect");
+    const printMode = document.getElementById("printMode");
+    const selectedStudentsWrap = document.getElementById("selectedStudentsWrap");
+    const studentChecklist = document.getElementById("studentChecklist");
+    const certificateType = document.getElementById("certificateType");
+    const issueDate = document.getElementById("issueDate");
+    const referenceNo = document.getElementById("referenceNo");
+    const purposeText = document.getElementById("purposeText");
+    const conductText = document.getElementById("conductText");
+    const statusEl = document.getElementById("status");
+
+    const certTitleText = document.getElementById("certTitleText");
+    const certRefText = document.getElementById("certRefText");
+    const certDateText = document.getElementById("certDateText");
+    const certBodyText = document.getElementById("certBodyText");
+
+    let allStudents = [];
+    let currentSession = localStorage.getItem("session") || "";
+    let currentClassStudents = [];
+
+    function openSidebar(){
+      sidebar.classList.remove("closed");
+      sidebar.classList.add("open");
+      backdrop.classList.add("show");
+    }
+
+    function closeSidebar(){
+      sidebar.classList.add("closed");
+      sidebar.classList.remove("open");
+      backdrop.classList.remove("show");
+    }
+
+    menuToggle.addEventListener("click", openSidebar);
+    backdrop.addEventListener("click", closeSidebar);
+    if(window.innerWidth > 900){
+      sidebar.classList.remove("closed");
+    }
+    window.addEventListener("resize", () => {
+      if(window.innerWidth > 900){
+        sidebar.classList.remove("closed");
+        sidebar.classList.remove("open");
+        backdrop.classList.remove("show");
+      }else if(!sidebar.classList.contains("open")){
+        sidebar.classList.add("closed");
+      }
+    });
+
+    function showStatus(message, type){
+      statusEl.textContent = message || "";
+      statusEl.className = "status show" + (type ? " " + type : "");
+    }
+
+    function clearStatus(){
+      statusEl.textContent = "";
+      statusEl.className = "status";
+    }
+
+    function asStudentRows(rows){
+      return Array.isArray(rows) ? rows : (Array.isArray(rows?.students) ? rows.students : []);
+    }
+
+    function clean(v){
+      return String(v ?? "").trim();
+    }
+
+    function normalizeClassName(v){
+      return clean(v).replace(/\s+/g, " ");
+    }
+
+    function formatDateDisplay(value){
+      if(!value) return "-";
+      const d = new Date(value);
+      if(Number.isNaN(d.getTime())) return value;
+      return d.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric"
+      });
+    }
+
+    function buildReferenceNumber(student){
+      const cls = normalizeClassName(student?.class_name || student?.class || "").replace(/\s+/g, "-");
+      const adm = clean(student?.admission_no || student?.rollno || student?.roll || "NA");
+      const type = clean(certificateType.value || "CERT").toUpperCase();
+      const dateKey = clean(issueDate.value || new Date().toISOString().slice(0,10)).replace(/-/g, "");
+      return `${type}/${cls || "CLASS"}/${adm}/${dateKey}`;
+    }
+
+    function fullStudentName(student){
+      return clean(student?.student_name || student?.name || "Student");
+    }
+
+    function studentClassLabel(student){
+      const cls = clean(student?.class_name || student?.class || "-");
+      const section = clean(student?.section || "");
+      return section ? `${cls} - ${section}` : cls;
+    }
+
+    function getSelectedStudent(){
+      const selectedId = studentSelect.value;
+      return allStudents.find(s => String(s._id || s.id || s.admission_no || s.rollno) === selectedId) || null;
+    }
+
+    function getStudentKey(student){
+      return String(student?._id || student?.id || student?.admission_no || student?.rollno || fullStudentName(student));
+    }
+
+    function sortClasses(list){
+      return [...list].sort((a,b) => String(a).localeCompare(String(b), undefined, { numeric:true, sensitivity:"base" }));
+    }
+
+    async function fetchJson(url){
+      const res = await fetch(url);
+      if(!res.ok) throw new Error(`Failed ${res.status}`);
+      return res.json();
+    }
+
+    async function loadSessions(){
+      sessionSelect.innerHTML = `<option>Loading...</option>`;
+      try{
+        const data = await fetchJson(`${EXAM_API}/session/list`);
+        const sessions = Array.isArray(data?.sessions) ? data.sessions : [];
+        if(!sessions.length){
+          sessionSelect.innerHTML = `<option value="">No session found</option>`;
+          return;
+        }
+        const latest = sessions[sessions.length - 1];
+        currentSession = sessions.includes(currentSession) ? currentSession : latest;
+        localStorage.setItem("session", currentSession);
+        sessionSelect.innerHTML = sessions.map(s => `<option value="${s}">${s}</option>`).join("");
+        sessionSelect.value = currentSession;
+        await loadStudentsForSession();
+      }catch(err){
+        sessionSelect.innerHTML = `<option value="">Unable to load</option>`;
+        showStatus("Failed to load sessions.", "error");
+      }
+    }
+
+    async function loadStudentsForSession(){
+      clearStatus();
+      classSelect.innerHTML = `<option>Loading...</option>`;
+      studentSelect.innerHTML = `<option>Loading...</option>`;
+      try{
+        currentSession = sessionSelect.value || currentSession;
+        if(currentSession){
+          localStorage.setItem("session", currentSession);
+        }
+        const data = await fetchJson(`${STUDENT_API}/students?session=${encodeURIComponent(currentSession)}`);
+        allStudents = asStudentRows(data).filter(s => normalizeClassName(s.class_name || s.class));
+
+        const classList = sortClasses([...new Set(allStudents.map(s => normalizeClassName(s.class_name || s.class)).filter(Boolean))]);
+        classSelect.innerHTML = classList.length
+          ? classList.map(cls => `<option value="${cls}">${cls}</option>`).join("")
+          : `<option value="">No class found</option>`;
+
+        if(classList.length){
+          classSelect.value = classList[0];
+          loadStudentsForClass();
+        }else{
+          studentSelect.innerHTML = `<option value="">No student found</option>`;
+          renderCertificate();
+          showStatus("No students found in selected session.", "error");
+        }
+      }catch(err){
+        allStudents = [];
+        classSelect.innerHTML = `<option value="">Unable to load</option>`;
+        studentSelect.innerHTML = `<option value="">Unable to load</option>`;
+        renderCertificate();
+        showStatus("Failed to load students for selected session.", "error");
+      }
+    }
+
+    function loadStudentsForClass(){
+      const cls = classSelect.value;
+      const classStudents = allStudents
+        .filter(s => normalizeClassName(s.class_name || s.class) === cls)
+        .sort((a,b) => fullStudentName(a).localeCompare(fullStudentName(b), undefined, { sensitivity:"base" }));
+      currentClassStudents = classStudents;
+
+      studentSelect.innerHTML = classStudents.length
+        ? classStudents.map(s => {
+            const id = getStudentKey(s);
+            const label = `${fullStudentName(s)}${clean(s.rollno || s.roll) ? ` (Roll ${clean(s.rollno || s.roll)})` : ""}`;
+            return `<option value="${id}">${label}</option>`;
+          }).join("")
+        : `<option value="">No student found</option>`;
+
+      renderStudentChecklist();
+      renderCertificate();
+    }
+
+    function renderStudentChecklist(){
+      if(!currentClassStudents.length){
+        studentChecklist.innerHTML = `<div class="muted">No students found.</div>`;
+        return;
+      }
+      studentChecklist.innerHTML = currentClassStudents.map(student => {
+        const key = getStudentKey(student);
+        const label = `${fullStudentName(student)}${clean(student.rollno || student.roll) ? ` (Roll ${clean(student.rollno || student.roll)})` : ""}`;
+        return `<label class="student-check-item"><input type="checkbox" class="student-check" value="${key}"> <span>${label}</span></label>`;
+      }).join("");
+    }
+
+    function updatePrintModeUi(){
+      const mode = printMode.value;
+      selectedStudentsWrap.classList.toggle("hidden", mode !== "selected");
+    }
+
+    function getChosenStudents(){
+      if(printMode.value === "single"){
+        const student = getSelectedStudent();
+        return student ? [student] : [];
+      }
+      if(printMode.value === "full_class"){
+        return [...currentClassStudents];
+      }
+      const checked = Array.from(document.querySelectorAll(".student-check:checked")).map(el => el.value);
+      return currentClassStudents.filter(student => checked.includes(getStudentKey(student)));
+    }
+
+    function certificateText(student){
+      const studentName = fullStudentName(student);
+      const fatherName = clean(student?.father_name || "__________");
+      const motherName = clean(student?.mother_name || "__________");
+      const className = studentClassLabel(student);
+      const session = clean(student?.session || currentSession || "-");
+      const dob = formatDateDisplay(clean(student?.dob || student?.date_of_birth || ""));
+      const admissionNo = clean(student?.admission_no || "-");
+      const address = clean(student?.address || "");
+      const purpose = clean(purposeText.value);
+      const conduct = clean(conductText.value) || "The student has maintained good conduct and behavior in the school.";
+
+      switch(certificateType.value){
+        case "character":
+          return `This is to certify that ${studentName}, child of Mr. ${fatherName}${motherName ? ` and Mrs. ${motherName}` : ""}, is/was a student of P.S. Public School in Class ${className} during the academic session ${session}.\n\nTo the best of our knowledge, the student's conduct and character have been satisfactory.\n\n${conduct}${purpose ? `\n\nThis certificate is being issued on request for ${purpose}.` : ""}`;
+        case "study":
+          return `This is to certify that ${studentName}, child of Mr. ${fatherName}${motherName ? ` and Mrs. ${motherName}` : ""}, is a bona fide student of P.S. Public School and is presently studying in Class ${className} for the session ${session}.\n\nThe student's date of birth as per school record is ${dob}. The admission number of the student is ${admissionNo}.${address ? ` The address recorded in school record is ${address}.` : ""}${purpose ? `\n\nThis certificate is issued for ${purpose}.` : ""}`;
+        case "promotion":
+          return `This is to certify that ${studentName}, child of Mr. ${fatherName}${motherName ? ` and Mrs. ${motherName}` : ""}, studied in Class ${className} in P.S. Public School during the session ${session}.\n\nThe student is hereby certified for academic record / promotion reference as per school records.${purpose ? `\n\nAdditional note: ${purpose}.` : ""}`;
+        case "bonafide":
+        default:
+          return `This is to certify that ${studentName}, child of Mr. ${fatherName}${motherName ? ` and Mrs. ${motherName}` : ""}, is a bona fide student of P.S. Public School and is studying in Class ${className} during the academic session ${session}.\n\nThe date of birth of the student, as per school record, is ${dob}. The admission number is ${admissionNo}.${purpose ? `\n\nThis certificate is issued on the request of the student/guardian for ${purpose}.` : ""}`;
+      }
+    }
+
+    function renderCertificate(){
+      const student = getSelectedStudent();
+      const issuedOn = issueDate.value || new Date().toISOString().slice(0,10);
+      certDateText.textContent = formatDateDisplay(issuedOn);
+
+      if(!student){
+        certTitleText.textContent = "CERTIFICATE";
+        certRefText.textContent = referenceNo.value || "-";
+        certBodyText.textContent = "Select session, class and student to generate certificate preview.";
+        return;
+      }
+
+      const titleMap = {
+        bonafide: "BONAFIDE CERTIFICATE",
+        character: "CHARACTER CERTIFICATE",
+        study: "STUDY CERTIFICATE",
+        promotion: "PROMOTION CERTIFICATE"
+      };
+      certTitleText.textContent = titleMap[certificateType.value] || "CERTIFICATE";
+      certRefText.textContent = clean(referenceNo.value) || buildReferenceNumber(student);
+      certBodyText.textContent = certificateText(student);
+    }
+
+    function escapeHtml(value){
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({
+        "&":"&amp;",
+        "<":"&lt;",
+        ">":"&gt;",
+        "\"":"&quot;",
+        "'":"&#39;"
+      }[ch]));
+    }
+
+    function printCertificateDocument(){
+      const students = getChosenStudents();
+      if(!students.length){
+        showStatus("Select at least one student to print certificate.", "error");
+        return;
+      }
+
+      const issuedOn = formatDateDisplay(issueDate.value || new Date().toISOString().slice(0,10));
+      const title = certTitleText.textContent || "CERTIFICATE";
+      const certificates = students.map(student => ({
+        title,
+        refNo: clean(referenceNo.value) || buildReferenceNumber(student),
+        issuedOn,
+        paragraphs: certificateText(student).split(/\n{2,}/)
+      }));
+
+      try{
+        sessionStorage.setItem("certificate_print_payload", JSON.stringify({ certificates }));
+      }catch(_e){}
+
+      const printWindow = window.open("admin_certificate_print.html", "_blank", "width=900,height=1200");
+      if(!printWindow){
+        showStatus("Popup blocked. Please allow popups for printing.", "error");
+      }
+    }
+
+    sessionSelect.addEventListener("change", loadStudentsForSession);
+    classSelect.addEventListener("change", loadStudentsForClass);
+    studentSelect.addEventListener("change", renderCertificate);
+    printMode.addEventListener("change", updatePrintModeUi);
+    certificateType.addEventListener("change", renderCertificate);
+    issueDate.addEventListener("change", renderCertificate);
+    referenceNo.addEventListener("input", renderCertificate);
+    purposeText.addEventListener("input", renderCertificate);
+    conductText.addEventListener("input", renderCertificate);
+
+    document.getElementById("refreshBtn").addEventListener("click", loadStudentsForSession);
+    document.getElementById("selectAllStudentsBtn").addEventListener("click", () => {
+      document.querySelectorAll(".student-check").forEach(el => { el.checked = true; });
+    });
+    document.getElementById("clearSelectedStudentsBtn").addEventListener("click", () => {
+      document.querySelectorAll(".student-check").forEach(el => { el.checked = false; });
+    });
+    document.getElementById("printBtn").addEventListener("click", () => {
+      renderCertificate();
+      printCertificateDocument();
+    });
+
+    issueDate.value = new Date().toISOString().slice(0,10);
+    updatePrintModeUi();
+    loadSessions();
+  </script>
+</body>
+</html>
