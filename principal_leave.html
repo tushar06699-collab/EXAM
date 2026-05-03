@@ -23,6 +23,10 @@ button{padding:8px 16px;border:none;color:white;border-radius:6px;cursor:pointer
 .reject-btn{ background:#dc3545; }
 textarea{width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;resize:none;margin-top:10px;}
 .view-doc{color:#233465;text-decoration:none;font-weight:600;display:inline-block;margin-top:5px;}
+.pager{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:16px;}
+.pager button{margin-top:0;background:#233465;}
+.pager button:disabled{opacity:.45;cursor:not-allowed;}
+.pager-info{font-size:14px;color:#475569;font-weight:600;}
 </style>
 </head>
 <body>
@@ -36,6 +40,11 @@ textarea{width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;resize:
 <div class="main">
     <h1>Teacher Leave Applications</h1>
     <div id="leaveContainer"></div>
+    <div class="pager" id="leavePager" style="display:none;">
+        <button id="prevBtn" type="button" onclick="changePage(-1)">Prev</button>
+        <span class="pager-info" id="pageInfo">Page 1</span>
+        <button id="nextBtn" type="button" onclick="changePage(1)">Next</button>
+    </div>
 </div>
 
 <script>
@@ -43,6 +52,9 @@ const API = "https://exam-backend-117372286918.asia-south1.run.app/";
 
 // Cache teacher names to avoid multiple requests
 const teacherCache = {};
+const LEAVES_PER_PAGE = 10;
+let allLeaves = [];
+let currentPage = 1;
 
 // Calculate total days between two dates
 function calculateDays(s, e) {
@@ -83,65 +95,99 @@ async function loadLeaves() {
     try {
         let res = await fetch(`${API}/leave/list`);
         let data = await res.json();
-        let box = document.getElementById("leaveContainer");
-        box.innerHTML = "";
+        allLeaves = Array.isArray(data.leaves) ? data.leaves : [];
+        currentPage = 1;
 
-        if (!data.success || data.leaves.length === 0) {
-            box.innerHTML = "<p>No leave applications found</p>";
+        if (!data.success || allLeaves.length === 0) {
+            document.getElementById("leaveContainer").innerHTML = "<p>No leave applications found</p>";
+            updatePager();
             return;
         }
-
-        for (let lv of data.leaves) {
-            // Fetch teacher name dynamically if unknown
-            let teacherName = lv.teacher_name !== "Unknown" ? lv.teacher_name : await getTeacherName(lv.teacher_id);
-            let days = calculateDays(lv.start_date, lv.end_date);
-
-            let fileHTML = lv.document_url
-                ? `<a class="view-doc" href="${API}${lv.document_url}" target="_blank">View Document</a>`
-                : "No Document Uploaded";
-
-            let card = document.createElement("div");
-            card.className = "card leave-row";
-
-            card.innerHTML = `
-                <div class="leave-header">
-                    <span><b>${teacherName}</b></span>
-                    <span class="status-badge ${lv.status}">${lv.status.toUpperCase()}</span>
-                </div>
-                <p><b>Reason:</b> ${lv.reason || "No reason provided"}</p>
-                <p><b>Purpose:</b> ${lv.purpose || "No purpose provided"}</p>
-                <p><b>From:</b> ${lv.start_date} <b>To:</b> ${lv.end_date}</p>
-                <p><b>Total Days:</b> ${days}</p>
-                ${fileHTML}
-            `;
-
-            // Textarea for admin message
-            let textArea = document.createElement("textarea");
-            textArea.id = `message_${lv.id}`;
-            textArea.placeholder = "Admin message (optional)";
-            textArea.value = lv.admin_message || "";
-            card.appendChild(textArea);
-
-            // Approve button
-            let approveBtn = document.createElement("button");
-            approveBtn.className = "approve-btn";
-            approveBtn.textContent = "Approve";
-            approveBtn.onclick = () => updateLeave(lv.id, "approved");
-            card.appendChild(approveBtn);
-
-            // Reject button
-            let rejectBtn = document.createElement("button");
-            rejectBtn.className = "reject-btn";
-            rejectBtn.textContent = "Reject";
-            rejectBtn.onclick = () => updateLeave(lv.id, "rejected");
-            card.appendChild(rejectBtn);
-
-            box.appendChild(card);
-        }
+        renderLeaves();
     } catch (err) {
         console.error("Failed to load leaves:", err);
         document.getElementById("leaveContainer").innerHTML = "<p>Error loading leave applications</p>";
+        allLeaves = [];
+        updatePager();
     }
+}
+
+async function renderLeaves() {
+    let box = document.getElementById("leaveContainer");
+    box.innerHTML = "";
+
+    if (!allLeaves.length) {
+        box.innerHTML = "<p>No leave applications found</p>";
+        updatePager();
+        return;
+    }
+
+    const totalPages = Math.max(1, Math.ceil(allLeaves.length / LEAVES_PER_PAGE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    const start = (currentPage - 1) * LEAVES_PER_PAGE;
+    const pageLeaves = allLeaves.slice(start, start + LEAVES_PER_PAGE);
+
+    for (let lv of pageLeaves) {
+        let teacherName = lv.teacher_name !== "Unknown" ? lv.teacher_name : await getTeacherName(lv.teacher_id);
+        let days = calculateDays(lv.start_date, lv.end_date);
+
+        let fileHTML = lv.document_url
+            ? `<a class="view-doc" href="${API}${lv.document_url}" target="_blank">View Document</a>`
+            : "No Document Uploaded";
+
+        let card = document.createElement("div");
+        card.className = "card leave-row";
+
+        card.innerHTML = `
+            <div class="leave-header">
+                <span><b>${teacherName}</b></span>
+                <span class="status-badge ${lv.status}">${lv.status.toUpperCase()}</span>
+            </div>
+            <p><b>Reason:</b> ${lv.reason || "No reason provided"}</p>
+            <p><b>Purpose:</b> ${lv.purpose || "No purpose provided"}</p>
+            <p><b>From:</b> ${lv.start_date} <b>To:</b> ${lv.end_date}</p>
+            <p><b>Total Days:</b> ${days}</p>
+            ${fileHTML}
+        `;
+
+        let textArea = document.createElement("textarea");
+        textArea.id = `message_${lv.id}`;
+        textArea.placeholder = "Admin message (optional)";
+        textArea.value = lv.admin_message || "";
+        card.appendChild(textArea);
+
+        let approveBtn = document.createElement("button");
+        approveBtn.className = "approve-btn";
+        approveBtn.textContent = "Approve";
+        approveBtn.onclick = () => updateLeave(lv.id, "approved");
+        card.appendChild(approveBtn);
+
+        let rejectBtn = document.createElement("button");
+        rejectBtn.className = "reject-btn";
+        rejectBtn.textContent = "Reject";
+        rejectBtn.onclick = () => updateLeave(lv.id, "rejected");
+        card.appendChild(rejectBtn);
+
+        box.appendChild(card);
+    }
+
+    updatePager();
+}
+
+function updatePager() {
+    const pager = document.getElementById("leavePager");
+    const totalPages = Math.max(1, Math.ceil(allLeaves.length / LEAVES_PER_PAGE));
+    const hasRows = allLeaves.length > 0;
+    pager.style.display = hasRows ? "flex" : "none";
+    document.getElementById("pageInfo").textContent = hasRows ? `Page ${currentPage} of ${totalPages}` : "Page 0";
+    document.getElementById("prevBtn").disabled = !hasRows || currentPage <= 1;
+    document.getElementById("nextBtn").disabled = !hasRows || currentPage >= totalPages;
+}
+
+function changePage(delta) {
+    const totalPages = Math.max(1, Math.ceil(allLeaves.length / LEAVES_PER_PAGE));
+    currentPage = Math.min(totalPages, Math.max(1, currentPage + delta));
+    renderLeaves();
 }
 
 // Update leave status

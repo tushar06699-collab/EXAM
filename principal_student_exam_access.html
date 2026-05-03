@@ -33,12 +33,8 @@ th{background:#233465;color:white;}
 <div class="sidebar">
   <h2>Principal Panel</h2>
   <a href="principal_dashboard.html">Dashboard</a>
-  <a href="principal_notice.html">Notices and Circular</a>
-  <a href="principal_leave.html">Teachers Leave</a>
-  <a href="principal_attendence.html">Student Attendance</a>
-  <a href="principal_marks.html">Uploaded Marks</a>
   <a class="active" href="principal_student_exam_access.html">Student Exam Access</a>
-  <a href="index.html">Logout</a>
+    <a href="principal_generate_rollno.html">Generate Roll Numbers</a>
 </div>
 
 <div class="content">
@@ -79,15 +75,13 @@ const releaseAllBtn = document.getElementById("releaseAllBtn");
 async function loadSessions(){
   const r = await fetch(`${EXAM_API}/session/list`);
   const d = await r.json();
-  sessionSelectEl.innerHTML = (d.sessions || []).map(s=>`<option value="${s}">${s}</option>`).join("");
-
-    // FORCE_LATEST_SESSION
-    if (Array.isArray(data.sessions) && data.sessions.length) {
-        const latest = data.sessions[data.sessions.length - 1];
-        if (latest) {
-            localStorage.setItem('session', latest);
-        }
-    }
+  const sessions = Array.isArray(d.sessions) ? d.sessions : [];
+  sessionSelectEl.innerHTML = sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
+  if (sessions.length) {
+    const latest = sessions[sessions.length - 1];
+    sessionSelectEl.value = latest;
+    localStorage.setItem("session", latest);
+  }
   await loadClasses();
 }
 

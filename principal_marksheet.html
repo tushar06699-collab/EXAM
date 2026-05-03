@@ -299,8 +299,10 @@ tr.fail td{
 <div class="sidebar">
   <h2>School ERP</h2>
   <a href="principal_dashboard.html">Dashboard</a>
-  <a href="principal_student_exam_access.html">Student Exam Access</a>
-  <a href="principal_marks.html">Upload Students Marks</a>
+  <a href="principal_marks.html">Upload External Marks</a>
+    <a href="principal_internal_marks.html">Upload Internal Marks</a>
+        <a href="principal_uploaded_marks.html">Uploaded Marks</a>
+          <a href="principal_result_publish.html">Publish Results</a>        
   <a href="principal_marksheet.html" class="active">Generate Marksheet</a>
 </div>
 
@@ -347,15 +349,13 @@ function getStudentId(s){
 async function loadSessions(){
   const r = await fetch(`${EXAM_API}/session/list`);
   const d = await r.json();
-  sessionSelect.innerHTML = (d.sessions || []).map(s=>`<option>${s}</option>`).join("");
-
-    // FORCE_LATEST_SESSION
-    if (Array.isArray(data.sessions) && data.sessions.length) {
-        const latest = data.sessions[data.sessions.length - 1];
-        if (latest) {
-            localStorage.setItem('session', latest);
-        }
-    }
+  const sessions = Array.isArray(d.sessions) ? d.sessions : [];
+  sessionSelect.innerHTML = sessions.map(s=>`<option value="${s}">${s}</option>`).join("");
+  if (sessions.length) {
+    const latest = sessions[sessions.length - 1];
+    sessionSelect.value = latest;
+    localStorage.setItem("session", latest);
+  }
   loadClasses();
 }
 loadSessions();

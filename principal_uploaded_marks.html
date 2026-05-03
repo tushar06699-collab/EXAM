@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>View Uploaded Marks - School ERP</title>`n<link rel="stylesheet" href="admin_sidebar.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body{margin:0;font-family:Poppins,sans-serif;background:#f2f4f7;display:flex;}
+.sidebar{width:240px;background:#233465;color:white;height:100vh;position:fixed;left:0;top:0;padding-top:20px;}
+.sidebar h2{text-align:center;font-size:22px;margin-bottom:25px;}
+.sidebar a{display:block;padding:12px 20px;color:white;text-decoration:none;font-size:16px;}
+.sidebar a:hover{background:rgba(255,255,255,0.25);}
+.sidebar a.active{background:rgba(255,255,255,0.35);}
+.content{margin-left:240px;width:calc(100% - 240px);padding:20px;box-sizing:border-box;}
+header{background:#233465;color:#fff;padding:1rem;text-align:center;font-size:1.5rem;border-radius:8px;}
+main{max-width:1200px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.1);}
+label{display:block;font-weight:600;margin-top:15px;}
+select,input{width:100%;padding:10px;margin-top:5px;border:1px solid #ccc;border-radius:6px;}
+button{margin-top:20px;width:100%;padding:12px;background:#4f46e5;color:white;border:none;font-size:16px;border-radius:6px;cursor:pointer;}
+button:hover{background:#3730a3;}
+table{width:100%;border-collapse:collapse;margin-top:20px;}
+th,td{border:1px solid #ccc;padding:8px;text-align:center;}
+th{background:#233465;color:white;}
+input.mark-input{width:60px;text-align:center;}
+#tableContainer{margin-top:12px;overflow-x:auto;}
+#tableContainer table{min-width:900px;}
+</style>
+<link rel="stylesheet" href="admin_theme.css">
+</head>
+<body>
+
+<div class="sidebar">
+<h2>School ERP</h2>
+  <a href="principal_dashboard.html">Dashboard</a>
+  <a href="principal_marks.html">Upload External Marks</a>
+    <a href="principal_internal_marks.html">Upload Internal Marks</a>
+        <a href="principal_uploaded_marks.html" class="active">Uploaded Marks</a>
+          <a href="principal_result_publish.html">Publish Results</a>        
+  <a href="principal_marksheet.html">Generate Marksheet</a>
+</div>
+
+<div class="content">
+<header>Uploaded Marks - Class Overview</header>
+<main>
+
+<label>Session</label>
+<select id="sessionSelect"></select>
+
+<label>Class</label>
+<select id="classSelect"></select>
+
+<label>Exam</label>
+<select id="examSelect"></select>
+
+<button onclick="loadMarks()">Load Marks</button>
+<button onclick="exportCSV()" style="background:#1e8f3d;">Export CSV</button>
+<button onclick="exportPDF()" style="background:#0f766e;">Download PDF</button>
+
+<div id="tableContainer"></div>
+
+</main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app/";
+const STUDENT_API = "https://student-backend-117372286918.asia-south1.run.app/";
+
+let EXAMS = [];
+let STUDENTS = [];
+let SUBJECTS = [];
+let TOTAL_MARKS = 100; // default
+
+function getStudentId(s){
+    const raw = s?._id ?? s?.id ?? s?.student_id ?? "";
+    if(typeof raw === "string") return raw;
+    if(raw && typeof raw === "object"){
+        if(typeof raw.$oid === "string") return raw.$oid;
+        if(typeof raw.id === "string") return raw.id;
+    }
+    return String(raw || "");
+}
+
+// Load sessions
+async function loadSessions(){
+    const res = await fetch(`${EXAM_API}/session/list`);
+    const data = await res.json();
+    sessionSelect.innerHTML = data.sessions.map(s=>`<option>${s}</option>`).join("");
+
+    // FORCE_LATEST_SESSION
+    if (Array.isArray(data.sessions) && data.sessions.length) {
+        const latest = data.sessions[data.sessions.length - 1];
+        if (latest) {
+            localStorage.setItem('session', latest);
+        }
+    }
+    if(data.sessions.length>0){
+        sessionSelect.value = data.sessions[data.sessions.length - 1];
+        loadClasses();
+    }
+}
+loadSessions();
+sessionSelect.addEventListener("change", loadClasses);
+
+// Load classes
+async function loadClasses(){
+    const session = sessionSelect.value;
+    if(!session) return;
+    const res = await fetch(`${STUDENT_API}/students?session=${session}`);
+    const students = await res.json();
+    const classes = [...new Set(students.map(s=>s.class_name).filter(Boolean))];
+    classes.sort();
+    classSelect.innerHTML = `<option value="">Select Class</option>` + classes.map(c=>`<option value="${c}">${c}</option>`).join("");
+    if(classes.length>0) classSelect.value = classes[0];
+    loadExams();
+}
+classSelect.addEventListener("change", loadExams);
+
+// Load exams
+async function loadExams(){
+    try{
+        const res = await fetch(`${EXAM_API}/exam/list-all`);
+        const data = await res.json();
+        if(!data.success) return alert("Exam load error");
+        EXAMS = data.exams;
+        examSelect.innerHTML = `<option value="">Select Exam</option>` + EXAMS.map(e=>`<option value="${e.exam_id}">${e.exam_name}</option>`).join("");
+    }catch(err){console.error(err);}
+}
+
+// Load marks table
+async function loadMarks(){
+    const session = sessionSelect.value;
+    const cls = classSelect.value;
+    const examId = examSelect.value;
+    if(!session || !cls || !examId) return alert("Select session, class, exam");
+
+    const examData = EXAMS.find(e=>e.exam_id==examId);
+    if(!examData) return;
+
+    TOTAL_MARKS = parseFloat(examData.total_marks) || 100;
+
+    // Load students
+    const resStu = await fetch(`${STUDENT_API}/students?session=${session}`);
+STUDENTS = (await resStu.json())
+  .filter(s => s.class_name === cls)
+  .sort((a, b) => {
+    const r1 = parseInt(a.rollno) || 0;
+    const r2 = parseInt(b.rollno) || 0;
+    return r1 - r2;
+  });
+
+    // Load subjects
+    const resSub = await fetch(`${EXAM_API}/exam/subjects/get?session=${session}&class_name=${cls}`);
+    const subData = await resSub.json();
+    SUBJECTS = subData.subjects || [];
+
+    // Load external marks
+    const resMarks = await fetch(`${EXAM_API}/exam/get-marks?session=${session}&class_name=${cls}&exam_name=${examData.exam_name}`);
+    const markData = await resMarks.json();
+    if(!markData.success) return alert("No marks found");
+
+    // Map marks: {roll: {subject: marks}}
+    const marksMap = {};
+    markData.marks.forEach(m=>{
+        if(!marksMap[m.roll]) marksMap[m.roll]={};
+        marksMap[m.roll][m.subject] = m.marks;
+    });
+
+    // Load internal marks subject-wise (if exam internal enabled)
+    const allowInternal = !(
+        examData.internal_marks === false ||
+        examData.internal_marks === "false" ||
+        examData.internal_marks === "no" ||
+        examData.internal_marks === "No" ||
+        examData.internal_marks === 0
+    );
+    const internalBySubject = {};
+    if(allowInternal){
+        await Promise.all(SUBJECTS.map(async (sub)=>{
+            try{
+                const r = await fetch(`${EXAM_API}/internal-marks/list?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&subject=${encodeURIComponent(sub)}&exam_name=${encodeURIComponent(examData.exam_name)}`);
+                const d = await r.json();
+                const map = {};
+                if(d.success && Array.isArray(d.marks)){
+                    d.marks.forEach(row=>{
+                        map[String(row.student_id)] = Number(row.marks || 0);
+                    });
+                }
+                internalBySubject[sub] = map;
+            }catch(_e){
+                internalBySubject[sub] = {};
+            }
+        }));
+    }
+
+    // Build table: Subject-wise External + Internal
+    let html = `<table><tr><th>Roll</th><th>Name</th>`;
+    SUBJECTS.forEach(s=>html+=`<th>${s} Ext</th><th>${s} Int</th>`);
+    html+=`<th>Ext Total</th><th>Int Total</th><th>Grand Total</th><th>Percent</th></tr>`;
+
+    STUDENTS.forEach(st=>{
+        let extTotal=0;
+        let intTotal=0;
+        const sid = String(getStudentId(st));
+        html+=`<tr><td>${st.rollno}</td><td>${st.student_name}</td>`;
+        SUBJECTS.forEach(sub=>{
+            const ext = Number(marksMap[st.rollno]?.[sub] || 0);
+            const int = allowInternal ? Number(internalBySubject[sub]?.[sid] || 0) : 0;
+            extTotal += ext;
+            intTotal += int;
+            const extColor = ext < (TOTAL_MARKS/3) ? 'style="background:#ffcccc"' : '';
+            html+=`<td ${extColor}>${ext}</td><td>${allowInternal ? int : "-"}</td>`;
+        });
+        const grand = extTotal + intTotal;
+        const maxMarks = SUBJECTS.length * TOTAL_MARKS; // percent based on external max baseline
+        const percent = maxMarks > 0 ? ((grand/maxMarks)*100).toFixed(2) : "0.00";
+        const rowColor = percent < 33 ? 'style="background:#ffcccc"' : '';
+        html+=`<td>${extTotal}</td><td>${allowInternal ? intTotal : "-"}</td><td>${grand}</td><td ${rowColor}>${percent}</td></tr>`;
+    });
+
+    html+=`</table>`;
+    document.getElementById("tableContainer").innerHTML = html;
+}
+
+// CSV export
+function exportCSV(){
+    const table = document.querySelector("#tableContainer table");
+    if(!table) return alert("No data");
+    let csv=[];
+    table.querySelectorAll("tr").forEach(tr=>{
+        let row=[];
+        tr.querySelectorAll("th,td").forEach(td=>{
+            row.push(td.textContent.trim());
+        });
+        csv.push(row.join(","));
+    });
+    const blob = new Blob([csv.join("\n")],{type:"text/csv"});
+    const url = URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;
+    a.download=`marks_${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+async function exportPDF(){
+    const table = document.querySelector("#tableContainer table");
+    if(!table) return alert("No data");
+    const jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+    if(!jsPDFCtor || typeof window.html2canvas === "undefined"){
+        return alert("PDF library is not loaded. Please refresh and try again.");
+    }
+
+    const host = document.createElement("div");
+    host.style.position = "fixed";
+    host.style.left = "-99999px";
+    host.style.top = "0";
+    host.style.background = "#fff";
+    host.style.padding = "10px";
+    host.style.width = "1700px";
+
+    const examId = examSelect.value;
+    const examData = EXAMS.find(e=>e.exam_id==examId);
+    const title = document.createElement("h3");
+    title.textContent = `Uploaded Marks Report - ${classSelect.value} - ${examData?.exam_name || ""} - ${sessionSelect.value}`;
+    title.style.margin = "0 0 10px 0";
+    host.appendChild(title);
+    host.appendChild(table.cloneNode(true));
+    document.body.appendChild(host);
+
+    const btn = document.querySelector('button[onclick="exportPDF()"]');
+    const oldText = btn ? btn.textContent : "";
+    if(btn) btn.textContent = "Generating PDF...";
+
+    try{
+        const canvas = await window.html2canvas(host, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+        const img = canvas.toDataURL("image/jpeg", 0.95);
+        const pdf = new jsPDFCtor("l", "mm", "a4");
+        const pageW = 297, pageH = 210, margin = 6;
+        const maxW = pageW - margin*2;
+        const maxH = pageH - margin*2;
+        let w = maxW, h = (canvas.height * w) / canvas.width;
+        if(h <= maxH){
+            const x = (pageW - w) / 2;
+            const y = (pageH - h) / 2;
+            pdf.addImage(img, "JPEG", x, y, w, h);
+        }else{
+            const pageCanvas = document.createElement("canvas");
+            const ctx = pageCanvas.getContext("2d");
+            const sliceHeightPx = Math.floor(canvas.width * (maxH / maxW));
+            pageCanvas.width = canvas.width;
+            let yPx = 0;
+            let page = 0;
+            while(yPx < canvas.height){
+                const cur = Math.min(sliceHeightPx, canvas.height - yPx);
+                pageCanvas.height = cur;
+                ctx.clearRect(0,0,pageCanvas.width,pageCanvas.height);
+                ctx.drawImage(canvas, 0, yPx, canvas.width, cur, 0, 0, canvas.width, cur);
+                const slice = pageCanvas.toDataURL("image/jpeg", 0.95);
+                const sliceH = (cur * maxW) / canvas.width;
+                if(page > 0) pdf.addPage();
+                pdf.addImage(slice, "JPEG", margin, margin, maxW, sliceH);
+                yPx += cur;
+                page += 1;
+            }
+        }
+        pdf.save(`uploaded_marks_${classSelect.value}_${Date.now()}.pdf`);
+    }catch(err){
+        console.error(err);
+        alert("Unable to generate PDF");
+    }finally{
+        if(btn) btn.textContent = oldText || "Download PDF";
+        if(host.parentNode) host.parentNode.removeChild(host);
+    }
+}
+</script>
+</body>
+</html>
+
+
+
+
+
+
