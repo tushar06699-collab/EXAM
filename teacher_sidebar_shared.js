@@ -545,6 +545,7 @@
     { href: 'teacher_dashboard.html', label: 'Dashboard' },
     { href: 'view_notices.html', label: 'Notices and Circular' },
     { href: 'teacher_my_classes.html', label: 'My Time Table' },
+    { href: 'teacher_syllabus.html', label: 'Class Syllabus' },
     { href: 'teacher_attendance.html', label: 'Upload Attendance' },
     { href: 'teacher_daily_work.html', label: 'Daily Work' },
     { href: 'teacher_view_datesheet.html', label: 'View Datesheet' },

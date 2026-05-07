@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin Syllabus</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="admin_sidebar.css">
+<link rel="stylesheet" href="admin_theme.css">
+<style>
+body{margin:0;font-family:Poppins,sans-serif;background:#eef1f6;}
+.main{padding:28px;max-width:1280px;}
+.topbar{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  padding:16px 18px;
+  margin-bottom:20px;
+}
+.topbar h1{margin:0;font-size:28px;color:#1f2937;}
+.topbar p{margin:8px 0 0 0;color:#64748b;line-height:1.5;}
+.grid{
+  display:grid;
+  grid-template-columns:1.05fr .95fr;
+  gap:18px;
+}
+.panel{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  box-shadow:0 6px 16px rgba(15,23,42,.08);
+  padding:18px;
+}
+.panel h2{margin:0 0 14px 0;font-size:20px;color:#1f2937;}
+.filters,.upload-row{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;
+}
+.upload-row{
+  grid-template-columns:1fr auto auto;
+  align-items:end;
+}
+label{display:block;font-weight:600;margin-bottom:6px;color:#334155;}
+select,input[type="file"]{
+  width:100%;
+  padding:11px 12px;
+  border:1px solid #cbd5e1;
+  border-radius:10px;
+  background:#fff;
+  font-size:14px;
+}
+button{
+  border:none;
+  border-radius:10px;
+  padding:11px 15px;
+  font-size:14px;
+  font-weight:700;
+  cursor:pointer;
+}
+.btn-main{background:#1e3a8a;color:#fff;}
+.btn-main:hover{background:#1d3275;}
+.btn-soft{background:#e8efff;color:#1e3a8a;}
+.btn-soft:hover{background:#dce7ff;}
+.btn-accent{background:#c26c1f;color:#fff;}
+.btn-accent:hover{background:#a65c18;}
+.btn-danger{background:#b91c1c;color:#fff;}
+.btn-danger:hover{background:#991b1b;}
+.btn-danger-soft{background:#fee2e2;color:#991b1b;}
+.btn-danger-soft:hover{background:#fecaca;}
+.note{
+  margin-top:12px;
+  padding:12px 14px;
+  border-radius:12px;
+  background:#f8fafc;
+  border:1px dashed #cbd5e1;
+  color:#64748b;
+  font-size:13px;
+  line-height:1.5;
+}
+.status{
+  min-height:18px;
+  margin-top:12px;
+  font-size:13px;
+  color:#1e3a8a;
+}
+.action-row{
+  margin-top:14px;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.stats{
+  margin-top:18px;
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+}
+.stat{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  padding:14px;
+}
+.stat .label{
+  color:#64748b;
+  font-size:12px;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+.stat .value{
+  margin-top:8px;
+  font-size:24px;
+  font-weight:700;
+  color:#1e3a8a;
+}
+.exam-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  gap:14px;
+}
+.exam-card{
+  background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);
+  border:1px solid #dbe4f0;
+  border-radius:14px;
+  padding:16px;
+}
+.exam-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin-bottom:10px;
+}
+.exam-head h3{margin:0;font-size:18px;color:#1f2937;}
+.badge{
+  min-width:44px;
+  text-align:center;
+  padding:5px 10px;
+  border-radius:999px;
+  background:#e0e7ff;
+  color:#1e3a8a;
+  font-size:12px;
+  font-weight:700;
+}
+.chapter-list{
+  margin:0;
+  padding-left:18px;
+  color:#334155;
+  line-height:1.6;
+}
+.empty{
+  padding:24px;
+  text-align:center;
+  color:#64748b;
+  border:1px dashed #cbd5e1;
+  border-radius:12px;
+  background:#f8fafc;
+}
+@media (max-width:980px){
+  .grid{grid-template-columns:1fr;}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media (max-width:760px){
+  .main{padding:14px;}
+  .filters,.upload-row,.stats{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h2>EXAM ERP</h2>
+  <a href="dashboard.html">Dashboard</a>
+  <a href="admin_notice.html">Notices and Calander</a>
+  <a href="admin_leave.html">Teachers Leaves</a>
+  <a href="admin_attendence.html">Student Attendance</a>
+  <a href="subject_add.html">School Corner</a>
+  <a href="exam_create.html">Pre Exam Corner</a>
+  <a href="exam_paper.html">Exams Corner</a>
+  <a href="result_upload.html">Post Exam Corner</a>
+  <a href="admin_syllabus.html" class="active">Class Syllabus</a>
+  <a href="admin_export.html">Export Data</a>
+  <a href="admin_certificate_generator.html">Certificate Generator</a>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <h1>Class Syllabus</h1>
+    <p>Admins can upload syllabus Excel files, download the required format, and review syllabus data for all classes and subjects. Teachers only see the filtered view on their own page.</p>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Upload Syllabus Excel</h2>
+      <div class="upload-row">
+        <div>
+          <label for="uploadSessionSelect">Session</label>
+          <select id="uploadSessionSelect"></select>
+        </div>
+        <div>
+          <label for="syllabusFile">Excel File</label>
+          <input type="file" id="syllabusFile" accept=".xlsx,.xlsm,.xltx,.xltm">
+        </div>
+        <div style="display:grid;gap:10px;">
+          <button type="button" class="btn-soft" id="downloadFormatBtn">Download Format</button>
+          <button type="button" class="btn-accent" id="uploadBtn">Upload Syllabus</button>
+        </div>
+      </div>
+      <div class="note">
+        Keep one sheet per class. Required columns are <b>Class</b>, <b>Subject</b>, <b>Exam</b>, <b>Chapter</b>. If a class cell is blank, the sheet name is used as the class value.
+      </div>
+      <div class="status" id="uploadStatus"></div>
+    </section>
+
+    <section class="panel">
+      <h2>View All Syllabus</h2>
+      <div class="filters">
+        <div>
+          <label for="sessionSelect">Session</label>
+          <select id="sessionSelect"></select>
+        </div>
+        <div>
+          <label for="classSelect">Class</label>
+          <select id="classSelect"></select>
+        </div>
+        <div>
+          <label for="subjectSelect">Subject</label>
+          <select id="subjectSelect"></select>
+        </div>
+      </div>
+      <div class="note">
+        Leave class or subject on <b>All</b> to review full syllabus coverage for the selected session.
+      </div>
+      <div class="action-row">
+        <button type="button" class="btn-danger-soft" id="clearSelectedBtn">Clear Selected Class/Subject</button>
+        <button type="button" class="btn-danger" id="clearAllBtn">Clear All Session Syllabus</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="label">Session</div><div class="value" id="statSession">-</div></div>
+    <div class="stat"><div class="label">Classes</div><div class="value" id="statClasses">0</div></div>
+    <div class="stat"><div class="label">Subjects</div><div class="value" id="statSubjects">0</div></div>
+    <div class="stat"><div class="label">Chapters</div><div class="value" id="statChapters">0</div></div>
+  </div>
+
+  <section class="panel" style="margin-top:18px;">
+    <h2>Exam-wise Chapters</h2>
+    <div id="syllabusWrap" class="empty">Loading syllabus...</div>
+  </section>
+</div>
+
+<script>
+const EXAM_API = String(
+  localStorage.getItem("examApiBaseUrl") || "http://127.0.0.1:8080"
+).replace(/\/+$/, "");
+
+const uploadSessionSelect = document.getElementById("uploadSessionSelect");
+const sessionSelect = document.getElementById("sessionSelect");
+const classSelect = document.getElementById("classSelect");
+const subjectSelect = document.getElementById("subjectSelect");
+const syllabusFile = document.getElementById("syllabusFile");
+const uploadStatus = document.getElementById("uploadStatus");
+const syllabusWrap = document.getElementById("syllabusWrap");
+
+let allRows = [];
+
+function setUploadStatus(msg, ok){
+  uploadStatus.textContent = msg || "";
+  uploadStatus.style.color = ok ? "#166534" : "#1e3a8a";
+}
+
+function prettyExamName(value){
+  const raw = String(value || "").trim().toUpperCase();
+  const ut = raw.match(/^UT\s*(\d+)$/);
+  if(ut) return `UT ${ut[1]}`;
+  if(raw === "ANNUAL") return "Annual";
+  if(raw === "HALF YEARLY") return "Half Yearly";
+  return String(value || "").trim() || "-";
+}
+
+function chapterNumber(value, fallback){
+  const match = String(value || "").match(/(\d+)/);
+  return match ? Number(match[1]) : fallback;
+}
+
+async function loadSessions(){
+  try{
+    const res = await fetch(`${EXAM_API}/session/list`);
+    const data = await res.json();
+    const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+    const html = sessions.map(s => `<option value="${s}">${s}</option>`).join("");
+    sessionSelect.innerHTML = html;
+    uploadSessionSelect.innerHTML = html;
+    if(sessions.length){
+      const latest = sessions[sessions.length - 1];
+      sessionSelect.value = latest;
+      uploadSessionSelect.value = latest;
+      await loadSyllabus();
+    }else{
+      sessionSelect.innerHTML = `<option value="">No session found</option>`;
+      uploadSessionSelect.innerHTML = `<option value="">No session found</option>`;
+      renderEmpty("No session found.");
+    }
+  }catch(e){
+    renderEmpty("Unable to load session list.");
+  }
+}
+
+function renderEmpty(message){
+  syllabusWrap.className = "empty";
+  syllabusWrap.textContent = message;
+  updateStats([]);
+}
+
+async function loadSyllabus(){
+  const session = sessionSelect.value;
+  if(!session){
+    renderEmpty("Select session first.");
+    return;
+  }
+
+  syllabusWrap.className = "empty";
+  syllabusWrap.textContent = "Loading syllabus...";
+
+  try{
+    const res = await fetch(`${EXAM_API}/syllabus/list?session=${encodeURIComponent(session)}`);
+    const data = await res.json();
+    allRows = Array.isArray(data.syllabus) ? data.syllabus : [];
+    populateClassFilter();
+    populateSubjectFilter();
+    renderSyllabus();
+  }catch(e){
+    allRows = [];
+    renderEmpty("Unable to load syllabus.");
+  }
+}
+
+function populateClassFilter(){
+  const classes = [...new Set(allRows.map(r => String(r.class_name || "").trim()).filter(Boolean))]
+    .sort((a,b) => a.localeCompare(b, undefined, {numeric:true}));
+  const prev = classSelect.value;
+  classSelect.innerHTML = `<option value="">All Classes</option>` + classes.map(cls => `<option value="${cls}">${cls}</option>`).join("");
+  if(classes.includes(prev)) classSelect.value = prev;
+}
+
+function populateSubjectFilter(){
+  const cls = classSelect.value;
+  const rows = cls ? allRows.filter(r => String(r.class_name || "").trim() === cls) : allRows;
+  const subjects = [...new Set(rows.map(r => String(r.subject || "").trim()).filter(Boolean))]
+    .sort((a,b) => a.localeCompare(b));
+  const prev = subjectSelect.value;
+  subjectSelect.innerHTML = `<option value="">All Subjects</option>` + subjects.map(s => `<option value="${s}">${s}</option>`).join("");
+  if(subjects.includes(prev)) subjectSelect.value = prev;
+}
+
+function updateStats(rows){
+  document.getElementById("statSession").textContent = sessionSelect.value || "-";
+  document.getElementById("statClasses").textContent = String(new Set(rows.map(r => String(r.class_name || "").trim()).filter(Boolean)).size);
+  document.getElementById("statSubjects").textContent = String(new Set(rows.map(r => String(r.subject || "").trim()).filter(Boolean)).size);
+  document.getElementById("statChapters").textContent = String(rows.length);
+}
+
+function renderSyllabus(){
+  const cls = classSelect.value;
+  const subject = subjectSelect.value;
+  const rows = allRows.filter(row => {
+    const matchClass = !cls || String(row.class_name || "").trim() === cls;
+    const matchSubject = !subject || String(row.subject || "").trim() === subject;
+    return matchClass && matchSubject;
+  });
+
+  updateStats(rows);
+  if(!rows.length){
+    renderEmpty("No syllabus found for the selected filters.");
+    return;
+  }
+
+  const grouped = {};
+  rows.forEach(row => {
+    const className = String(row.class_name || "").trim() || "Class";
+    const subName = String(row.subject || "").trim() || "Subject";
+    const examName = String(row.exam_name || "").trim() || "Other";
+    const key = `${className}|||${subName}|||${examName}`;
+    if(!grouped[key]) grouped[key] = [];
+    grouped[key].push(row);
+  });
+
+  const groupKeys = Object.keys(grouped).sort((a,b) => {
+    const [aClass, aSub, aExam] = a.split("|||");
+    const [bClass, bSub, bExam] = b.split("|||");
+    const classCompare = aClass.localeCompare(bClass, undefined, {numeric:true});
+    if(classCompare !== 0) return classCompare;
+    const subCompare = aSub.localeCompare(bSub);
+    if(subCompare !== 0) return subCompare;
+    const aSort = Number((grouped[a][0] && grouped[a][0].exam_sort) || 999);
+    const bSort = Number((grouped[b][0] && grouped[b][0].exam_sort) || 999);
+    if(aSort !== bSort) return aSort - bSort;
+    return aExam.localeCompare(bExam);
+  });
+
+  syllabusWrap.className = "exam-grid";
+  syllabusWrap.innerHTML = groupKeys.map(key => {
+    const [className, subName, examName] = key.split("|||");
+    const chapters = grouped[key].slice().sort((a,b) => {
+      const aSort = Number(a.chapter_sort || chapterNumber(a.chapter, 0));
+      const bSort = Number(b.chapter_sort || chapterNumber(b.chapter, 0));
+      if(aSort !== bSort) return aSort - bSort;
+      return String(a.chapter || "").localeCompare(String(b.chapter || ""));
+    });
+    return `
+      <article class="exam-card">
+        <div class="exam-head">
+          <h3>${className} • ${subName}</h3>
+          <span class="badge">${prettyExamName(examName)}</span>
+        </div>
+        <ol class="chapter-list">
+          ${chapters.map(ch => `<li>${ch.chapter || "-"}</li>`).join("")}
+        </ol>
+      </article>
+    `;
+  }).join("");
+}
+
+async function uploadSyllabus(){
+  const session = uploadSessionSelect.value;
+  const file = syllabusFile.files[0];
+  if(!session) return alert("Select session first.");
+  if(!file) return alert("Choose the syllabus Excel file first.");
+
+  setUploadStatus("Uploading syllabus...", false);
+  const fd = new FormData();
+  fd.append("session", session);
+  fd.append("file", file);
+  fd.append("uploaded_by", localStorage.getItem("role") || "admin");
+
+  try{
+    const res = await fetch(`${EXAM_API}/syllabus/import-excel`, {method:"POST", body:fd});
+    const data = await res.json();
+    if(!res.ok || !data.success){
+      throw new Error(data.message || "Upload failed");
+    }
+    const skipped = Array.isArray(data.skipped_rows) && data.skipped_rows.length
+      ? ` Skipped: ${data.skipped_rows.join(", ")}`
+      : "";
+    setUploadStatus(`Syllabus uploaded successfully. Inserted rows: ${data.inserted}.${skipped}`, true);
+    syllabusFile.value = "";
+    sessionSelect.value = session;
+    await loadSyllabus();
+  }catch(e){
+    setUploadStatus(e.message || "Upload failed.", false);
+  }
+}
+
+async function deleteSyllabus(scope){
+  const session = sessionSelect.value || uploadSessionSelect.value;
+  if(!session) return alert("Select session first.");
+
+  const className = scope === "selected" ? classSelect.value : "";
+  const subject = scope === "selected" ? subjectSelect.value : "";
+
+  if(scope === "selected" && !className && !subject){
+    return alert("Select at least a class or subject filter first.");
+  }
+
+  const message = scope === "selected"
+    ? `Clear syllabus for session "${session}"${className ? `, class "${className}"` : ""}${subject ? `, subject "${subject}"` : ""}?`
+    : `Clear ALL syllabus for session "${session}"?`;
+  if(!confirm(message)) return;
+
+  setUploadStatus(scope === "selected" ? "Clearing selected syllabus..." : "Clearing full session syllabus...", false);
+
+  try{
+    const res = await fetch(`${EXAM_API}/syllabus/delete`, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({
+        session,
+        class_name: className,
+        subject
+      })
+    });
+    const data = await res.json();
+    if(!res.ok || !data.success){
+      throw new Error(data.message || "Delete failed");
+    }
+    setUploadStatus(`Deleted syllabus rows: ${data.deleted_count}`, true);
+    await loadSyllabus();
+  }catch(e){
+    setUploadStatus(e.message || "Delete failed.", false);
+  }
+}
+
+document.getElementById("downloadFormatBtn").addEventListener("click", () => {
+  const session = uploadSessionSelect.value || sessionSelect.value || "";
+  const url = session
+    ? `${EXAM_API}/syllabus/download-format?session=${encodeURIComponent(session)}`
+    : `${EXAM_API}/syllabus/download-format`;
+  window.open(url, "_blank");
+});
+document.getElementById("uploadBtn").addEventListener("click", uploadSyllabus);
+document.getElementById("clearSelectedBtn").addEventListener("click", () => deleteSyllabus("selected"));
+document.getElementById("clearAllBtn").addEventListener("click", () => deleteSyllabus("all"));
+sessionSelect.addEventListener("change", loadSyllabus);
+classSelect.addEventListener("change", () => {
+  populateSubjectFilter();
+  renderSyllabus();
+});
+subjectSelect.addEventListener("change", renderSyllabus);
+
+loadSessions();
+</script>
+</body>
+</html>

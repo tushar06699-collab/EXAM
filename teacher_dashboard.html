@@ -314,6 +314,9 @@ h3{ font-size:clamp(18px, 2.2vw, 22px); }
             <img id="teacherPhoto" src="images/default.png" alt="Teacher Photo" style="width:90px;height:90px;border-radius:12px;object-fit:cover;border:1px solid #dbe3f0;">
             <div>
                 <h3 style="margin:0 0 6px 0;">P.S. Public School welcomes you, <span id="teacherName"></span> </h3>
+                <div style="margin-top:10px;">
+                    <a class="btn" href="teacher_syllabus.html">Open Class Syllabus</a>
+                </div>
             </div>
         </div>
         <div id="teacherStats" style="margin-top:12px;"></div>
@@ -412,6 +415,7 @@ let classStudents = [];
 let teacherId = localStorage.getItem("teacher_id") || "";
 
 const TEACHER_PROGRESS_ITEMS = [
+    { key: "view_syllabus", label: "Class Syllabus", page: "teacher_syllabus.html" },
     { key: "daily_attendance", label: "Daily Attendance", page: "teacher_attendance.html" },
     { key: "daily_class_work", label: "Daily Class Work", page: "teacher_daily_work.html" },
     { key: "upload_papers", label: "Upload Question Papers", page: "teacher_papers.html" },
@@ -483,9 +487,22 @@ async function loadTeacherProgressPanel(){
     const ttData = await fetchJsonSafe(`${EXAM_API}/timetable/get?session=${encodeURIComponent(teacherSession || "")}&teacher_id=${encodeURIComponent(teacherId)}`);
     const ttRows = (ttData && Array.isArray(ttData.timetable)) ? ttData.timetable : [];
     const ttCount = ttRows.length;
+    let syllabusAvailable = false;
     setTeacherProgressStatus("my_timetable", ttCount > 0 ? "complete" : "incomplete");
     setTeacherProgressDetail("my_timetable", `${ttCount} timetable rows found`);
     const taughtClasses = Array.from(new Set(ttRows.map(r => String(r.class || "").trim()).filter(Boolean)));
+
+    const syllabusClasses = taughtClasses.length ? taughtClasses : classes;
+    for(const cls of syllabusClasses){
+        const sData = await fetchJsonSafe(`${EXAM_API}/syllabus/list?session=${encodeURIComponent(teacherSession || "")}&class_name=${encodeURIComponent(cls)}`);
+        const rows = (sData && Array.isArray(sData.syllabus)) ? sData.syllabus : [];
+        if(rows.length){
+            syllabusAvailable = true;
+            break;
+        }
+    }
+    setTeacherProgressStatus("view_syllabus", syllabusAvailable ? "complete" : "incomplete");
+    setTeacherProgressDetail("view_syllabus", syllabusAvailable ? "Syllabus uploaded for at least one class" : "No syllabus uploaded yet");
 
     const today = new Date().toISOString().slice(0,10);
     let classesWithAttendanceToday = 0;

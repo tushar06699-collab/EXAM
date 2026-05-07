@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Teacher Syllabus</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+:root{
+  --brand:#233465;
+  --brand-2:#35529a;
+  --accent:#c97b2b;
+  --bg:#f4f6fb;
+  --card:#ffffff;
+  --line:#d9e0ef;
+  --text:#1f2a44;
+  --muted:#61708f;
+  --ok:#17643f;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  font-family:Poppins,sans-serif;
+  background:
+    radial-gradient(circle at top right, rgba(201,123,43,.16), transparent 28%),
+    linear-gradient(180deg, #f8f9fc 0%, var(--bg) 100%);
+  color:var(--text);
+}
+.topbar{
+  background:linear-gradient(135deg,var(--brand) 0%, #19284f 100%);
+  color:#fff;
+  padding:14px 16px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.topbar h2{margin:0;font-size:22px;}
+.content{padding:20px;}
+.hero{
+  max-width:1180px;
+  margin:0 auto;
+}
+.hero-card{
+  background:linear-gradient(135deg, rgba(35,52,101,.96), rgba(53,82,154,.96));
+  color:#fff;
+  border-radius:20px;
+  padding:22px;
+  box-shadow:0 18px 40px rgba(35,52,101,.18);
+  position:relative;
+  overflow:hidden;
+}
+.hero-card::after{
+  content:"";
+  position:absolute;
+  inset:auto -40px -60px auto;
+  width:180px;
+  height:180px;
+  border-radius:50%;
+  background:rgba(255,255,255,.08);
+}
+.hero-title{
+  margin:0 0 8px 0;
+  font-size:28px;
+}
+.hero-sub{
+  margin:0;
+  max-width:720px;
+  color:rgba(255,255,255,.9);
+  line-height:1.5;
+}
+.grid{
+  margin-top:18px;
+  display:grid;
+  grid-template-columns:1fr;
+  gap:18px;
+}
+.panel{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:18px;
+  box-shadow:0 10px 24px rgba(15,23,42,.06);
+}
+.panel h3{
+  margin:0 0 14px 0;
+  font-size:20px;
+}
+.filter-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;
+}
+label{
+  display:block;
+  font-weight:600;
+  margin-bottom:6px;
+}
+select{
+  width:100%;
+  border:1px solid #cfd7e8;
+  border-radius:12px;
+  padding:11px 12px;
+  background:#fff;
+  font-size:14px;
+}
+.note{
+  margin-top:12px;
+  padding:12px 14px;
+  border-radius:12px;
+  background:#f8fbff;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.5;
+  border:1px dashed #cad6f3;
+}
+.stats{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+}
+.stat{
+  background:linear-gradient(180deg,#ffffff 0%,#f6f8ff 100%);
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:14px;
+}
+.stat .label{
+  color:var(--muted);
+  font-size:12px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.stat .value{
+  margin-top:6px;
+  font-size:24px;
+  font-weight:700;
+  color:var(--brand);
+}
+.exam-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:14px;
+}
+.exam-card{
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:16px;
+  background:linear-gradient(180deg,#fff 0%,#fbfcff 100%);
+}
+.exam-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+.exam-head h4{
+  margin:0;
+  font-size:18px;
+}
+.badge{
+  min-width:42px;
+  text-align:center;
+  border-radius:999px;
+  padding:5px 10px;
+  background:#e8efff;
+  color:var(--brand);
+  font-size:12px;
+  font-weight:700;
+}
+.chapter-list{
+  margin:0;
+  padding-left:18px;
+  color:#35415e;
+  line-height:1.6;
+}
+.chapter-list li + li{margin-top:6px;}
+.empty{
+  padding:24px;
+  text-align:center;
+  border:1px dashed var(--line);
+  border-radius:16px;
+  color:var(--muted);
+  background:#fafcff;
+}
+.muted{color:var(--muted);}
+@media (max-width:980px){
+  .grid{grid-template-columns:1fr;}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media (max-width:760px){
+  .content{padding:12px;}
+  .hero-title{font-size:23px;}
+  .filter-grid,
+  .stats{grid-template-columns:1fr;}
+  .panel{padding:14px;}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="menu-btn" onclick="toggleMenu()"></span>
+  <h2>Syllabus Dashboard</h2>
+</div>
+
+<div class="sidebar" id="sidebar"></div>
+
+<div class="content">
+  <div class="hero">
+    <div class="hero-card">
+      <h1 class="hero-title">Class-wise Syllabus For Teachers</h1>
+      <p class="hero-sub">Select the session, class, and subject you teach. The page shows unit-wise chapters like UT1, UT2, UT3, and Annual. Upload and full syllabus management is available only from the admin page.</p>
+    </div>
+
+    <div class="grid">
+      <section class="panel">
+        <h3>View Syllabus</h3>
+        <div class="filter-grid">
+          <div>
+            <label for="sessionSelect">Session</label>
+            <select id="sessionSelect"></select>
+          </div>
+          <div>
+            <label for="classSelect">Class</label>
+            <select id="classSelect"></select>
+          </div>
+          <div>
+            <label for="subjectSelect">Subject</label>
+            <select id="subjectSelect"></select>
+          </div>
+        </div>
+        <div class="note">
+          Only classes and subjects mapped to the logged-in teacher are shown here. Session is auto-selected to the latest available session.
+        </div>
+      </section>
+    </div>
+
+    <section class="panel" style="margin-top:18px;">
+      <h3>Current Summary</h3>
+      <div class="stats" id="statsWrap">
+        <div class="stat"><div class="label">Selected Class</div><div class="value" id="statClass">-</div></div>
+        <div class="stat"><div class="label">Selected Subject</div><div class="value" id="statSubject">-</div></div>
+        <div class="stat"><div class="label">Exams Found</div><div class="value" id="statExams">0</div></div>
+        <div class="stat"><div class="label">Total Chapters</div><div class="value" id="statChapters">0</div></div>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top:18px;">
+      <h3>Unit-wise Chapters</h3>
+      <div id="syllabusWrap" class="empty">Loading teacher classes...</div>
+    </section>
+  </div>
+</div>
+
+<script>
+const EXAM_API = String(
+  localStorage.getItem("examApiBaseUrl") || "http://127.0.0.1:8080"
+).replace(/\/+$/, "");
+
+function getTeacherId(){
+  return localStorage.getItem("teacher_id_latest") || localStorage.getItem("teacher_id") || "";
+}
+
+const sessionSelect = document.getElementById("sessionSelect");
+const classSelect = document.getElementById("classSelect");
+const subjectSelect = document.getElementById("subjectSelect");
+const syllabusWrap = document.getElementById("syllabusWrap");
+
+let teacherClassSubjects = {};
+let currentRows = [];
+
+function prettyExamName(value){
+  const raw = String(value || "").trim().toUpperCase();
+  const ut = raw.match(/^UT\s*(\d+)$/);
+  if(ut) return `UT ${ut[1]}`;
+  if(raw === "ANNUAL") return "Annual";
+  if(raw === "HALF YEARLY") return "Half Yearly";
+  return String(value || "").trim() || "-";
+}
+
+function chapterNumber(value, fallback){
+  const match = String(value || "").match(/(\d+)/);
+  return match ? Number(match[1]) : fallback;
+}
+
+async function loadSessions(){
+  try{
+    const res = await fetch(`${EXAM_API}/session/list`);
+    const data = await res.json();
+    const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+    sessionSelect.innerHTML = sessions.map(s => `<option value="${s}">${s}</option>`).join("");
+    if(sessions.length){
+      sessionSelect.value = sessions[sessions.length - 1];
+      await loadTeacherClasses();
+    }else{
+      sessionSelect.innerHTML = `<option value="">No session found</option>`;
+      syllabusWrap.className = "empty";
+      syllabusWrap.textContent = "No session found.";
+    }
+  }catch(e){
+    sessionSelect.innerHTML = `<option value="">Unable to load</option>`;
+    syllabusWrap.className = "empty";
+    syllabusWrap.textContent = "Unable to load session list.";
+  }
+}
+
+async function loadTeacherClasses(){
+  const session = sessionSelect.value;
+  const teacherId = getTeacherId();
+  teacherClassSubjects = {};
+
+  if(!session || !teacherId){
+    classSelect.innerHTML = `<option value="">No class found</option>`;
+    subjectSelect.innerHTML = `<option value="">No subject found</option>`;
+    syllabusWrap.className = "empty";
+    syllabusWrap.textContent = "Teacher session or login data is missing.";
+    updateStats([]);
+    return;
+  }
+
+  try{
+    const res = await fetch(`${EXAM_API}/timetable/get?session=${encodeURIComponent(session)}&teacher_id=${encodeURIComponent(teacherId)}`);
+    const data = await res.json();
+    const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    if(data.success && Array.isArray(data.timetable)){
+      data.timetable.forEach(row => {
+        const cls = String(row.class || "").trim();
+        if(!cls) return;
+        if(!teacherClassSubjects[cls]) teacherClassSubjects[cls] = new Set();
+        days.forEach(day => {
+          const value = String(row[day] || "").trim();
+          if(value) teacherClassSubjects[cls].add(value);
+        });
+      });
+    }
+
+    const classes = Object.keys(teacherClassSubjects).sort((a,b) => a.localeCompare(b, undefined, {numeric:true}));
+    classSelect.innerHTML = classes.length
+      ? classes.map(cls => `<option value="${cls}">${cls}</option>`).join("")
+      : `<option value="">No class found</option>`;
+
+    if(classes.length){
+      classSelect.value = classes[0];
+      loadSubjects();
+    }else{
+      subjectSelect.innerHTML = `<option value="">No subject found</option>`;
+      syllabusWrap.className = "empty";
+      syllabusWrap.textContent = "No classes are assigned to this teacher in the timetable.";
+      updateStats([]);
+    }
+  }catch(e){
+    classSelect.innerHTML = `<option value="">Unable to load</option>`;
+    subjectSelect.innerHTML = `<option value="">Unable to load</option>`;
+    syllabusWrap.className = "empty";
+    syllabusWrap.textContent = "Unable to load teacher classes.";
+    updateStats([]);
+  }
+}
+
+function loadSubjects(){
+  const cls = classSelect.value;
+  const subjects = Array.from(teacherClassSubjects[cls] || []).sort((a,b) => a.localeCompare(b));
+  subjectSelect.innerHTML = subjects.length
+    ? subjects.map(subject => `<option value="${subject}">${subject}</option>`).join("")
+    : `<option value="">No subject found</option>`;
+
+  if(subjects.length){
+    subjectSelect.value = subjects[0];
+    loadSyllabus();
+  }else{
+    currentRows = [];
+    renderSyllabus();
+  }
+}
+
+async function loadSyllabus(){
+  const session = sessionSelect.value;
+  const cls = classSelect.value;
+  const subject = subjectSelect.value;
+  if(!session || !cls || !subject){
+    currentRows = [];
+    renderSyllabus();
+    return;
+  }
+
+  syllabusWrap.className = "empty";
+  syllabusWrap.textContent = "Loading syllabus...";
+
+  try{
+    const res = await fetch(
+      `${EXAM_API}/syllabus/list?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}&subject=${encodeURIComponent(subject)}`
+    );
+    const data = await res.json();
+    currentRows = Array.isArray(data.syllabus) ? data.syllabus : [];
+    renderSyllabus();
+  }catch(e){
+    currentRows = [];
+    syllabusWrap.className = "empty";
+    syllabusWrap.textContent = "Unable to load syllabus.";
+    updateStats([]);
+  }
+}
+
+function updateStats(rows){
+  document.getElementById("statClass").textContent = classSelect.value || "-";
+  document.getElementById("statSubject").textContent = subjectSelect.value || "-";
+  const examCount = new Set(rows.map(r => String(r.exam_name || "").trim()).filter(Boolean)).size;
+  document.getElementById("statExams").textContent = String(examCount);
+  document.getElementById("statChapters").textContent = String(rows.length);
+}
+
+function renderSyllabus(){
+  updateStats(currentRows);
+  if(!currentRows.length){
+    syllabusWrap.className = "empty";
+    syllabusWrap.textContent = "No syllabus uploaded for this class and subject yet.";
+    return;
+  }
+
+  const grouped = {};
+  currentRows.forEach((row, index) => {
+    const exam = String(row.exam_name || "").trim() || "Other";
+    if(!grouped[exam]) grouped[exam] = [];
+    grouped[exam].push(row);
+  });
+
+  const examOrder = Object.keys(grouped).sort((a,b) => {
+    const aSort = Number((grouped[a][0] && grouped[a][0].exam_sort) || 999);
+    const bSort = Number((grouped[b][0] && grouped[b][0].exam_sort) || 999);
+    if(aSort !== bSort) return aSort - bSort;
+    return a.localeCompare(b);
+  });
+
+  syllabusWrap.className = "exam-grid";
+  syllabusWrap.innerHTML = examOrder.map(exam => {
+    const chapters = grouped[exam].slice().sort((a,b) => {
+      const aSort = Number(a.chapter_sort || chapterNumber(a.chapter, 0));
+      const bSort = Number(b.chapter_sort || chapterNumber(b.chapter, 0));
+      if(aSort !== bSort) return aSort - bSort;
+      return String(a.chapter || "").localeCompare(String(b.chapter || ""));
+    });
+    return `
+      <article class="exam-card">
+        <div class="exam-head">
+          <h4>${prettyExamName(exam)}</h4>
+          <span class="badge">${chapters.length}</span>
+        </div>
+        <ol class="chapter-list">
+          ${chapters.map(ch => `<li>${ch.chapter || "-"}</li>`).join("")}
+        </ol>
+      </article>
+    `;
+  }).join("");
+}
+
+sessionSelect.addEventListener("change", loadTeacherClasses);
+classSelect.addEventListener("change", loadSubjects);
+subjectSelect.addEventListener("change", loadSyllabus);
+
+loadSessions();
+</script>
+
+<script src="teacher_sidebar_shared.js"></script>
+</body>
+</html>
