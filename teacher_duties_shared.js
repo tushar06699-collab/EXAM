@@ -2108,7 +2108,8 @@
     var benchesPerRow = benchRows.length ? Math.max.apply(null, benchRows) : 0;
     var seatsPerBench = Number(document.getElementById("teacherSeatsPerBench").value || 0);
     var status = "completed";
-    var notes = normalize(document.getElementById("teacherDutyDescription").value);
+    var notesEl = document.getElementById("teacherDutyDescription");
+    var notes = notesEl ? normalize(notesEl.value) : "";
     var teacherId = normalize(document.getElementById("teacherDutyTeacherId").value) || (Array.isArray(aliasInfo.ids) && aliasInfo.ids.length ? aliasInfo.ids[0] : getTeacherId());
     var teacherName = aliasInfo.teacherName || getTeacherName();
 
