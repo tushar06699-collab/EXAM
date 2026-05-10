@@ -2081,7 +2081,7 @@
             "<td>" + esc(benchRows.join(", ") || "-") + "</td>" +
             "<td>" + esc(row.seats_per_bench || "-") + "</td>" +
             "<td>" + esc(capacity || 0) + "</td>" +
-            "<td><button type='button' class='secondary-btn' onclick=\"applyTeacherRoomToForm('" + esc(row.room_no || "") + "','" + esc(row.rows || "") + "','" + esc(benchRows.join("|") || "") + "','" + esc(row.seats_per_bench || "") + "')\">Use</button></td>" +
+            "<td class='action-cell'><button type='button' class='secondary-btn' onclick=\"applyTeacherRoomToForm('" + esc(row.room_no || "") + "','" + esc(row.rows || "") + "','" + esc(benchRows.join("|") || "") + "','" + esc(row.seats_per_bench || "") + "')\">Use</button><button type='button' class='danger-btn' onclick=\"deleteTeacherRoom('" + esc(row.room_no || "") + "')\">Delete</button></td>" +
           "</tr>"
         );
       }).join("");
@@ -2090,6 +2090,28 @@
       body.innerHTML = '<tr><td colspan="6">Unable to load rooms.</td></tr>';
       setStatus("teacherDutyFormStatus", e.message || "Unable to load rooms.", true);
       return [];
+    }
+  }
+
+  async function deleteTeacherRoomByNo(roomNo){
+    var aliasInfo = await resolveTeacherAliases();
+    var session = aliasInfo.session || await resolveLatestSession();
+    var normalizedRoomNo = normalize(roomNo);
+    if(!session || !normalizedRoomNo) return;
+    if(!confirm("Delete this room from saved rooms?")) return;
+    try{
+      await fetchJson(EXAM_API + "/rooms/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session: session,
+          room_no: normalizedRoomNo
+        })
+      });
+      setStatus("teacherDutyFormStatus", "Room deleted successfully.", false);
+      await loadTeacherRoomList(session);
+    }catch(e){
+      setStatus("teacherDutyFormStatus", e.message || "Unable to delete room.", true);
     }
   }
 
@@ -3293,5 +3315,8 @@
 
   window.deleteTeacherSavedSeatingPlan = async function(id){
     await deleteTeacherSavedSeatingPlanById(id);
+  };
+  window.deleteTeacherRoom = async function(roomNo){
+    await deleteTeacherRoomByNo(roomNo);
   };
 })();
