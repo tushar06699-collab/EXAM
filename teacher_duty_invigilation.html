@@ -1,0 +1,71 @@
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teacher Invigilation Duty</title>
+<style>
+body{margin:0;font-family:Poppins,sans-serif;background:#eef2f9;color:#1f2937}.topbar{background:#233465;color:#fff;padding:16px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}.content{padding:20px}.hero,.panel{background:#fff;border:1px solid #dbe4f0;border-radius:18px;box-shadow:0 12px 24px rgba(15,23,42,.08);overflow:hidden}.hero{padding:24px;background:linear-gradient(135deg,#233465,#3f5fb1);color:#fff}.hero p{margin:8px 0 0;color:rgba(255,255,255,.86)}.session-pill{display:inline-flex;padding:8px 14px;background:rgba(255,255,255,.16);border-radius:999px;font-weight:700;font-size:14px}.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-top:18px}.summary-card{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);padding:16px;border-radius:16px}.summary-card .label{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.76)}.summary-card .value{font-size:24px;font-weight:700;margin-top:6px}.panel{padding:20px;margin-top:20px}.grid{display:grid;gap:14px}.compact-grid{grid-template-columns:repeat(4,minmax(170px,1fr));align-items:end}.grid input,.grid textarea,.grid select{width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:10px;font:inherit;box-sizing:border-box}.grid textarea{min-height:120px;resize:vertical}.btn-row{display:flex;gap:10px;flex-wrap:wrap}.btn-row button{border:none;padding:11px 16px;border-radius:10px;cursor:pointer;font:inherit}.primary-btn{background:#233465;color:#fff}.secondary-btn{background:#e2e8f0;color:#0f172a}.status{font-size:13px;min-height:18px}.helper{color:#64748b;font-size:14px;line-height:1.5}.table-wrap{overflow:auto;-webkit-overflow-scrolling:touch}.table-wrap table{width:100%;min-width:760px;border-collapse:collapse}.table-wrap th,.table-wrap td{padding:12px;border-bottom:1px solid #e2e8f0;text-align:left;vertical-align:top}.hidden-duty-fields{display:none}.invig-teacher-list{display:grid;gap:8px}.invig-teacher-entry{display:flex;gap:8px;align-items:center}.invig-teacher-entry select{min-width:210px}.mini-btn{border:none;border-radius:8px;padding:8px 10px;cursor:pointer;font:inherit}.remove-btn{background:#fee2e2;color:#991b1b}.room-master-row td{background:#eef4ff;font-weight:700;color:#233465;border-top:2px solid #c7d7f7}.room-class-row td:first-child{color:#64748b}.room-card{border:1px solid #dbe4f0;border-radius:16px;padding:14px;margin-bottom:16px;background:#fff}.room-title{font-weight:700;color:#1e3a8a;font-size:22px;margin-bottom:8px}.room-summary{font-size:14px;color:#334155;line-height:1.5;margin-bottom:12px}.bench-grid{overflow:auto;-webkit-overflow-scrolling:touch}.bench-table{width:100%;border-collapse:collapse;min-width:720px}.bench-table th,.bench-table td{border:1px solid #dbe4f0;padding:8px;text-align:center;vertical-align:top}.bench-gap{border-right:5px solid #e2e8f0 !important}.seat-cell{min-width:120px;background:#fff}.seat-box{display:flex;flex-direction:column;gap:4px;min-height:72px;align-items:center;justify-content:center}.seat-label{font-weight:700;color:#1d4ed8;font-size:16px}@media (max-width:960px){.content{padding:14px}.compact-grid{grid-template-columns:1fr 1fr}.panel,.hero{padding:16px}}@media (max-width:640px){.content{padding:10px}.hero,.panel{padding:14px;border-radius:14px}.compact-grid,.summary{grid-template-columns:1fr}.invig-teacher-entry{flex-direction:column;align-items:stretch}.btn-row button{width:100%}.session-pill{font-size:12px;padding:7px 11px}}
+</style>
+</head>
+<body data-duty-mode="teacher-fill" data-activity-key="invigilation_duties" data-activity-title="Teachers Duties in Seating Plan">
+<div class="topbar">
+  <span class="menu-btn" onclick="toggleMenu()"></span>
+  <h2 style="margin:0;">Teacher Duty Fill Page</h2>
+</div>
+<div class="sidebar" id="sidebar"></div>
+<div class="content">
+  <section class="hero">
+    <div class="session-pill">Session: <span id="teacherFillSession" style="margin-left:6px;"></span></div>
+    <h1 id="teacherFillTitle" style="margin:16px 0 6px;"></h1>
+    <p id="teacherFillSubtitle"></p>
+    <div class="summary">
+      <article class="summary-card"><div class="label">Teacher</div><div class="value" id="teacherFillTeacherName" style="font-size:20px;"></div></article>
+      <article class="summary-card"><div class="label">Teacher ID</div><div class="value" id="teacherFillTeacherId" style="font-size:20px;"></div></article>
+      <article class="summary-card"><div class="label">Assigned Duties</div><div class="value" id="teacherFillCount">0</div></article>
+    </div>
+  </section>
+  <section class="panel">
+    <form id="teacherDutyForm" class="grid compact-grid">
+      <input type="hidden" id="teacherDutyId">
+      <input type="hidden" id="teacherDutyTeacherId">
+      <div><label for="teacherDutyTitle">Assigned Duty</label><input id="teacherDutyTitle" type="text" readonly></div>
+      <div><label for="teacherDutyExam">Exam</label><input id="teacherDutyExam" type="text" readonly></div>
+      <div><label for="teacherDutyDate">Duty Date</label><input id="teacherDutyDate" type="text" readonly></div>
+      <div><label for="teacherDutyDueDate">Submission Date</label><input id="teacherDutyDueDate" type="text" readonly></div>
+      <div class="hidden-duty-fields"><input id="teacherDutyRoom" type="text" value=""></div>
+      <div class="hidden-duty-fields"><select id="teacherDutyStatusSelect"><option value="assigned">Assigned</option><option value="in_progress">In Progress</option><option value="completed">Completed</option></select></div>
+      <div class="hidden-duty-fields"><textarea id="teacherDutyDescription"></textarea></div>
+      <div class="btn-row" style="grid-column:1/-1;"><button type="submit" class="primary-btn">Save Details</button><button type="button" id="sendInvigilationNoticeBtn" class="secondary-btn">Send Notification</button><button type="button" id="resetTeacherDutyBtn" class="secondary-btn">Reload Assigned Duty</button></div>
+      <div id="teacherDutyFormStatus" class="status" style="grid-column:1/-1;"></div>
+    </form>
+  </section>
+
+  <section class="panel table-wrap">
+    <h2 style="margin-top:0;">Room-wise Invigilation Summary</h2>
+    <p class="helper">Add one or more teachers per room, then save the invigilation allocation.</p>
+    <div class="grid" style="grid-template-columns:minmax(280px,420px);margin-bottom:12px;">
+      <div>
+        <label for="teacherInvigilationPlanSelect">Saved Seating Plan</label>
+        <select id="teacherInvigilationPlanSelect">
+          <option value="">Select saved seating plan</option>
+        </select>
+      </div>
+    </div>
+    <div id="teacherInvigilationStatus" class="status"></div>
+    <table>
+      <thead><tr><th>Room</th><th>Classes</th><th>Students</th><th>Roll No</th><th>Examiner Duties</th></tr></thead>
+      <tbody id="teacherInvigilationRoomBody"><tr><td colspan="5">Select an assigned duty to view room-wise invigilation summary.</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2 style="margin-top:0;">Room-wise Seating Plan</h2>
+    <p class="helper">This preview shows where each student is sitting room-wise by exam roll number.</p>
+    <div id="teacherInvigilationSeatStatus" class="status"></div>
+    <div id="teacherInvigilationSeatHost"><div class="helper">Select an assigned duty to view room-wise seating plan.</div></div>
+  </section>
+</div>
+<script src="teacher_duties_shared.js"></script>
+<script src="teacher_sidebar_shared.js"></script>
+</body>
+</html>

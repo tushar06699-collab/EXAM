@@ -1,0 +1,88 @@
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Saved Seating Plans</title>
+<link rel="stylesheet" href="admin_sidebar.css">
+<style>
+body{margin:0;font-family:Poppins,system-ui,sans-serif;background:#f5f7fb;color:#0f172a}.sidebar{width:230px;height:100vh;position:fixed;left:0;top:0;padding:25px;background:#233465;color:#fff;overflow:auto}.sidebar h2{font-size:22px;margin-bottom:30px}.sidebar a{display:block;padding:14px;margin:8px 0;color:#fff;text-decoration:none;border-radius:10px;font-size:15px}.sidebar a.active,.sidebar a:hover{background:#1a2648}.main{margin-left:250px;padding:30px}header{background:#233465;color:#fff;padding:1rem;text-align:center;font-size:1.4rem;border-radius:8px}main{max-width:1180px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:0 6px 16px rgba(0,0,0,.08)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}.grid select,.grid button{width:100%;padding:10px 12px;margin-top:6px;border:1px solid #cbd5e1;border-radius:8px;background:#fff}.grid button{background:#1d4ed8;color:#fff;border:none;cursor:pointer}.status{margin-top:12px;font-size:13px;color:#1f3b7a}.helper{color:#64748b;font-size:14px;line-height:1.5}.panel{margin-top:20px;border:1px solid #dbe3f0;border-radius:12px;padding:18px}.table-wrap{overflow:auto}.table-wrap table{width:100%;border-collapse:collapse}.table-wrap th,.table-wrap td{padding:12px;border-bottom:1px solid #e2e8f0;text-align:left;vertical-align:top}.room-card{border:1px solid #dbe3f0;border-radius:10px;padding:12px;margin-top:14px}.room-title{font-weight:700;color:#1f3b7a;margin-bottom:8px;font-size:16px}.room-summary{font-size:13px;color:#475569;margin-bottom:8px}.bench-grid{overflow:auto}.bench-table{width:100%;border-collapse:collapse;min-width:600px;table-layout:fixed}.bench-table th,.bench-table td{border:1px solid #dbe3f0;padding:2px 3px;text-align:center;font-size:9px}.bench-table th:first-child,.bench-table td:first-child{width:18px;min-width:18px;max-width:18px}.bench-table .bench-gap{border-right:6px solid #e2e8f0}.bench-table th{background:#f1f5ff;color:#1f3b7a;font-weight:700;text-align:center}.seat-cell{white-space:nowrap}.seat-label{display:inline-block;min-width:18px;font-weight:700;color:#0f4aa3;font-size:12px}.print-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.print-actions button{padding:10px 14px;border:none;border-radius:8px;color:#fff;cursor:pointer}.mapping-btn{background:#1d4ed8}.preview-btn{background:#0f766e}.screen-only{display:block}@media (max-width:768px){.main{margin-left:0;padding:16px}main{margin:1rem;padding:1rem}.sidebar{position:static;width:auto;height:auto}}
+</style>
+</head>
+<body>
+<div class="sidebar">
+  <h2>EXAM ERP</h2>
+  <a href="dashboard.html">Dashboard</a>
+  <a href="exam_paper.html">Upload Papers</a>
+  <a href="student_exam_access.html">Student Exam Access</a>
+  <a href="generate_rollno.html">Exam Roll No List</a>
+  <a href="seat_plan.html" >Generate Seat Plan</a>
+  <a href="admin_saved_seating_plans.html" class="active">Saved Seating Plans</a>
+  <a href="get_exam_paper.html">Uploaded Exam Papers</a>
+</div>
+<div class="main">
+  <header>Saved Seating Plans</header>
+  <main>
+    <div class="grid">
+      <div>
+        <label for="sessionSelect">Session</label>
+        <select id="sessionSelect"></select>
+      </div>
+      <div>
+        <label for="planSelect">Saved Plan</label>
+        <select id="planSelect"></select>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button type="button" id="reloadBtn">Reload Plans</button>
+      </div>
+    </div>
+    <div id="statusText" class="status"></div>
+
+    <section class="panel">
+      <h2 style="margin-top:0;">Class To Room Mapping</h2>
+      <div id="planMeta" class="helper"></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Class</th><th>Subject</th><th>Students</th><th>Roll No</th><th>Room</th></tr></thead>
+          <tbody id="mappingBody"><tr><td colspan="5">No saved plan selected.</td></tr></tbody>
+        </table>
+      </div>
+      <div class="print-actions">
+        <button type="button" class="mapping-btn" id="printMappingBtn">Print Mapping</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 style="margin-top:0;">Room To Class Mapping</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Room</th><th>Class</th><th>Subject</th><th>Students</th><th>Roll No</th></tr></thead>
+          <tbody id="roomMappingBody"><tr><td colspan="5">No saved plan selected.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 style="margin-top:0;">Seating Plan Preview</h2>
+      <div id="planHost"></div>
+      <div class="print-actions">
+        <button type="button" class="preview-btn" id="printPreviewBtn">Print Seating Preview</button>
+      </div>
+    </section>
+
+    <section class="panel screen-only">
+      <h2 style="margin-top:0;">Remaining Students</h2>
+      <div class="helper">This section is visible only to admin on screen and is not included in print preview.</div>
+      <div id="remainingStatus" class="status"></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Class</th><th>Students Left</th></tr></thead>
+          <tbody id="remainingBody"><tr><td colspan="2">No remaining students.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="admin_saved_seating_plans.js"></script>
+</body>
+</html>

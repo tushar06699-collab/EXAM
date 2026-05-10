@@ -1,0 +1,78 @@
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teacher Attendance Compilation Duty</title>
+<style>
+body{margin:0;font-family:Poppins,sans-serif;background:#eef2f9;color:#1f2937}.topbar{background:#233465;color:#fff;padding:16px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}.content{padding:20px}.hero,.panel{background:#fff;border:1px solid #dbe4f0;border-radius:18px;box-shadow:0 12px 24px rgba(15,23,42,.08);overflow:hidden}.hero{padding:24px;background:linear-gradient(135deg,#233465,#3f5fb1);color:#fff}.hero p{margin:8px 0 0;color:rgba(255,255,255,.86)}.session-pill{display:inline-flex;padding:8px 14px;background:rgba(255,255,255,.16);border-radius:999px;font-weight:700;font-size:14px}.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-top:18px}.summary-card{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);padding:16px;border-radius:16px}.summary-card .label{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.76)}.summary-card .value{font-size:24px;font-weight:700;margin-top:6px}.panel{padding:20px;margin-top:20px}.grid{display:grid;gap:14px}.compact-grid{grid-template-columns:repeat(4,minmax(160px,1fr));align-items:end}.grid input,.grid textarea,.grid select{width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:10px;font:inherit;box-sizing:border-box}.grid textarea{min-height:120px;resize:vertical}.btn-row{display:flex;gap:10px;flex-wrap:wrap}.btn-row button{border:none;padding:11px 16px;border-radius:10px;cursor:pointer;font:inherit}.primary-btn{background:#233465;color:#fff}.secondary-btn{background:#e2e8f0;color:#0f172a}.status{font-size:13px;min-height:18px}.helper{color:#64748b;font-size:14px;line-height:1.5}.table-wrap{overflow:auto;-webkit-overflow-scrolling:touch}.table-wrap table{width:100%;min-width:760px;border-collapse:collapse}.table-wrap th,.table-wrap td{padding:12px;border-bottom:1px solid #e2e8f0;text-align:left;vertical-align:top}.hidden-duty-fields{display:none}.room-group-row td{background:#eef4ff;font-weight:700;color:#233465;border-top:2px solid #c7d7f7}.room-group-total{font-weight:600;color:#475569;font-size:13px;margin-left:8px}@media (max-width:960px){.content{padding:14px}.compact-grid{grid-template-columns:1fr 1fr}.panel,.hero{padding:16px}}@media (max-width:640px){.content{padding:10px}.hero,.panel{padding:14px;border-radius:14px}.compact-grid,.summary{grid-template-columns:1fr}.btn-row button{width:100%}.session-pill{font-size:12px;padding:7px 11px}}
+</style>
+</head>
+<body data-duty-mode="teacher-fill" data-activity-key="attendance_compilation" data-activity-title="Attendance and Absentee Compilation">
+<div class="topbar">
+  <span class="menu-btn" onclick="toggleMenu()"></span>
+  <h2 style="margin:0;">Teacher Duty Fill Page</h2>
+</div>
+<div class="sidebar" id="sidebar"></div>
+<div class="content">
+  <section class="hero">
+    <div class="session-pill">Session: <span id="teacherFillSession" style="margin-left:6px;"></span></div>
+    <h1 id="teacherFillTitle" style="margin:16px 0 6px;"></h1>
+    <p id="teacherFillSubtitle"></p>
+    <div class="summary">
+      <article class="summary-card"><div class="label">Teacher</div><div class="value" id="teacherFillTeacherName" style="font-size:20px;"></div></article>
+      <article class="summary-card"><div class="label">Teacher ID</div><div class="value" id="teacherFillTeacherId" style="font-size:20px;"></div></article>
+      <article class="summary-card"><div class="label">Assigned Duties</div><div class="value" id="teacherFillCount">0</div></article>
+    </div>
+  </section>
+  <section class="panel">
+    <form id="teacherDutyForm" class="grid compact-grid">
+      <input type="hidden" id="teacherDutyId">
+      <input type="hidden" id="teacherDutyTeacherId">
+      <div><label for="teacherDutyTitle">Assigned Duty</label><input id="teacherDutyTitle" type="text" readonly></div>
+      <div><label for="teacherDutyExam">Exam</label><input id="teacherDutyExam" type="text" readonly></div>
+      <div><label for="teacherDutyDate">Duty Date</label><input id="teacherDutyDate" type="text" readonly></div>
+      <div><label for="teacherDutyDueDate">Submission Date</label><input id="teacherDutyDueDate" type="text" readonly></div>
+      <div class="hidden-duty-fields"><input id="teacherDutyRoom" type="text" value=""></div>
+      <div class="hidden-duty-fields"><select id="teacherDutyStatusSelect"><option value="assigned">Assigned</option><option value="in_progress">In Progress</option><option value="completed">Completed</option></select></div>
+      <div class="hidden-duty-fields"><textarea id="teacherDutyDescription"></textarea></div>
+      <div class="helper" id="teacherDutyCurrentInfo" style="grid-column:1/-1;"></div>
+      <div id="teacherDutyFormStatus" class="status" style="grid-column:1/-1;"></div>
+    </form>
+  </section>
+
+  <section class="panel table-wrap">
+    <h2 style="margin-top:0;">Attendance Sheet</h2>
+    <p class="helper">Select a saved seating plan and download room-wise attendance sheets with student name, roll no, and exam roll no.</p>
+    <div class="grid" style="grid-template-columns:minmax(280px,420px);margin-bottom:12px;">
+      <div>
+        <label for="teacherAttendancePlanSelect">Saved Seating Plan</label>
+        <select id="teacherAttendancePlanSelect">
+          <option value="">Select saved seating plan</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-row" style="margin-bottom:12px;">
+      <button type="button" class="primary-btn" id="teacherDownloadAttendanceBtn">Download Attendance Sheet PDF</button>
+    </div>
+    <div id="teacherAttendanceStatus" class="status"></div>
+    <table>
+      <thead><tr><th>Room</th><th>Class</th><th>Subject</th><th>Students</th><th>Roll No</th></tr></thead>
+      <tbody id="teacherAttendanceBody"><tr><td colspan="5">Select a saved seating plan to view room-wise attendance summary.</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2 style="margin-top:0;">Fill Attendance</h2>
+    <p class="helper">Mark each student as `P`, `A`, or `L` room-wise from the selected seating plan.</p>
+    <div id="teacherAttendanceFillStatus" class="status"></div>
+    <div id="teacherAttendanceFillHost"><div class="helper">Select a saved seating plan to fill attendance.</div></div>
+    <div class="btn-row" style="margin-top:16px;">
+      <button type="submit" form="teacherDutyForm" class="primary-btn">Save Details</button>
+      <button type="button" id="resetTeacherDutyBtn" class="secondary-btn">Reload Assigned Duty</button>
+    </div>
+  </section>
+</div>
+<script src="teacher_duties_shared.js"></script>
+<script src="teacher_sidebar_shared.js"></script>
+</body>
+</html>

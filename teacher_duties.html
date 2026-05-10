@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teacher Duties</title>
+<style>
+body{margin:0;font-family:Poppins,sans-serif;background:#eef2f9;color:#1f2937}
+.topbar{background:#233465;color:#fff;padding:16px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.content{padding:20px}
+.hero{background:linear-gradient(135deg,#233465,#3f5fb1);color:#fff;padding:24px;border-radius:18px;box-shadow:0 16px 32px rgba(35,52,101,.24)}
+.hero h1{margin:14px 0 8px}
+.hero p{margin:0;color:rgba(255,255,255,.86)}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-top:20px}
+.summary-card{background:#fff;border-radius:16px;padding:18px;border:1px solid #dbe4f0;box-shadow:0 12px 24px rgba(15,23,42,.08)}
+.summary-card .label{font-size:13px;color:#64748b}
+.summary-card .value{font-size:28px;font-weight:700;color:#1d4ed8;margin-top:6px}
+.status{margin-top:10px;font-size:13px;color:#1d4ed8}
+#teacherDutyList{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:22px}
+.teacher-duty-card{background:#fff;border-radius:18px;padding:20px;border:1px solid #dbe4f0;box-shadow:0 12px 24px rgba(15,23,42,.08)}
+.teacher-duty-head{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.teacher-duty-badge{display:inline-flex;padding:6px 10px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:12px;font-weight:700}
+.teacher-duty-date{font-size:13px;color:#64748b;font-weight:600}
+.teacher-duty-card h3{margin:14px 0 10px;font-size:20px}
+.teacher-duty-card p{margin:0;color:#52607a;line-height:1.5}
+.teacher-duty-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.teacher-duty-meta span{padding:7px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;font-size:12px;color:#475569}
+.teacher-duty-open-btn{border:none;background:#233465;color:#fff;padding:11px 16px;border-radius:10px;cursor:pointer;font:inherit}
+.teacher-empty{background:#fff;padding:20px;border-radius:16px;border:1px dashed #cbd5e1;color:#64748b}
+@media (max-width:700px){.content{padding:12px}.hero{padding:18px;border-radius:14px}.summary,#teacherDutyList{grid-template-columns:1fr}.teacher-duty-card{padding:16px}.teacher-duty-meta{flex-direction:column;align-items:flex-start}.teacher-duty-open-btn{width:100%}}
+</style>
+</head>
+<body data-duty-mode="teacher-view">
+<div class="topbar">
+  <span class="menu-btn" onclick="toggleMenu()"></span>
+  <h2 style="margin:0;">Assigned Duties</h2>
+</div>
+<div class="sidebar" id="sidebar"></div>
+<div class="content">
+  <section class="hero">
+    <div style="font-size:14px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">Teacher Duty Panel</div>
+    <h1 id="teacherDutyName"></h1>
+    <p>Your assigned administrative and exam duties for session <strong id="teacherDutySession"></strong>. Open any activity page to fill and update your duty details.</p>
+    <div id="teacherDutyStatus" class="status" style="color:#fff;"></div>
+  </section>
+  <section class="summary">
+    <article class="summary-card">
+      <div class="label">Total Assigned Duties</div>
+      <div class="value" id="teacherDutyCount">0</div>
+    </article>
+  </section>
+  <section id="teacherDutyList"></section>
+</div>
+<script src="teacher_duties_shared.js"></script>
+<script src="teacher_sidebar_shared.js"></script>
+</body>
+</html>

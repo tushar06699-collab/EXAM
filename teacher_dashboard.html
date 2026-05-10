@@ -302,6 +302,7 @@ h3{ font-size:clamp(18px, 2.2vw, 22px); }
 <a href="teacher_papers.html">Upload Question Papers</a>
 <a href="teacher_internal_marks_upload.html">Upload Internal Marks</a>
 <a href="teacher_marks_upload.html">Upload External Marks</a>
+<a href="teacher_duties.html">Assigned Duties</a>
 <a href="teacher_leave.html">Leave Permission</a>
     <a href="#" onclick="logout()" style="background:#e63946;">Logout</a>
 </div>
@@ -420,8 +421,61 @@ const TEACHER_PROGRESS_ITEMS = [
     { key: "daily_class_work", label: "Daily Class Work", page: "teacher_daily_work.html" },
     { key: "upload_papers", label: "Upload Question Papers", page: "teacher_papers.html" },
     { key: "upload_internal", label: "Upload Internal Marks", page: "teacher_internal_marks_upload.html" },
-    { key: "upload_external", label: "Upload External Marks", page: "teacher_marks_upload.html" }
+    { key: "upload_external", label: "Upload External Marks", page: "teacher_marks_upload.html" },
+    { key: "assigned_duties", label: "Assigned Duties", page: "teacher_duties.html" }
 ];
+
+function normalizeLoose(v){
+    return String(v || "").trim().toUpperCase().replace(/[^A-Z0-9]+/g, "");
+}
+
+async function resolveTeacherDutyAliases(){
+    const rawTeacherId = String(localStorage.getItem("teacher_id") || "").trim();
+    const latestTeacherId = String(localStorage.getItem("teacher_id_latest") || "").trim();
+    const aliases = [];
+    [latestTeacherId, rawTeacherId].forEach(id => {
+        if(id && !aliases.includes(id)) aliases.push(id);
+    });
+
+    for(const id of [latestTeacherId, rawTeacherId].filter(Boolean)){
+        try{
+            const data = await fetchJsonSafe(`${EXAM_API}/teacher/${encodeURIComponent(id)}`);
+            if(data && !data.error){
+                const nextIds = [data.teacher_id, data.id].map(v => String(v || "").trim()).filter(Boolean);
+                nextIds.forEach(nextId => {
+                    if(!aliases.includes(nextId)) aliases.push(nextId);
+                });
+            }
+        }catch(_e){}
+    }
+    return aliases;
+}
+
+async function loadTeacherAssignedDuties(){
+    const aliases = await resolveTeacherDutyAliases();
+    const teacherNameUpper = normalizeText(teacherName);
+    let rows = [];
+
+    for(const alias of aliases){
+        const data = await fetchJsonSafe(`${EXAM_API}/teacher-duty/list?session=${encodeURIComponent(teacherSession || "")}&teacher_id=${encodeURIComponent(alias)}`);
+        const items = (data && data.success && Array.isArray(data.duties)) ? data.duties : [];
+        if(items.length){
+            rows = items;
+            break;
+        }
+    }
+
+    if(!rows.length){
+        const data = await fetchJsonSafe(`${EXAM_API}/teacher-duty/list?session=${encodeURIComponent(teacherSession || "")}`);
+        const items = (data && data.success && Array.isArray(data.duties)) ? data.duties : [];
+        rows = items.filter(row => {
+            return normalizeText(row.teacher_name) === teacherNameUpper ||
+                normalizeLoose(row.teacher_id) === normalizeLoose(localStorage.getItem("teacher_id")) ||
+                normalizeLoose(row.teacher_id) === normalizeLoose(localStorage.getItem("teacher_id_latest"));
+        });
+    }
+    return rows;
+}
 
 function renderTeacherProgressSkeleton(){
     const grid = document.getElementById("teacherProgressGrid");
@@ -574,13 +628,27 @@ async function loadTeacherProgressPanel(){
     setTeacherProgressStatus("upload_external", externalUploaded ? "complete" : "incomplete");
     setTeacherProgressDetail("upload_external", externalUploaded ? "External marks uploaded" : "No external marks uploaded yet");
 
+    const dutyRows = await loadTeacherAssignedDuties();
+    const completedDuties = dutyRows.filter(row => String(row.status || "").trim().toLowerCase() === "completed").length;
+    let dutyState = "incomplete";
+    if(dutyRows.length && completedDuties === dutyRows.length){
+        dutyState = "complete";
+    }else if(dutyRows.length){
+        dutyState = "progress";
+    }
+    setTeacherProgressStatus("assigned_duties", dutyState);
+    setTeacherProgressDetail("assigned_duties", dutyRows.length ? `${completedDuties}/${dutyRows.length} duties completed` : "No duties assigned");
+
+    return dutyRows;
+
 }
 
-function renderStats(){
+function renderStats(dutyRows){
     const classLabel = assignedClasses.length ? assignedClasses.join(", ") : "Not Assigned";
     const total = classStudents.length;
     const male = classStudents.filter(s => isMale(s.gender || s.sex)).length;
     const female = classStudents.filter(s => isFemale(s.gender || s.sex)).length;
+    const dutyCount = Array.isArray(dutyRows) ? dutyRows.length : 0;
 
     const statsHtml = `
         <div class="stats">
@@ -600,6 +668,10 @@ function renderStats(){
                 <div class="stat-title">Female Students</div>
                 <div class="stat-value">${female}</div>
             </div>
+            <div class="stat-box clickable" id="assignedDutiesBox">
+                <div class="stat-title">Assigned Duties</div>
+                <div class="stat-value">${dutyCount}</div>
+            </div>
         </div>
     `;
 
@@ -609,6 +681,12 @@ function renderStats(){
     document.getElementById("totalStudentsBox").onclick = () => {
         window.location.href = "teacher_incharge_students.html";
     };
+    const dutyBox = document.getElementById("assignedDutiesBox");
+    if(dutyBox){
+        dutyBox.onclick = () => {
+            window.location.href = "teacher_duties.html";
+        };
+    }
 }
 
 async function loadTeacherClassStats(){
@@ -631,8 +709,8 @@ async function loadTeacherClassStats(){
 
         const assignedSet = new Set(assignedClasses.map(c => normalizeText(c)));
         classStudents = allStudents.filter(s => assignedSet.has(normalizeText(s.class_name || s.class)));
-        renderStats();
-        loadTeacherProgressPanel();
+        const dutyRows = await loadTeacherProgressPanel();
+        renderStats(dutyRows);
 
         // Load teacher photo from latest session
         try{
@@ -671,8 +749,13 @@ function logout(){
     window.location.href = "index.html";
 }
 
+async function refreshTeacherDashboardProgress(){
+    const dutyRows = await loadTeacherProgressPanel();
+    renderStats(dutyRows);
+}
+
 refreshTeacherSession().then(loadTeacherClassStats);
-document.getElementById("refreshTeacherProgressBtn").onclick = loadTeacherProgressPanel;
+document.getElementById("refreshTeacherProgressBtn").onclick = refreshTeacherDashboardProgress;
 </script>
 
   <script src="teacher_sidebar_shared.js"></script>

@@ -58,11 +58,10 @@ th{background:#233465;color:white;}
     <label>Room No</label>
     <input id="roomNo" placeholder="e.g. A101">
 
-    <label>Columns</label>
-    <input id="rows" type="number" min="1" placeholder="e.g. 5">
+    <label>Benches Column</label>
+    <input id="rows" type="number" min="1" placeholder="e.g. 3">
 
-    <label>Benches Per Row</label>
-    <input id="benchesPerRow" type="number" min="1" placeholder="e.g. 4">
+    <div id="benchRowsWrap"></div>
 
     <label>Seats Per Bench</label>
     <input id="seatsPerBench" type="number" min="1" value="2">
@@ -89,6 +88,42 @@ th{background:#233465;color:white;}
 const EXAM_API = "https://exam-backend-117372286918.asia-south1.run.app";
 const sessionSelect = document.getElementById("sessionSelect");
 const roomsBody = document.getElementById("roomsBody");
+const rowsInput = document.getElementById("rows");
+const benchRowsWrap = document.getElementById("benchRowsWrap");
+
+function roomBenchRows(room){
+  if(room && Array.isArray(room.bench_rows) && room.bench_rows.length){
+    return room.bench_rows.map(v => Number(v || 0)).filter(v => v > 0);
+  }
+  const rowCount = Number((room && room.rows) || 0);
+  const perRow = Number((room && room.benches_per_row) || 0);
+  return Array.from({ length: rowCount }, () => perRow).filter(v => v > 0);
+}
+
+function renderBenchRowInputs(count, values){
+  const total = Math.max(0, Number(count || 0));
+  const list = Array.isArray(values) ? values : [];
+  if(!total){
+    benchRowsWrap.innerHTML = "";
+    return;
+  }
+  benchRowsWrap.innerHTML = Array.from({ length: total }, (_, idx) => `
+    <label>Benches Row ${idx + 1}</label>
+    <input class="bench-row-input" type="number" min="1" data-row-index="${idx}" placeholder="e.g. 4" value="${list[idx] || ""}">
+  `).join("");
+}
+
+function getBenchRowValues(){
+  return Array.from(document.querySelectorAll(".bench-row-input"))
+    .map(input => Number(input.value || 0))
+    .filter(value => value > 0);
+}
+
+function roomCapacity(room){
+  const benchRows = roomBenchRows(room);
+  const totalBenches = benchRows.reduce((sum, value) => sum + value, 0);
+  return totalBenches * Number((room && room.seats_per_bench) || 0);
+}
 
 async function loadSessions(){
   const res = await fetch(`${EXAM_API}/session/list`);
@@ -118,11 +153,12 @@ async function loadRooms(){
   const data = await res.json();
   const rows = (data.success && Array.isArray(data.rooms)) ? data.rooms : [];
   roomsBody.innerHTML = rows.map(r => {
-    const cap = (Number(r.rows||0) * Number(r.benches_per_row||0) * Number(r.seats_per_bench||0));
+    const benchRows = roomBenchRows(r);
+    const cap = roomCapacity(r);
     return `<tr>
       <td>${r.room_no}</td>
       <td>${r.rows}</td>
-      <td>${r.benches_per_row}</td>
+      <td>${benchRows.join(", ")}</td>
       <td>${r.seats_per_bench}</td>
       <td>${cap}</td>
       <td class="row-actions">
@@ -139,16 +175,17 @@ async function saveRoom(){
   const session = sessionSelect.value;
   const room_no = document.getElementById("roomNo").value.trim();
   const rows = Number(document.getElementById("rows").value || 0);
-  const benches_per_row = Number(document.getElementById("benchesPerRow").value || 0);
+  const bench_rows = getBenchRowValues();
+  const benches_per_row = bench_rows.length ? Math.max(...bench_rows) : 0;
   const seats_per_bench = Number(document.getElementById("seatsPerBench").value || 0);
-  if(!session || !room_no || rows <= 0 || benches_per_row <= 0 || seats_per_bench <= 0){
+  if(!session || !room_no || rows <= 0 || bench_rows.length !== rows || benches_per_row <= 0 || seats_per_bench <= 0){
     alert("Fill all fields");
     return;
   }
   const res = await fetch(`${EXAM_API}/rooms/save`, {
     method:"POST",
     headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ session, room_no, rows, benches_per_row, seats_per_bench })
+    body: JSON.stringify({ session, room_no, rows, benches_per_row, bench_rows, seats_per_bench })
   });
   const data = await res.json().catch(() => ({}));
   if(!res.ok || data.success === false){
@@ -157,7 +194,7 @@ async function saveRoom(){
   }
   document.getElementById("roomNo").value = "";
   document.getElementById("rows").value = "";
-  document.getElementById("benchesPerRow").value = "";
+  renderBenchRowInputs(0, []);
   document.getElementById("seatsPerBench").value = "2";
   loadRooms();
 }
@@ -174,6 +211,7 @@ async function deleteRoom(roomNo){
 }
 
 sessionSelect.addEventListener("change", loadRooms);
+rowsInput.addEventListener("input", () => renderBenchRowInputs(rowsInput.value, getBenchRowValues()));
 loadSessions();
 </script>
 </body>

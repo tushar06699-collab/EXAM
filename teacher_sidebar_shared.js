@@ -14,6 +14,8 @@
   var unreadTeacherNotificationIds = [];
   var currentRecentTeacherNotificationIds = [];
   var teacherNotificationSession = String(localStorage.getItem('session') || '').trim();
+  var teacherNotificationPollTimer = null;
+  var teacherNotificationLoadInFlight = false;
 
   function escHtml(v){
     return String(v || '').replace(/[&<>"']/g, function(m){
@@ -59,6 +61,17 @@
     }
     return 0;
   }
+  function parseInvigilationTeacherMap(text){
+    var marker = '__INVIGILATION_JSON__:';
+    var raw = String(text || '');
+    var index = raw.indexOf(marker);
+    if(index === -1) return {};
+    try{
+      return JSON.parse(decodeURIComponent(raw.slice(index + marker.length))) || {};
+    }catch(_e){
+      return {};
+    }
+  }
   function formatNotificationDateTime(){
     for(var i = 0; i < arguments.length; i++){
       var value = arguments[i];
@@ -75,6 +88,64 @@
       }
     }
     return '';
+  }
+  function getTeacherNotificationIds(){
+    var ids = [];
+    [localStorage.getItem('teacher_id_latest'), localStorage.getItem('teacher_id')].forEach(function(v){
+      var id = String(v || '').trim();
+      if(id && ids.indexOf(id) === -1) ids.push(id);
+    });
+    return ids;
+  }
+  async function resolveTeacherNotificationIds(){
+    var ids = getTeacherNotificationIds().slice();
+    for(var i = 0; i < ids.length; i++){
+      try{
+        var teacher = await fetchJson(EXAM_API + '/teacher/' + encodeURIComponent(ids[i]));
+        if(teacher && !teacher.error){
+          [teacher.teacher_id, teacher.id].forEach(function(v){
+            var id = String(v || '').trim();
+            if(id && ids.indexOf(id) === -1) ids.push(id);
+          });
+        }
+      }catch(_e){}
+    }
+    return ids;
+  }
+  function teacherIdMatchesAssigned(assignedId, teacherIds){
+    var assigned = String(assignedId || '').trim();
+    if(!assigned) return false;
+    var assignedLoose = normLoose(assigned);
+    var assignedCode = code4(assigned);
+    return (teacherIds || []).some(function(id){
+      var raw = String(id || '').trim();
+      if(!raw) return false;
+      return raw === assigned ||
+        normLoose(raw) === assignedLoose ||
+        (assignedCode && code4(raw) === assignedCode);
+    });
+  }
+  function getLocalTeacherNotifications(){
+    try{
+      var raw = localStorage.getItem('teacher_local_notifications_v1');
+      var parsed = JSON.parse(raw || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    }catch(_e){
+      return [];
+    }
+  }
+  function buildInvigilationReadonlyHref(opts){
+    opts = opts || {};
+    var params = new URLSearchParams();
+    if(opts.duty_id) params.set('duty_id', String(opts.duty_id));
+    if(opts.source_duty_id) params.set('source_duty_id', String(opts.source_duty_id));
+    if(opts.room) params.set('room', String(opts.room));
+    return 'teacher_invigilation_notice.html' + (params.toString() ? ('?' + params.toString()) : '');
+  }
+  function isWithinExaminerNoticeWindow(ts){
+    var value = Number(ts || 0);
+    if(!value) return false;
+    return (Date.now() - value) <= (2 * 24 * 60 * 60 * 1000);
   }
   function isTeacherPage(){
     var p = currentPage();
@@ -298,21 +369,32 @@
   }
 
   async function loadTeacherNotifications(){
+    if(teacherNotificationLoadInFlight) return;
+    teacherNotificationLoadInFlight = true;
     ensureTeacherNotificationUi();
     var session = await resolveLatestSessionValue();
     var items = [];
+    var teacherDutyIds = await resolveTeacherNotificationIds();
 
     try{
       var noticeUrl = EXAM_API + '/notice/list?role=teacher';
       if(session){
         noticeUrl += '&session=' + encodeURIComponent(session);
       }
+      var dutyPromises = teacherDutyIds.map(function(teacherId){
+        var dutyUrl = EXAM_API + '/teacher-duty/list?teacher_id=' + encodeURIComponent(teacherId);
+        if(session){
+          dutyUrl += '&session=' + encodeURIComponent(session);
+        }
+        return fetchJson(dutyUrl);
+      });
       var results = await Promise.all([
         fetchJson(noticeUrl),
         fetchJson(EXAM_API + '/exam/list-all')
-      ]);
+      ].concat(dutyPromises));
       var noticeData = results[0] || {};
       var examData = results[1] || {};
+      var dutyResults = results.slice(2);
 
       var notices = Array.isArray(noticeData.notices) ? noticeData.notices : [];
       notices.forEach(function(n){
@@ -346,18 +428,120 @@
             ts: notificationTimeValue(ex.created_at, ex.updated_at, ex.date, ex.exam_date)
           });
         });
-    }catch(_e){}
 
-    teacherNotifications = items.sort(function(a, b){
-      var diff = Number(b.ts || 0) - Number(a.ts || 0);
-      if(diff !== 0) return diff;
-      return String(b.id || '').localeCompare(String(a.id || ''));
-    });
-    var seenIds = new Set(getSeenTeacherNotificationIds());
-    unreadTeacherNotificationIds = teacherNotifications
-      .map(function(n){ return n.id; })
-      .filter(function(id){ return id && !seenIds.has(id); });
-    renderTeacherNotifications();
+      var seenDutyIds = {};
+      dutyResults.forEach(function(dutyData){
+        var duties = dutyData && Array.isArray(dutyData.duties) ? dutyData.duties : [];
+        duties.forEach(function(duty){
+          var dutyId = String(duty.id || '').trim();
+          if(!dutyId || seenDutyIds[dutyId]) return;
+          if(duty.activity_key === 'invigilation_duties' && !String(duty.room_no || '').trim() && String(duty.description || '').indexOf('__INVIGILATION_ROOM_ASSIGN__:') === -1){
+            return;
+          }
+          seenDutyIds[dutyId] = true;
+          var activityTitle = duty.activity_title || 'Teacher Duty';
+          var page = 'teacher_duties.html';
+          if(duty.activity_key === 'invigilation_duties') page = 'teacher_duty_invigilation.html';
+          else if(duty.activity_key === 'result_file_checking') page = 'teacher_duty_result_checking.html';
+          else if(duty.activity_key === 'attendance_compilation') page = 'teacher_duty_attendance_compilation.html';
+          else if(duty.activity_key === 'exam_paper_allotment') page = 'teacher_duty_paper_allotment.html';
+          else if(duty.activity_key === 'exam_seating_plan') page = 'teacher_duty_exam_seating.html';
+          else if(duty.activity_key === 'room_details') page = 'teacher_duty_room_details.html';
+          var notifTitle = duty.activity_key === 'invigilation_duties'
+            ? 'Examiner Duty Appointment'
+            : ('Duty Assigned: ' + activityTitle);
+          var parts = [
+            duty.activity_key === 'invigilation_duties'
+              ? 'You are appointed for examiner duty'
+              : (duty.title ? ('Duty: ' + duty.title) : ''),
+            duty.title && duty.activity_key === 'invigilation_duties' ? ('Role: ' + duty.title) : '',
+            duty.exam_name ? ('Exam: ' + duty.exam_name) : '',
+            duty.room_no ? ('Room: ' + duty.room_no) : '',
+            duty.duty_date ? ('Date: ' + duty.duty_date) : ''
+          ].filter(Boolean);
+          items.push({
+            id: 'duty|' + dutyId + '|' + (duty.updated_at || duty.assigned_at || ''),
+            title: notifTitle,
+            text: parts.join(' | '),
+            meta: formatNotificationDateTime(duty.updated_at, duty.assigned_at, duty.duty_date),
+            href: duty.activity_key === 'invigilation_duties'
+              ? buildInvigilationReadonlyHref({ duty_id: duty.id, room: duty.room_no })
+              : page,
+            newTab: false,
+            ts: notificationTimeValue(duty.updated_at, duty.assigned_at, duty.duty_date)
+          });
+        });
+      });
+
+      getLocalTeacherNotifications().forEach(function(n){
+        if(normalizeSession(n.session) !== normalizeSession(session)) return;
+        if(normalizeSession(n.type) !== 'INVIGILATION') return;
+        if(!teacherIdMatchesAssigned(n.teacher_id, teacherDutyIds)) return;
+        var localId = ['local_invigilation', n.source_duty_id || '', n.room_no || '', n.teacher_id || ''].join('|');
+        if(seenDutyIds[localId]) return;
+        var localTs = notificationTimeValue(n.updated_at, n.duty_date);
+        if(!isWithinExaminerNoticeWindow(localTs)) return;
+        seenDutyIds[localId] = true;
+        items.push({
+          id: localId + '|' + (n.updated_at || ''),
+          title: n.title || 'Examiner Duty Appointment',
+          text: n.message || '',
+          meta: formatNotificationDateTime(n.updated_at, n.duty_date),
+          href: buildInvigilationReadonlyHref({ source_duty_id: n.source_duty_id, room: n.room_no }),
+          newTab: false,
+          ts: localTs
+        });
+      });
+
+      for(var i = 0; i < teacherDutyIds.length; i++){
+        var notifUrl = EXAM_API + '/teacher-notification/list?teacher_id=' + encodeURIComponent(teacherDutyIds[i]);
+        if(session){
+          notifUrl += '&session=' + encodeURIComponent(session);
+        }
+        var notifData = await fetchJson(notifUrl);
+        var notifications = notifData && Array.isArray(notifData.notifications) ? notifData.notifications : [];
+        notifications.forEach(function(n){
+          var notifId = String(n.id || '').trim();
+          if(!notifId || seenDutyIds['notif|' + notifId]) return;
+          var notifTs = notificationTimeValue(n.updated_at, n.created_at, n.duty_date);
+          if(n.activity_key === 'invigilation_duties' && !isWithinExaminerNoticeWindow(notifTs)) return;
+          seenDutyIds['notif|' + notifId] = true;
+          items.push({
+            id: 'teacher_notification|' + notifId + '|' + (n.updated_at || n.created_at || ''),
+            title: n.title || 'Notification',
+            text: n.message || '',
+            meta: formatNotificationDateTime(n.updated_at, n.created_at, n.duty_date),
+            href: n.activity_key === 'invigilation_duties'
+              ? buildInvigilationReadonlyHref({ source_duty_id: n.source_duty_id, room: n.room_no })
+              : 'teacher_duties.html',
+            newTab: false,
+            ts: notifTs
+          });
+        });
+      }
+    }catch(_e){}
+    finally{
+      teacherNotifications = items.sort(function(a, b){
+        var diff = Number(b.ts || 0) - Number(a.ts || 0);
+        if(diff !== 0) return diff;
+        return String(b.id || '').localeCompare(String(a.id || ''));
+      });
+      var seenIds = new Set(getSeenTeacherNotificationIds());
+      unreadTeacherNotificationIds = teacherNotifications
+        .map(function(n){ return n.id; })
+        .filter(function(id){ return id && !seenIds.has(id); });
+      renderTeacherNotifications();
+      teacherNotificationLoadInFlight = false;
+    }
+  }
+
+  window.refreshTeacherNotifications = loadTeacherNotifications;
+
+  function startTeacherNotificationPolling(){
+    if(teacherNotificationPollTimer) return;
+    teacherNotificationPollTimer = window.setInterval(function(){
+      loadTeacherNotifications();
+    }, 5000);
   }
 
   function injectHeaderProfile(profile){
@@ -552,14 +736,19 @@
     { href: 'teacher_papers.html', label: 'Question Papers' },
     { href: 'teacher_internal_marks_upload.html', label: 'Upload Internal Marks' },
     { href: 'teacher_marks_upload.html', label: 'Upload External Marks' },
+    { href: 'teacher_duties.html', label: 'Assigned Duties' },
     { href: 'teacher_leave.html', label: 'Leave Permission' },
     { href: 'teacher_incharge_students.html', label: 'My Incharge Students' }
   ];
 
   var current = currentPage();
+  var dutyFillPage = current.indexOf('teacher_duty_') === 0;
   var html = '<h2>Teacher Menu</h2>';
   menuItems.forEach(function(item){
     var active = item.href.toLowerCase() === current ? ' class="active"' : '';
+    if(!active && dutyFillPage && item.href === 'teacher_duties.html'){
+      active = ' class="active"';
+    }
     html += '<a' + active + ' onclick="openPage(\'' + item.href + '\')">' + item.label + '</a>';
   });
   sidebar.innerHTML = html;
@@ -690,6 +879,7 @@
     injectDashboardProfile(profile);
     resolveLatestTeacherId(profile);
     loadTeacherNotifications();
+    startTeacherNotificationPolling();
     // Re-apply header photo after dashboard caches it.
     setTimeout(function(){
       var cached = localStorage.getItem('teacher_photo_url') || '';
