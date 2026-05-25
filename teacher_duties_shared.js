@@ -449,11 +449,50 @@
     }
 
     try{
-      await fetchJson(EXAM_API + "/teacher-duty/save", {
+      var savedDuty = await fetchJson(EXAM_API + "/teacher-duty/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+      if(activityKey === "invigilation_duties"){
+        var roleText = selectedDuties.length === 1
+          ? selectedDuties[0]
+          : (selectedDuties.length + " duties assigned");
+        var savedId = normalize(
+          (savedDuty && (savedDuty.id || (savedDuty.duty && savedDuty.duty.id))) ||
+          payload.id
+        );
+        var notificationKey = [
+          "invigilation_admin_assign",
+          session,
+          teacherId,
+          savedId || examName || dutyDate || String(Date.now())
+        ].join("||");
+        await fetchJson(EXAM_API + "/teacher-notification/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            session: session,
+            teacher_id: teacherId,
+            teacher_name: teacherName || "Teacher",
+            notification_key: notificationKey,
+            title: "Examiner Duty Appointment",
+            message: [
+              "You are assigned for examiner duty.",
+              roleText ? ("Role: " + roleText) : "",
+              payload.exam_name ? ("Exam: " + payload.exam_name) : "",
+              payload.duty_date ? ("Date: " + payload.duty_date) : ""
+            ].filter(Boolean).join(" | "),
+            activity_key: activityKey,
+            activity_title: activityTitle,
+            exam_name: payload.exam_name || "",
+            room_no: payload.room_no || "",
+            duty_date: payload.duty_date || "",
+            assigned_by: "Admin",
+            source_duty_id: savedId || payload.id || ""
+          })
+        });
+      }
       setStatus("formStatus", "Duty saved successfully.", false);
       document.getElementById("dutyForm").reset();
       document.getElementById("dutyId").value = "";
@@ -506,6 +545,13 @@
         form.reset();
         document.getElementById("dutyId").value = "";
         setStatus("formStatus", "", false);
+      };
+    }
+    var sendNowBtn = document.getElementById("sendInvigilationNowBtn");
+    if(sendNowBtn){
+      sendNowBtn.onclick = async function(){
+        setStatus("formStatus", "Saving duty and sending notification...", false);
+        await saveAdminDuty();
       };
     }
   }
@@ -705,7 +751,54 @@
     }).join("");
   }
 
-  function renderTeacherPaperAllotmentSummaryFromPlan(plan){
+  function dateKey(value){
+    var raw = String(value || "").trim();
+    if(!raw) return "";
+    var parts = raw.split(/[^\d]+/).filter(Boolean);
+    if(parts.length >= 3){
+      var a = parts[0], b = parts[1], c = parts[2];
+      if(a.length === 4){
+        return a.padStart(4, "0") + b.padStart(2, "0") + c.padStart(2, "0");
+      }
+      if(c.length === 4){
+        return c.padStart(4, "0") + b.padStart(2, "0") + a.padStart(2, "0");
+      }
+    }
+    var digits = normalize(raw).replace(/[^0-9]/g, "");
+    if(digits.length === 8 && digits.slice(0, 2) !== "20"){
+      return digits.slice(4, 8) + digits.slice(2, 4) + digits.slice(0, 2);
+    }
+    return digits;
+  }
+
+  async function resolvePaperSubjectsForPlan(session, plan, rows){
+    var map = {};
+    var planDateKey = dateKey(plan && (plan.exam_date || ""));
+    var examName = normalize(plan && plan.exam_name);
+    var classNames = Array.from(new Set((rows || []).map(function(item){
+      return normalize(item.className || item.class_name);
+    }).filter(Boolean)));
+    for(var i = 0; i < classNames.length; i++){
+      var cls = classNames[i];
+      try{
+        var ds = await fetchJson(EXAM_API + "/exam/get-datesheet?class_name=" + encodeURIComponent(cls) + "&session=" + encodeURIComponent(session || "") + "&exam_name=" + encodeURIComponent(examName));
+        var list = Array.isArray(ds.datesheet) ? ds.datesheet : [];
+        var hit = list.find(function(d){
+          return dateKey(d.date || d.exam_date || d.examDate) === planDateKey;
+        }) || list.find(function(d){
+          return normalize(d.exam_name || d.exam || "") === examName;
+        }) || list.find(function(d){
+          return normalize(d.subject || d.paper_subject || d.sub_name || "");
+        }) || list[0] || null;
+        map[cls] = normalize(hit && (hit.subject || hit.paper_subject || hit.sub_name || "")) || "-";
+      }catch(_e){
+        map[cls] = "-";
+      }
+    }
+    return map;
+  }
+
+  async function renderTeacherPaperAllotmentSummaryFromPlan(plan, session){
     var body = document.getElementById("teacherPaperSummaryBody");
     var statusEl = document.getElementById("teacherPaperSummaryStatus");
     if(!body || !statusEl) return;
@@ -727,6 +820,7 @@
       return;
     }
 
+    var subjectByClass = await resolvePaperSubjectsForPlan(session, plan, rows);
     var roomTotals = {};
     rows.forEach(function(item){
       var roomNo = normalize(item.roomNo || item.room_no) || "-";
@@ -742,7 +836,8 @@
       var roomHeader = '<tr class="room-group-row"><td colspan="5">Room ' + esc(roomNo) + '<span class="room-group-total">' + esc(roomTotals[roomNo] + " papers total") + '</span></td></tr>';
       var roomRows = groupedRows[roomNo].map(function(item){
         var className = normalize(item.className || item.class_name) || "-";
-        var subject = normalize(item.subject) || "-";
+        var rawSubject = normalize(item.subject) || "-";
+        var subject = (rawSubject === className || rawSubject === "-" || !rawSubject) ? (subjectByClass[className] || rawSubject || "-") : rawSubject;
         var count = Number(item.studentCount || item.student_count || 0);
         var paperText = count + " paper " + className + " class " + subject + " subject";
         return '<tr><td>' + esc(roomNo) + '</td><td>' + esc(className) + '</td><td>' + esc(subject) + '</td><td>' + esc(count) + '</td><td>' + esc(paperText) + '</td></tr>';
@@ -807,13 +902,13 @@
       if(preferredPlan){
         planSelect.value = preferredPlan.id || "";
       }
-      planSelect.onchange = function(){
+      planSelect.onchange = async function(){
         var selectedPlan = dutyState.paperAllotment.savedPlans.find(function(item){
           return String(item.id || "") === String(planSelect.value || "");
         }) || null;
-        renderTeacherPaperAllotmentSummaryFromPlan(selectedPlan);
+        await renderTeacherPaperAllotmentSummaryFromPlan(selectedPlan, session);
       };
-      renderTeacherPaperAllotmentSummaryFromPlan(preferredPlan);
+      await renderTeacherPaperAllotmentSummaryFromPlan(preferredPlan, session);
     }catch(e){
       dutyState.paperAllotment.savedPlans = [];
       planSelect.innerHTML = '<option value="">Unable to load saved seating plans</option>';
@@ -3069,9 +3164,13 @@
           selected_classes: Array.from(new Set(dutyState.teacherSeating.assignmentRows.map(function(item){ return item.className; }))),
           assignment_rows: dutyState.teacherSeating.assignmentRows.map(function(item){
             return {
+              class_name: item.className,
               className: item.className,
               subject: item.subject,
+              students: item.students || [],
+              student_count: item.studentCount,
               studentCount: item.studentCount,
+              room_no: item.roomNo,
               roomNo: item.roomNo
             };
           }),
