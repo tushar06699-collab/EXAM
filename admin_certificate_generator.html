@@ -459,6 +459,20 @@
         <div id="status" class="status"></div>
       </section>
 
+      <section class="panel">
+        <h2>WhatsApp Certificate Permission</h2>
+        <p class="muted">Allow or block each certificate separately for students of the selected class. WhatsApp will issue certificates only when permission is allowed here.</p>
+        <div class="inline-actions" style="margin:12px 0">
+          <button type="button" class="mini-btn" id="loadPermissionBtn">Load Permissions</button>
+          <button type="button" class="mini-btn" id="allowAllCertificatesBtn">Allow All</button>
+          <button type="button" class="mini-btn" id="clearAllCertificatesBtn">Clear All</button>
+          <button type="button" class="btn" id="savePermissionBtn">Save Permissions</button>
+        </div>
+        <div class="student-checklist" id="certificatePermissionTable">
+          <div class="muted">Select session and class, then load permissions.</div>
+        </div>
+      </section>
+
       <section class="preview-card">
         <h2>Preview</h2>
         <div class="certificate-paper" id="certificatePaper">
@@ -506,6 +520,7 @@
     const purposeText = document.getElementById("purposeText");
     const conductText = document.getElementById("conductText");
     const statusEl = document.getElementById("status");
+    const certificatePermissionTable = document.getElementById("certificatePermissionTable");
 
     const certTitleText = document.getElementById("certTitleText");
     const certRefText = document.getElementById("certRefText");
@@ -515,6 +530,7 @@
     let allStudents = [];
     let currentSession = localStorage.getItem("session") || "";
     let currentClassStudents = [];
+    let certificatePermissionRows = [];
 
     function openSidebar(){
       sidebar.classList.remove("closed");
@@ -699,6 +715,113 @@
       }).join("");
     }
 
+    function renderCertificatePermissionTable(rows){
+      certificatePermissionRows = Array.isArray(rows) ? rows : [];
+      if(!certificatePermissionRows.length){
+        certificatePermissionTable.innerHTML = `<div class="muted">No students found for selected class.</div>`;
+        return;
+      }
+
+      const certs = [
+        ["bonafide", "Bonafide"],
+        ["character", "Character"],
+        ["study", "Study"],
+        ["tc", "TC"]
+      ];
+
+      certificatePermissionTable.innerHTML = `
+        <div style="overflow:auto">
+          <table style="width:100%;border-collapse:collapse;min-width:720px">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:10px;border-bottom:1px solid #d9e2ef">Student</th>
+                <th style="text-align:left;padding:10px;border-bottom:1px solid #d9e2ef">Admission</th>
+                <th style="text-align:left;padding:10px;border-bottom:1px solid #d9e2ef">Roll</th>
+                ${certs.map(([, label]) => `<th style="text-align:center;padding:10px;border-bottom:1px solid #d9e2ef">${label}</th>`).join("")}
+              </tr>
+            </thead>
+            <tbody>
+              ${certificatePermissionRows.map((student, index) => `
+                <tr>
+                  <td style="padding:10px;border-bottom:1px solid #eef2f7">
+                    <strong>${fullStudentName({ student_name: student.name })}</strong>
+                    <div class="muted">${clean(student.father_name || "")}</div>
+                  </td>
+                  <td style="padding:10px;border-bottom:1px solid #eef2f7">${clean(student.admission_no || "-")}</td>
+                  <td style="padding:10px;border-bottom:1px solid #eef2f7">${clean(student.rollno || "-")}</td>
+                  ${certs.map(([key]) => `
+                    <td style="text-align:center;padding:10px;border-bottom:1px solid #eef2f7">
+                      <input type="checkbox" class="cert-permission" data-index="${index}" data-cert="${key}" ${student.permissions?.[key] ? "checked" : ""}>
+                    </td>
+                  `).join("")}
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    async function loadCertificatePermissions(){
+      clearStatus();
+      const session = sessionSelect.value || currentSession;
+      const cls = classSelect.value;
+      if(!session || !cls){
+        showStatus("Select session and class first.", "error");
+        return;
+      }
+      certificatePermissionTable.innerHTML = `<div class="muted">Loading permissions...</div>`;
+      try{
+        const data = await fetchJson(`${EXAM_API}/certificate-access/list?session=${encodeURIComponent(session)}&class_name=${encodeURIComponent(cls)}`);
+        renderCertificatePermissionTable(data.students || []);
+        showStatus("Certificate permissions loaded.", "success");
+      }catch(err){
+        certificatePermissionTable.innerHTML = `<div class="muted">Unable to load permissions.</div>`;
+        showStatus("Failed to load certificate permissions.", "error");
+      }
+    }
+
+    async function saveCertificatePermissions(){
+      clearStatus();
+      if(!certificatePermissionRows.length){
+        showStatus("Load permissions first.", "error");
+        return;
+      }
+
+      document.querySelectorAll(".cert-permission").forEach(input => {
+        const index = Number(input.dataset.index);
+        const cert = input.dataset.cert;
+        if(!certificatePermissionRows[index].permissions){
+          certificatePermissionRows[index].permissions = {};
+        }
+        certificatePermissionRows[index].permissions[cert] = input.checked;
+      });
+
+      const payload = {
+        session: sessionSelect.value || currentSession,
+        class_name: classSelect.value,
+        students: certificatePermissionRows.map(row => ({
+          student_id: row.student_id,
+          permissions: row.permissions || {}
+        }))
+      };
+
+      try{
+        const res = await fetch(`${EXAM_API}/certificate-access/save`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        if(!res.ok || data.success === false){
+          throw new Error(data.message || "Save failed");
+        }
+        showStatus("Certificate permissions saved.", "success");
+      }catch(err){
+        showStatus("Failed to save certificate permissions.", "error");
+      }
+    }
+
     function updatePrintModeUi(){
       const mode = printMode.value;
       selectedStudentsWrap.classList.toggle("hidden", mode !== "selected");
@@ -801,7 +924,11 @@
     }
 
     sessionSelect.addEventListener("change", loadStudentsForSession);
-    classSelect.addEventListener("change", loadStudentsForClass);
+    classSelect.addEventListener("change", () => {
+      loadStudentsForClass();
+      certificatePermissionRows = [];
+      certificatePermissionTable.innerHTML = `<div class="muted">Click Load Permissions for the selected class.</div>`;
+    });
     studentSelect.addEventListener("change", renderCertificate);
     printMode.addEventListener("change", updatePrintModeUi);
     certificateType.addEventListener("change", renderCertificate);
@@ -816,6 +943,14 @@
     });
     document.getElementById("clearSelectedStudentsBtn").addEventListener("click", () => {
       document.querySelectorAll(".student-check").forEach(el => { el.checked = false; });
+    });
+    document.getElementById("loadPermissionBtn").addEventListener("click", loadCertificatePermissions);
+    document.getElementById("savePermissionBtn").addEventListener("click", saveCertificatePermissions);
+    document.getElementById("allowAllCertificatesBtn").addEventListener("click", () => {
+      document.querySelectorAll(".cert-permission").forEach(el => { el.checked = true; });
+    });
+    document.getElementById("clearAllCertificatesBtn").addEventListener("click", () => {
+      document.querySelectorAll(".cert-permission").forEach(el => { el.checked = false; });
     });
     document.getElementById("printBtn").addEventListener("click", () => {
       renderCertificate();
