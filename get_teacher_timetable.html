@@ -385,16 +385,16 @@ function buildTeacherPage(teacher){
     return wrap;
 }
 
-function buildOfficeSummaryPages(){
+function buildTeacherOfficeSummaryPages(){
     const pages = [];
-    const chunkSize = 6; // 6 classes per page for office copy
+    const chunkSize = 6; // 6 teachers per page for office copy
     const dayShort = ["Mon","Tue","Wed","Thu","Fri","Sat"];
     const dayKey = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
     const formatDays = (set) => {
         return dayShort.map((d, idx) => set.has(dayKey[idx]) ? d : "---").join(",");
     };
-    for(let i=0; i<classes.length; i+=chunkSize){
-        const chunk = classes.slice(i, i+chunkSize);
+    for(let i=0; i<teachers.length; i+=chunkSize){
+        const chunk = teachers.slice(i, i+chunkSize);
         const wrap = document.createElement("div");
         wrap.style.width = "1100px";
         wrap.style.background = "#fff";
@@ -404,7 +404,7 @@ function buildOfficeSummaryPages(){
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
             <div>
               <div style="font-size:18px;font-weight:700;">${SCHOOL_NAME}</div>
-              <div style="font-size:12px;color:#475569;">Office Copy - Class Summary</div>
+              <div style="font-size:12px;color:#475569;">Office Copy - Teacher Summary</div>
             </div>
             <div style="text-align:right;font-size:12px;color:#475569;">
               Session: ${sessionSelect.value || "-"}<br>
@@ -421,40 +421,51 @@ function buildOfficeSummaryPages(){
         table.innerHTML = `
           <thead>
             <tr>
-              <th style="border:1px solid #cbd5e1;padding:5px;background:#324a87;color:#fff;">Class</th>
+              <th style="border:1px solid #cbd5e1;padding:5px;background:#324a87;color:#fff;">Teacher</th>
               ${periods.map(p=>`<th style="border:1px solid #cbd5e1;padding:5px;background:#324a87;color:#fff;">${p}</th>`).join("")}
             </tr>
           </thead>
         `;
         const tbody = document.createElement("tbody");
-        chunk.forEach(cls => {
-            let row = `<tr><td style="border:1px solid #cbd5e1;padding:5px;background:#f8fafc;font-weight:600;word-break:break-word;">${cls}</td>`;
+        chunk.forEach(teacher => {
+            let row = `<tr><td style="border:1px solid #cbd5e1;padding:5px;background:#f8fafc;font-weight:600;word-break:break-word;">${teacher}</td>`;
             periods.forEach(p=>{
                 if(p==="Lunch"){
                     row += `<td style="border:1px solid #cbd5e1;padding:5px;text-align:center;background:#f0f0f0;font-weight:600;">Lunch</td>`;
                     return;
                 }
                 const periodNum = periodMap[p];
-                const items = (timetableData[cls] || []).filter(item => Number(item.period) === periodNum);
-                const grouped = new Map(); // key: teacher||subject -> Set(days)
-                items.forEach(item => {
-                    weekDays.forEach(day => {
-                        const v = item[day] || "";
-                        if(v && v.includes(" - ")){
-                            const [t,s] = v.split(" - ");
-                            const key = `${t}||${s}`;
-                            if(!grouped.has(key)) grouped.set(key, new Set());
-                            grouped.get(key).add(day);
-                        }
+                const classSubjects = new Map(); // key: class||subject -> Set(days)
+                classes.forEach(cls => {
+                    const items = (timetableData[cls] || []).filter(item => Number(item.period) === periodNum);
+                    items.forEach(item => {
+                        weekDays.forEach(day => {
+                            const v = item[day] || "";
+                            if(v && v.startsWith(teacher + " - ")){
+                                const subject = v.split(" - ")[1] || "";
+                                const key = `${cls}||${subject}`;
+                                if(!classSubjects.has(key)) classSubjects.set(key, new Set());
+                                classSubjects.get(key).add(day);
+                            }
+                        });
                     });
                 });
+                const grouped = new Map(); // key: subject||days -> {subject, days, classes}
+                classSubjects.forEach((days, key) => {
+                    const [cls, subject] = key.split("||");
+                    const daysText = formatDays(days);
+                    const groupKey = `${subject}||${daysText}`;
+                    if(!grouped.has(groupKey)){
+                        grouped.set(groupKey, {subject, days: daysText, classes: []});
+                    }
+                    grouped.get(groupKey).classes.push(cls);
+                });
                 const blocks = [];
-                grouped.forEach((days, key) => {
-                    const [t, s] = key.split("||");
+                grouped.forEach(group => {
                     blocks.push(`<div style="margin-bottom:6px;">
-                        <div><b>${s}</b></div>
-                        <div>${t}</div>
-                        <div>${formatDays(days)}</div>
+                        <div><b>Class - ${group.classes.join(", ")}</b></div>
+                        <div><b>${group.subject}</b></div>
+                        <div>${group.days}</div>
                     </div>`);
                 });
                 row += `<td style="border:1px solid #cbd5e1;padding:5px;vertical-align:top;word-break:break-word;">${blocks.join("")}</td>`;
@@ -498,8 +509,8 @@ async function downloadPDF(){
             first = false;
             pdf.addImage(img, "JPEG", (pageWidth-imgW)/2, 20, imgW, imgH);
         }
-        // Office copy summary at end (split across pages)
-        const summaryPages = buildOfficeSummaryPages();
+        // Teacher-wise office copy summary at end (split across pages)
+        const summaryPages = buildTeacherOfficeSummaryPages();
         for(const summary of summaryPages){
             host.innerHTML = "";
             host.appendChild(summary);
